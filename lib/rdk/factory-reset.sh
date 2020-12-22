@@ -103,6 +103,10 @@ if [ -f /etc/os-release ];then
             /bin/systemctl stop wpa_supplicant.service
         fi
     fi
+    if [ -e /lib/rdk/device-specific-reset.sh ]; then
+        echo "Factory Reset: Stop services specific to the device"
+	/lib/rdk/device-specific-reset.sh "FACTORY" "STOP-SERVICE"
+    fi
 fi
 
 echo "Factory Reset:Starting file cleanUp"
@@ -161,6 +165,11 @@ if [ -f /opt/uploadSTBLogs.out ]; then rm -f /opt/uploadSTBLogs.out;fi
 if [ -d /opt/upnp ]; then rm -rf /opt/upnp/*;fi
 if [ -L /opt/www/htmldiag ]; then rm -f /opt/www/htmldiag;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+
+if [ -e /lib/rdk/device-specific-reset.sh ]; then
+    echo "Factory Reset: Clean configs specific ti the device"
+    /lib/rdk/device-specific-reset.sh "FACTORY" "CLEAN-CONFIG"
+fi
 
 # DRM data cleanup
 PROVISION_PROPERTIES=/etc/provision.properties

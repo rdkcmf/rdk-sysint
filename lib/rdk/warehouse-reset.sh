@@ -69,6 +69,10 @@ if [ -f /etc/os-release ];then
         /bin/systemctl stop dsmgr.service
         /bin/systemctl stop iarmbusd.service
     fi
+    if [ -e /lib/rdk/device-specific-reset.sh ]; then
+	    echo "Warehouse Reset: Stop services specific to the device"
+	    /lib/rdk/device-specific-reset.sh "WAREHOUSE" "STOP-SERVICE"
+    fi
 else
     /etc/init.d/xre-service stop
     /etc/init.d/swupdate stop
@@ -104,6 +108,11 @@ if [ -d /opt/.gstreamer ]; then rm -rf /opt/.gstreamer; fi
 if [ -d /opt/persistent/dvr ]; then rm -rf /opt/persistent/dvr; fi
 if [ -d /opt/etc ];then rm -rf /opt/etc;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+
+if [ -e /lib/rdk/device-specific-reset.sh ]; then
+    echo "Warehouse Reset: Clean configs specific to the device"
+    /lib/rdk/device-specific-reset.sh "WAREHOUSE" "CLEAN-CONFIG"
+fi
 
 # DRM data cleanup
 PROVISION_PROPERTIES=/etc/provision.properties

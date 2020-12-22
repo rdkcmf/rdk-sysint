@@ -94,6 +94,11 @@ if [ -d "${SD_CARD_MOUNT_PATH}/netflix" ]; then rm -rf "${SD_CARD_MOUNT_PATH}/ne
 # BT data cleanup
 if [ -d /opt/lib/bluetooth ]; then rm -rf /opt/lib/bluetooth; fi
 
+if [ -e /lib/rdk/device-specific-reset.sh ]; then
+    echo "ColdFactory Reset: Clean configs specific ti the device"
+    /lib/rdk/device-specific-reset.sh "COLDFACTORY" "CLEAN-CONFIG"
+fi
+
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
      # Erasing the override configurations
      if [ -f /opt/no-upnp ]; then
