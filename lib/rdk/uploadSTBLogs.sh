@@ -94,6 +94,8 @@ NUM_UPLOAD_ATTEMPTS=3
 CB_NUM_UPLOAD_ATTEMPTS=1
 DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_upl"
 CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_upl"
+PREVIOUS_REBOOT_INFO="/opt/secure/reboot/previousreboot.info"
+UNSCHEDULEDREBOOT_TR181_NAME='Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UploadLogsOnUnscheduledReboot.Disable'
 
 echo "`/bin/timestamp` Build Type: $BUILD_TYPE Log file: $LOG_FILE UploadProtocol: $UploadProtocol UploadHttpLink: $UploadHttpLink" >> $LOG_PATH/dcmscript.log
 
@@ -762,7 +764,11 @@ uploadLogOnReboot()
     rm $LOG_FILE
     modifyFileWithTimestamp $PREV_LOG_PATH >> $LOG_PATH/dcmscript.log  2>&1
 
-    if $uploadLog; then
+    reboot_reason=`cat $PREVIOUS_REBOOT_INFO | grep -i "Scheduled Reboot"`
+    DISABLE_UPLOAD_LOGS_UNSHEDULED_REBOOT=`/usr/bin/tr181 -g $UNSCHEDULEDREBOOT_TR181_NAME 2>&1 > /dev/null`
+    echo "`/bin/timestamp` reboot_reason: $reboot_reason , uploadLog:$uploadLog and UploadLogsOnUnscheduledReboot.Disable RFC: $DISABLE_UPLOAD_LOGS_UNSHEDULED_REBOOT" >> $LOG_PATH/dcmscript.log
+    if [ "$uploadLog" == "true" ] || [ -z "$reboot_reason" -a "$DISABLE_UPLOAD_LOGS_UNSHEDULED_REBOOT" == "false" ]; then
+        echo "`/bin/timestamp` Uploading Logs with DCM" >> $LOG_PATH/dcmscript.log
         if [ "$DEVICE_TYPE" == "mediaclient" ]; then
            pcapCount=`ls $LOG_PATH/*-moca.pcap | wc -l`
            if [ $pcapCount -gt 0 ]; then
@@ -783,6 +789,8 @@ uploadLogOnReboot()
             fi
         fi
         clearOlderPacketCaptures
+    else
+        echo "`/bin/timestamp` Not Uploading Logs with DCM" >> $LOG_PATH/dcmscript.log
     fi
     cd $PREV_LOG_PATH
     sleep 5    
@@ -822,10 +830,10 @@ if [ $DCM_FLAG -eq 0 ] ; then
 else 
      if [ $FLAG -eq 1 ] ; then 
        if [ $UploadOnReboot -eq 1 ]; then	
-           echo "`/bin/timestamp` Uploading Logs with DCM UploadOnReboot set to true" >> $LOG_PATH/dcmscript.log
+           echo "`/bin/timestamp` UploadOnReboot set to true" >> $LOG_PATH/dcmscript.log
            uploadLogOnReboot true	
         else 
-           echo "`/bin/timestamp` Not Uploading Logs with DCM UploadOnReboot set to false" >> $LOG_PATH/dcmscript.log
+           echo "`/bin/timestamp` UploadOnReboot set to false" >> $LOG_PATH/dcmscript.log
            maintenance_error_flag=1
            uploadLogOnReboot false
            echo $PERM_LOG_PATH >> $DCM_UPLOAD_LIST
