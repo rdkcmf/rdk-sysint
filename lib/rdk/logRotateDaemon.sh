@@ -317,6 +317,7 @@ else
         logRotateFramework $socProvCryptoLog $socProvRotateCount $socProvRotateSize
 	logRotateFramework $vlThreadLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $mocaStatusLog $mocaStatRotateCount $mocaStatRotateSize
+	logRotateFramework $mocaServiceLog $mocaServiceRotateCount $mocaServiceRotateSize
 	logRotateFramework $snmp2jsonLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $decoderStatusLog $decoderStatusLogRotateCount $decoderStatusLogRotateSize
 	logRotateFramework $mfrLog $mfrLogRotateCount $mfrLogRotateSize

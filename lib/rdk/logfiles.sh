@@ -127,6 +127,8 @@ mocaStatusLog="mocaStatus.log"
 mocaStatusLogsBackup="mocaStatus.log.*"
 mocaDriverLog="moca-driver.log"
 mocaDriverLogsBackup="moca-driver.log.*"
+mocaServiceLog="mocaService.log"
+mocaServiceLogsBackup="mocaService.log.*"
 mfrLog="mfrlib_log.txt"
 mfrLogsBackup="mfrlib_log.txt.*"
 mfrLogRdk="mfr_log.txt"
@@ -656,6 +658,7 @@ backupAppBackupLogFiles()
      else
      	moveFiles $opern $source $mocaStatusLogsBackup $destn
         moveFiles $opern $source $mocaDriverLogsBackup $destn
+        moveFiles $opern $source $mocaServiceLogsBackup $destn
      	moveFiles $opern $source $runXreLogsBackup $destn
      	moveFiles $opern $source $xreLogsBackup $destn
      	moveFiles $opern $source $ttsLogsBackup $destn
@@ -976,6 +979,7 @@ backupSystemLogFiles()
      if [ -f $source/$topOsalLog ] ; then $operation $source/$topOsalLog $destn; fi
      if [ -f $source/$mocaStatusLog ] ; then $operation $source/$mocaStatusLog $destn; fi
      if [ -f $source/$mocaDriverLog ] ; then $operation $source/$mocaDriverLog $destn; fi
+     if [ -f $source/$mocaServiceLog ] ; then $operation $source/$mocaServiceLog $destn; fi
      if [ -f $source/$decoderStatusLog ] ; then $operation $source/$decoderStatusLog $destn; fi
      if [ -f $source/$mfrLogRdk ] ; then $operation $source/$mfrLogRdk $destn; fi
      if [ -f $source/$sysDmesgLog ] ; then $operation $source/$sysDmesgLog $destn; fi
