@@ -22,11 +22,10 @@
 OOPS_PART_VOLUME_SIZE="100KiB"
 . /etc/device.properties
 
-
-# These platforms are migrated to boops
-[ "$MODEL_NUM" = "TX061AEI" ]  && exit 0
-[ "$MODEL_NUM" = "CS011AN" ]  && exit 0
-
+###################################################
+# If boops is installed we will use for oop capture
+[ -f /lib/rdk/boops.sh ] && exit 0
+###################################################
 
 #Check for OOPS Module is MMC or UBI.
 
