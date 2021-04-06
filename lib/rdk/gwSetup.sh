@@ -11,6 +11,11 @@
 #
 . /etc/include.properties
 . $RDK_PATH/utils.sh
+
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 #interface=`getMoCAInterface`
 resolvFile=/etc/resolv.dnsmasq
 upnp_resolvFile=/tmp/resolv.dnsmasq.upnp
@@ -78,6 +83,7 @@ if [ -f $preferGWFile ]; then
     preferred="`cat $preferGWFile`"
     echo " `/bin/timestamp` Preferred Gateway = $preferred" >> $logsFile
     if [ "$preferred" == "XB3" ]; then
+        t2CountNotify "SYST_INFO_xb3_preferred"
         echo " `/bin/timestamp` exiting autoip route setup since preference is XB3" >> $logsFile
         exit 0;
 #        if [ "$deviceType" == "XG2" ]; then

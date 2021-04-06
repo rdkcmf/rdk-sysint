@@ -13,7 +13,9 @@
 . /etc/include.properties
 . /etc/device.properties
 
-
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
 
 eMMCMitigationDisabled=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.eMMCMitigation.Disable 2>&1 > /dev/null`
 echo "eMMCMitigationDisabled:$eMMCMitigationDisabled" >> /opt/logs/emmc_debug.log
@@ -21,7 +23,9 @@ if [ "$eMMCMitigationDisabled" == "true" ]; then
       echo "eMMCMitigation is disabled.. Exiting" >> /opt/logs/emmc_debug.log
       exit 0
 fi
+
 echo "eMMCMitigation is enabled " >> /opt/logs/emmc_debug.log
+t2CountNotify "SCARD_INFO_emmc_mitigation"
 
 COUNTER=/tmp/emmc-mit-counter
 if [ ! -f $COUNTER ]; then

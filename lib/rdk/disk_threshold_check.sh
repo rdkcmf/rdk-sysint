@@ -23,6 +23,10 @@ if [ -f /lib/rdk/getSecureDumpStatus.sh ]; then
      . /lib/rdk/getSecureDumpStatus.sh
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 # flag to indicate the call time (bootup call /runtime call by disk check script)
 FLAG=$1
 # default cleanup path and size for bootup cleanup
@@ -426,6 +430,8 @@ fi
 count=`counter $count`
 disk_size_check $count
 echo "`Timestamp` CRITICAL ERROR, please check the /opt folder..!" >> /tmp/disk_cleanup.log
+t2CountNotify "SYST_ERR_OPTFULL"
+
 if [ $FLAG -eq 1 ];then
     if [ -f /tmp/disk_cleanup.log ] && [ ! -f /tmp/.standby ]; then
          cat /tmp/disk_cleanup.log >> /opt/logs/disk_cleanup.log

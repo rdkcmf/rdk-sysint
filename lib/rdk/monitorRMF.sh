@@ -19,7 +19,9 @@ check=0
 loop=1
 cnt=0
 startmonitor=0
-
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
 # Set the data dump properties
 propertyFile="/etc/rmfconfig.ini"
 if [ "$BUILD_TYPE" != "prod" ]; then
@@ -94,6 +96,7 @@ do
          fi
       else
           echo `/bin/timestamp` rmfStreamer crashed, restarting the process >> $LOG_PATH/rmfstr_log.txt
+          t2CountNotify "SYST_ERR_Rmfstreamer_crash"
           export crashTS=`date +%Y-%m-%d-%H-%M-%S`
           if [ "$POTOMAC_SVR" != "" ] && [ "$BUILD_TYPE" != "dev" ]; then
                nice sh $RDK_PATH/uploadDumps.sh $crashTS 1 $POTOMAC_SVR &

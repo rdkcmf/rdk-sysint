@@ -28,7 +28,9 @@ if [ ! -f /etc/os-release ];then
         fi
     fi
 fi
-
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
 
 if [ "$DEVICE_TYPE" != "mediaclient" ]; then
      . $RDK_PATH/interfaceCalls.sh
@@ -598,6 +600,9 @@ HttpLogUpload()
         rm $FILENAME 
         # Curl ret and http_code
         echo "`/bin/timestamp` ret = $ret http_code: $http_code" >> $LOG_PATH/dcmscript.log
+        if [ "$ret" = "0" ] && [ "$http_code" = 200 ]; then
+             t2CountNotify "TEST_lu_success"
+        fi
     
         if [ "$http_code" = "200" ];then
             result=0
@@ -620,6 +625,9 @@ HttpLogUpload()
                 rm $FILENAME
                 # Curl ret and http_code
                 echo "`/bin/timestamp` ret = $ret http_code: $http_code" >> $LOG_PATH/dcmscript.log
+                if [ "$ret" = "0" ] && [ "$http_code" = 200 ]; then
+                      t2CountNotify "TEST_lu_success"
+                fi
 
             fi        
             if [ "$http_code" = "200" ];then

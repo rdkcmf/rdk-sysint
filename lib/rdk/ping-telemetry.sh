@@ -15,6 +15,10 @@ if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 # Setting ping interval as 1s (default interval of ping)
 ping_interval=0.1
 
@@ -59,6 +63,7 @@ if [ "$pingTestEnable" != "true" ]; then
     fi
     skip_test "Exiting as ping telemetry is disabled"
 fi
+t2CountNotify "INFO_ICMP_RFC" 
 
 # Getting the PingTelemetry start time, default value is 180
 pingtelemetry_starttime=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.PingTelemetry.StartTime 2>&1 > /dev/null`

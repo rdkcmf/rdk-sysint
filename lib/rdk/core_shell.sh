@@ -17,6 +17,10 @@ if [ -f /lib/rdk/getSecureDumpStatus.sh ]; then
      . /lib/rdk/getSecureDumpStatus.sh
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 MEMORY_LOG="/opt/logs/core_log.txt"
 
 if [ -f /etc/os-release ]; then
@@ -58,6 +62,63 @@ upload() {
     sh /lib/rdk/diskCleanup.sh
 }
 
+notifyCrashedMarker()
+{
+   crashedProcess=$1 
+   case $crashedProcess in
+           *mfr_sv*)
+               t2CountNotify "MFR_ERR_MFRSV_coredetected"
+               ;;
+           *overflowMon*)
+               t2CountNotify "SYST_ERR_OverflowMon_crash"
+               ;;
+           *Connection169*)
+               t2CountNotify "SYST_ERR_PC_Conn169"
+               ;;
+           *MAF_StackMgrd*)
+               t2CountNotify "SYST_ERR_PC_MAF"
+               ;;
+           *filter-rbi*)
+               t2CountNotify "SYST_ERR_PC_RBI"
+               ;;
+           *systemd*)
+               t2CountNotify "SYST_ERR_PC_Systemd"
+               ;;
+           *TTSEngine*)
+               t2CountNotify "SYST_ERR_PC_TTSEngine"
+               ;;
+           *vodClientApp*)
+               t2CountNotify "SYST_ERR_VodApp_restart"
+               ;;
+           *syslog-ng*)
+               t2CountNotify "SYST_ERR_syslogng_crash"
+               ;;
+           *xraudio*)
+               t2CountNotify "SYST_ERR_xraudio_crash"
+               ;;
+           *RF4CE*)
+               t2CountNotify "SYST_INFO_PC_RF4CE"
+               ;;
+           *rtrmfplayer*)
+               t2CountNotify "WPE_ERR_rtrmfplayer_crash"
+               ;;
+           *nrdPluginApp*)
+               t2CountNotify "NF_INFO_codedumped"
+               ;;
+           *xcal-device*)
+               t2CountNotify "SYST_ERR_XCALDevice_crash"
+               ;;
+           *rmfStreamer*)
+               # External tools tied with this case sensitive data  
+               t2CountNotify "SYST_ERR_Rmfstreamer_crash"
+               ;;            
+           *)
+               # For future markers triage can follow below naming convention
+               t2CountNotify "SYST_ERR_"$crashedProcess"_crash"
+               ;;
+   esac
+}
+
 dumpMemoryStats()
 {
     # dump needed statistics to $MEMORY_LOG, it will be archived to mini/coredump
@@ -70,8 +131,10 @@ dumpInfo()
 {
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "$1 crash and uploading the cores" >> $LOG_PATH/core_log.txt
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "corename = $corename" >> $LOG_PATH/core_log.txt
+   t2ValNotify "core_split" "$corename"
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "processing_corename = $processing_corename" >> $LOG_PATH/core_log.txt
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "process crashed = $1" >> $LOG_PATH/core_log.txt
+   notifyCrashedMarker "$1"
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "signal causing dump = $2" >> $LOG_PATH/core_log.txt
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "time of dump = $3" >> $LOG_PATH/core_log.txt
 }

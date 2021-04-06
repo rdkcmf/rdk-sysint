@@ -13,6 +13,10 @@
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 #set -x
 logsFile=$LOG_PATH/xiConnectionStats.txt
 pingCount=20
@@ -63,6 +67,7 @@ checkWifiEAPOLIssue()
 	        elif [ "$recover" = "1" ]
 	        then
 	                echo "`/bin/timestamp` Initiate FIFO ERROR recovery" >> $logsFile
+                        t2CountNotify "WIFIV_INFO_fifo_recovery"
 	                # RESET RECOVERY Flag immediately
 	                wl recover 0
 #	                sh /rebootNow.sh -s EAPOL-FAILURE-FIFO
@@ -98,6 +103,7 @@ if [ "$WIFI_SUPPORT" = "true" ];then
                 if [ $ret -eq  0 ]; then
                         if [ "$lnfSSIDConnected" = "1" ]; then
                         	echo "`/bin/timestamp` TELEMETRY_WIFI_CONNECTED_LNF" >> $logsFile
+                                t2CountNotify "SYST_INFO_WIFIConn"
                         else
                             echo "`/bin/timestamp` TELEMETRY_WIFI_NOT_CONNECTED" >> $logsFile
                         	checkWifiEAPOLIssue
@@ -107,10 +113,12 @@ if [ "$WIFI_SUPPORT" = "true" ];then
                 else
                         wifiDeviceConnected=1
                         echo "`/bin/timestamp` TELEMETRY_WIFI_CONNECTED" >> $logsFile
+                        t2CountNotify "SYST_INFO_WIFIConn"
                 fi
         else
                 ethernetDeviceConnected=1
                 echo "`/bin/timestamp` TELEMETRY_ETHERNET_CONNECTED" >> $logsFile
+                t2CountNotify "SYST_INFO_ETHConn"
         fi
 fi
 if [ -s "$lastConnectionStatusFile" ]; then
@@ -129,6 +137,7 @@ if [ "$gwIpv4" != "" ]; then
        if [ "$ret" = "100" ]; then
                echo "`/bin/timestamp` TELEMETRY_GATEWAY_RESPONSE_TIME:NR,$gwIpv4" >> $logsFile
                echo "`/bin/timestamp` TELEMETRY_GATEWAY_PACKET_LOSS:$ret,$gwIpv4" >> $logsFile
+               t2CountNotify "SYST_WARN_GW100PERC_PACKETLOSS"
        else
            echo "`/bin/timestamp` TELEMETRY_GATEWAY_RESPONSE_TIME:$gwResponseTime,$gwIpv4" >> $logsFile
            echo "`/bin/timestamp` TELEMETRY_GATEWAY_PACKET_LOSS:$ret,$gwIpv4" >> $logsFile
@@ -136,6 +145,7 @@ if [ "$gwIpv4" != "" ]; then
        fi
 else
     echo "`/bin/timestamp` TELEMETRY_GATEWAY_NO_ROUTE_V4" >> $logsFile
+    t2CountNotify "WIFIV_INFO_NOV4ROUTE"
     v4Route=0
     packetsLostipv4=100
 fi
@@ -152,6 +162,7 @@ if [ "$gwIpv6" != "" ] && [ "$gwIpv6" != "dev" ] ; then
        if [ "$ret" = "100" ]; then
                echo "`/bin/timestamp` TELEMETRY_GATEWAY_RESPONSE_TIME:NR,$gwIpv6" >> $logsFile
                echo "`/bin/timestamp` TELEMETRY_GATEWAY_PACKET_LOSS:$ret,$gwIpv6" >> $logsFile
+               t2CountNotify "SYST_WARN_GW100PERC_PACKETLOSS"
        else
            echo "`/bin/timestamp` TELEMETRY_GATEWAY_RESPONSE_TIME:$gwResponseTime,$gwIpv6" >> $logsFile
            echo "`/bin/timestamp` TELEMETRY_GATEWAY_PACKET_LOSS:$ret,$gwIpv6" >> $logsFile
@@ -159,6 +170,7 @@ if [ "$gwIpv6" != "" ] && [ "$gwIpv6" != "dev" ] ; then
        fi
 else
     echo "`/bin/timestamp` TELEMETRY_GATEWAY_NO_ROUTE_V6" >> $logsFile
+    t2CountNotify "WIFIV_INFO_NOV6ROUTE"
     if [ "$v4Route" = "0" ]; then
     	echo "`/bin/timestamp` ********** Complete ************" >> $logsFile
     	exit 0
@@ -172,6 +184,7 @@ fi
 if [ -f "$dnsFile" ]; then
     if [ $(tr -d ' \r\n\t' < $dnsFile | wc -c ) -eq 0 ]; then
         echo "DNS File($dnsFile) is empty" >> $logsFile
+        t2CountNotify "SYST_ERR_DNSFileEmpty"
     fi
 else
     echo "DNS File is not there $dnsFile" >> $logsFile
@@ -180,6 +193,7 @@ fi
 if [ "$prevStatus" -eq 1 ]; then
     if [ "$packetsLostipv4" -ge "$lossThreshold" ] || [ "$packetsLostipv6" -ge "$lossThreshold" ]; then
         echo "Packet loss more than $lossThreshold% observed. Logging network stats" >> $logsFile
+        if [ $lossThreshold -eq 10 ]; then t2CountNotify "WIFIV_WARN_PL_10PERC" ; fi
         if [ "$packetsLostipv4" = "100" ] && [ "$packetsLostipv6" = "100" ]; then
             arp -a >> $logsFile
             ifconfig >> $logsFile
@@ -219,10 +233,12 @@ else
         if [ "$WIFI_SUPPORT" = "true" ] && [ "$wifiDeviceConnected" = "1" ] && [ "$packetsLostipv4" = "100" ] && [ "$packetsLostipv6" = "100" ]; then
                 if [ ! -f $wifiReassociateFile ]; then
                         echo "`/bin/timestamp` Packet Loss WiFi Reassociating" >> $logsFile
+                        t2CountNotify "WIFIV_ERR_reassoc"
                         wpa_cli reassociate
                         touch $wifiReassociateFile
                 else
                         echo "`/bin/timestamp` Packet Loss already done WiFi reassociated"  >> $logsFile
+                        t2CountNotify "WIFIV_ERR_Reassoc_PktLoss"
                 fi
         fi
 

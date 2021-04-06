@@ -19,6 +19,10 @@
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 if [ "$DEVICE_TYPE" == "mediaclient" ]; then
     . /etc/common.properties 
     if [ -f $RDK_PATH/utils.sh ]; then
@@ -338,6 +342,7 @@ fi
 
 if [ $skipUpgrade -eq 1 ] ; then
     echo "Device/ECM/Previous initiated firmware upgrade in progress."
+    t2CountNotify "SYST_ERR_PrevCDL_InProg"
     echo "Exiting without triggering device initiated firmware download."
     if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
     then
@@ -778,7 +783,10 @@ sendTLSCodebigRequest()
             echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
         result= eval $CURL_CMD > $HTTP_CODE
-                
+        rc=$?
+        if [ $rc -eq 6 ]; then 
+            t2CountNotify "xconf_couldnt_resolve"
+        fi
     elif [ "$1" == "SSR" ]; then
         echo "Attempting $TLS connection to Codebig SSR server"
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
@@ -835,6 +843,13 @@ sendTLSCodebigRequest()
             # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
             echo "CDL is suspended because speed is below 100 kbit/second"
         fi
+
+        if [ $rc -eq 22 ]; then 
+            t2CountNotify "swdl_failed"
+        elif [ $rc -eq 18 ] || [ $rc -eq 7 ]; then
+            t2CountNotify "swdl_failed_$rc"
+        fi
+
     fi
     TLSRet=$?
     if [ -f $CURL_PROGRESS ]; then
@@ -926,6 +941,10 @@ sendTLSRequest()
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
         result= eval $CURL_CMD > $HTTP_CODE
+        rc=$?
+        if [ $rc -eq 6 ]; then 
+           t2CountNotify "xconf_couldnt_resolve" 
+        fi
     elif [ "$1" == "SSR" ]; then
         echo "Attempting $TLS connection to SSR server" 
         if [ "$mTlsXConfDownload" == "true" ]; then
@@ -995,6 +1014,12 @@ sendTLSRequest()
             # Curl returns 28 if speed is less than 100 kbit/sec
             # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
             echo "CDL is suspended because speed is below 100 kbit/second"
+        fi
+
+        if [ $rc -eq 22 ]; then 
+            t2CountNotify "swdl_failed"
+        elif [ $rc -eq 18 ] || [ $rc -eq 7 ]; then
+            t2CountNotify "swdl_failed_$rc"
         fi
     fi
     TLSRet=$?
@@ -1644,6 +1669,7 @@ checkAndTriggerPDRIUpgrade () {
             echo "`Timestamp` PDRI image upgrade successful."
         else
             echo "`Timestamp` PDRI image upgrade failure !!!"
+            t2CountNotify "SYST_ERR_PDRIUpg_failure"
         fi
     else
         echo "`Timestamp` PDRI version of the active image and the image to be upgraded are the same. No upgrade required."
@@ -1748,6 +1774,7 @@ checkForValidPCIUpgrade () {
             pci_upgrade=1
         else
             echo "`Timestamp` FW version of the standby image and the image to be upgraded are the same. No upgrade required."
+            t2CountNotify "fwupgrade_failed"
             updateFWDownloadStatus "$cloudProto" "No upgrade needed" "$cloudImmediateRebootFlag" "Versions Match" "$dnldVersion" "$cloudFWFile" "$runtime" "No upgrade needed" "$DelayDownloadXconf"
             eventManager $FirmwareStateEvent $FW_STATE_FAILED
             updateUpgradeFlag "remove"

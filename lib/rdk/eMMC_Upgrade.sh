@@ -14,6 +14,10 @@ eMMCFW_UPGRADE_RETRY_COUNT_FILE=/opt/eMMCFwCount
 eMMCFW_UPGRADE_VERS_FILE=/opt/eMMCFwVers
 MAX_RETRY_COUNT=5
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 if [ ! -f $eMMCFW_UPGRADE_RETRY_COUNT_FILE ]; then
      touch $eMMCFW_UPGRADE_RETRY_COUNT_FILE
 fi
@@ -21,6 +25,7 @@ fi
 if [ ! -f $eMMCFW_UPGRADE_VERS_FILE ]; then
      touch $eMMCFW_UPGRADE_VERS_FILE
 fi
+
 
 SWLOG_FILE=/opt/logs/swupdate.log
 if [ ! -f $SWLOG_FILE ]; then
@@ -49,6 +54,7 @@ if [ "$version" != "" ] && [ ! -f /tmp/.eMMC_Upgrade ]; then
      currVers=`echo $currVers | awk -F'[: %]' '{print $(NF-1)}'`
      echo "`/bin/timestamp`: Current running eMMC FW Version:  $currVers" >> $SWLOG_FILE
      echo "Current_eMMC_FW_Version_split:$currVers" >> $SWLOG_FILE
+     t2ValNotify "emmcVer_split" "$currVers"
 
      prevUpgVers=`cat $eMMCFW_UPGRADE_VERS_FILE`
      if [ -z $prevUpgVers ]; then
@@ -113,6 +119,7 @@ if [ "$version" != "" ] && [ ! -f /tmp/.eMMC_Upgrade ]; then
             else
                  echo "`/bin/timestamp`: Upgrade $version DOES NOT EXIST. Cannot Upgrade: " >> $SWLOG_FILE
                  echo "FILE_DOES_NOT_EXIST_split:$version" >> $SWLOG_FILE
+                 t2ValNotify "emmcNoFile_split" "$version"
             fi
       else
             echo "`/bin/timestamp`: Cannot Upgrade. Either versions($version & $currVers) are same or Retry count($count) exceeded 5" >> $SWLOG_FILE

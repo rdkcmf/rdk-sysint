@@ -12,6 +12,11 @@
 . /etc/device.properties
 
 # Define logfiles and flags
+
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 REBOOT_INFO_LOG_FILE=/opt/logs/rebootInfo.log
 KERNEL_LOG_FILE=/opt/logs/messages.txt
 DMESG_LOG_FILE=/opt/logs/startup_stdout_log.txt
@@ -41,6 +46,7 @@ APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset Wareho
 OPS_TRIGGERED_REASONS=(ScheduledReboot FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning)
 MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
+
 # Save the reboot info with all the fields
 setPreviousRebootInfo()
 {
@@ -66,6 +72,7 @@ setPreviousRebootInfo()
         echo "Updated Hard Power Reboot Time stamp"
     fi
     echo "Updated Previous Reboot Reason information"
+
 }
 
 # Check for Firmware Failure
@@ -78,6 +85,7 @@ fwFailureCheck()
             fw_failure=1
             rebootInitiatedBy="OcapRI"
             otherReason="Reboot due to STB reached maximum (10) reboots"
+            t2CountNotify "SYST_ERR_10Times_reboot"
         fi
 
         if [ -f "$ECM_CRASH_LOG_FILE" ] && [[ $(grep "$ECM_CRASH_SEARCH_STRING" $ECM_CRASH_LOG_FILE) ]]; then
@@ -90,6 +98,7 @@ fwFailureCheck()
             fw_failure=1
             rebootInitiatedBy="UiMgr"
             otherReason="Reboot due to STB reached maximum (10) reboots"
+            t2CountNotify "SYST_ERR_10Times_reboot"
         fi
     fi
     return $fw_failure
@@ -104,6 +113,7 @@ oopsDumpCheck()
     if [ -f "$DMESG_LOG_FILE" ]; then
         if [[ $(grep $KERNEL_PANIC_SEARCH_STRING $DMESG_LOG_FILE) ]];then
             oops_dump=1
+            t2CountNotify "SYST_ERR_SrtupKCdump"
         fi
     fi
 
@@ -175,13 +185,16 @@ hardPowerCheck()
         case $rebootReason in
              SOFTWARE_MASTER_RESET)
                    rebootInitiatedBy="SoftwareReboot"
+                   t2CountNotify "Test_SWReset"
                    otherReason="Reboot due to user triggered reboot command"
                    ;;
              WATCHDOG_TIMER_RESET)
                    rebootInitiatedBy="WatchDog"
+                   t2CountNotify "SYST_ERR_WDTimerReset"
                    otherReason="Reboot due to watch dog timer reset"
                    ;;
              POWER_ON_RESET)
+                   t2CountNotify "SYST_ERR_pwr_reboot"
                    otherReason="Reboot due to unplug of power cable from the STB"
                    ;;
              MAIN_CHIP_RESET_INPUT)
@@ -201,6 +214,7 @@ hardPowerCheck()
                    ;;
              OVERTEMP_RESET)
                    otherReason="Reboot due to chip temperature is above threshold (125*C)"
+                   t2CountNotify "SYST_ERR_Overtemp_reboot"
                    ;;
              OVERVOLTAGE_1_RESET|OVERVOLTAGE_RESET)
                    otherReason="Reboot due to chip voltage is above threshold"

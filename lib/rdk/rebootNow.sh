@@ -16,6 +16,10 @@
 . /etc/device.properties
 . /etc/env_setup.sh
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 # exit if an instance is already running
 pid_file="/tmp/.rebootNow.pid"
 
@@ -45,31 +49,6 @@ MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
 touch $REBOOTINFO_LOGFILE
 process=`cat /proc/$PPID/cmdline`
-
-if [ -f /etc/rdm/rdm-manifest.xml ];then
-     CDLFILE=$(cat /opt/cdl_flashed_file_name)
-     PREV_CDLFILE=$(cat /tmp/currently_running_image_name)
-     if [[ ${CDLFILE} != *"${PREV_CDLFILE}"* ]]; then
-        if [ -d /media/apps ];then
-             echo "Removing the RDM Apps content from Secondary Storage before Reboot (After IMage Upgrade)"
-             cd /media/apps
-             if [ $? -eq 0 ];then
-                  for i in `ls -d */`
-                  do
-                     rm -rf $i
-                     sleep 1
-                  done
-            fi
-            sleep 5
-        fi
-    fi
-fi
-
-# Kill the Parodus Process; So that it can close the WebSocket Connection with Server.
-echo "Properly shutdown parodus by sending SIGUSR1 kill signal"
-killall -s SIGUSR1 parodus
-
-sleep 5
 
 syncLog()
 {
@@ -107,47 +86,6 @@ setPreviousRebootInfo()
     echo "}" >> $REBOOT_INFO_FILE
 }
 
-if [ ! -f $PERSISTENT_PATH/.lightsleepKillSwitchEnable ]; then
-      syncLog
-
-      if [ -f $TEMP_LOG_PATH/.systime ]; then
-            cp $TEMP_LOG_PATH/.systime $PERSISTENT_PATH/
-      fi
-fi
-
-if [ "$DEVICE_NAME" = "XI6" ];then
-# Get eMMC Health report
-if [ -f /lib/rdk/emmc_health_diag.sh ]; then
-     sh /lib/rdk/emmc_health_diag.sh "reboot"
-     echo "Updated eMMC Health report" >> $LOG_FILE
-fi
-
-# See if we need to Upgrade the eMMC FW
-if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
-     echo "Upgrade eMMC FW if required"
-     sh /lib/rdk/eMMC_Upgrade.sh
-fi
-fi
-
-if [ -f /lib/rdk/aps4_reset.sh ]; then
-       sh /lib/rdk/aps4_reset.sh
-fi
-
-if [ -f /lib/rdk/update_www-backup.sh ]; then
-    sh /lib/rdk/update_www-backup.sh
-fi
-
-#If bluetooth is enabled, gracefully shutdown the bluetooth related services
-if [ "$BLUETOOTH_ENABLED" = "true" ];then
-    echo "Shutting down the bluetooth services gracefully"
-    /bin/systemctl --quiet is-active btrLeAppMgr && /bin/systemctl stop btrLeAppMgr
-    /bin/systemctl --quiet is-active btmgr && /bin/systemctl stop btmgr
-    /bin/systemctl --quiet is-active bluetooth && /bin/systemctl stop bluetooth
-    /bin/systemctl --quiet is-active bt-hciuart && /bin/systemctl stop bt-hciuart
-    /bin/systemctl --quiet is-active btmac-preset && /bin/systemctl stop btmac-preset
-    /bin/systemctl --quiet is-active bt && /bin/systemctl stop bt
-fi
-
 timeStamp=`/bin/timestamp`
 
 customReason="Unknown"
@@ -163,10 +101,38 @@ else
         s)
              source=$OPTARG
              rebootReason="Triggered from $source"
+             case $source in
+             runPodRecovery)
+                 t2CountNotify "SYST_ERR_RunPod_reboot"
+                 ;;
+             CardNotResponding)
+                 t2CountNotify "SYST_ERR_CCNotRepsonding_reboot"
+                 ;;
+             *)
+                 t2CountNotify "SYST_ERR_$source"
+                 ;;
+             esac
              ;;
         c)
              source=$OPTARG
              rebootReason="Triggered from $source crash..!"
+             case $source in
+              dsMgrMain)
+                  t2CountNotify "SYST_ERR_DSMGR_reboot"
+                  ;;
+              IARMDaemonMain)
+                  t2CountNotify "SYST_ERR_IARMDEMON_reboot"
+                  ;;
+              rmfStreamer)
+                  t2CountNotify "SYST_ERR_Rmfstreamer_reboot"
+                  ;;
+              runPod)
+                 t2CountNotify "SYST_ERR_RunPod_reboot"
+                 ;;
+              *)
+                 t2CountNotify "SYST_ERR_$source_reboot"
+                 ;;
+              esac
              ;;
         r)
              customReason=$OPTARG
@@ -228,6 +194,81 @@ isMmgbleNotifyEnabled=$(tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Man
 
 if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
     tr181 -s -v 10 Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification
+fi
+
+
+
+####
+#  All housekeeping before actual device reboot starts from here 
+####
+
+# Signal telemetry2_0 to send out any pending messages before reboot
+killall -s SIGUSR1 telemetry2_0
+
+if [ -f /etc/rdm/rdm-manifest.xml ];then
+     CDLFILE=$(cat /opt/cdl_flashed_file_name)
+     PREV_CDLFILE=$(cat /tmp/currently_running_image_name)
+     if [[ ${CDLFILE} != *"${PREV_CDLFILE}"* ]]; then
+        if [ -d /media/apps ];then
+             echo "Removing the RDM Apps content from Secondary Storage before Reboot (After IMage Upgrade)"
+             cd /media/apps
+             if [ $? -eq 0 ];then
+                  for i in `ls -d */`
+                  do
+                     rm -rf $i
+                     sleep 1
+                  done
+            fi
+            sleep 5
+        fi
+    fi
+fi
+
+# Kill the Parodus Process; So that it can close the WebSocket Connection with Server.
+echo "Properly shutdown parodus by sending SIGUSR1 kill signal"
+killall -s SIGUSR1 parodus
+
+sleep 5
+
+if [ ! -f $PERSISTENT_PATH/.lightsleepKillSwitchEnable ]; then
+      syncLog
+
+      if [ -f $TEMP_LOG_PATH/.systime ]; then
+            cp $TEMP_LOG_PATH/.systime $PERSISTENT_PATH/
+      fi
+fi
+
+if [ "$DEVICE_NAME" = "XI6" ];then
+# Get eMMC Health report
+if [ -f /lib/rdk/emmc_health_diag.sh ]; then
+     sh /lib/rdk/emmc_health_diag.sh "reboot"
+     echo "Updated eMMC Health report" >> $LOG_FILE
+fi
+
+# See if we need to Upgrade the eMMC FW
+if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
+     echo "Upgrade eMMC FW if required"
+     sh /lib/rdk/eMMC_Upgrade.sh
+fi
+fi
+
+if [ -f /lib/rdk/aps4_reset.sh ]; then
+       sh /lib/rdk/aps4_reset.sh
+fi
+
+if [ -f /lib/rdk/update_www-backup.sh ]; then
+    sh /lib/rdk/update_www-backup.sh
+fi
+
+#If bluetooth is enabled, gracefully shutdown the bluetooth related services
+if [ "$BLUETOOTH_ENABLED" = "true" ];then
+    echo "Shutting down the bluetooth services gracefully"
+    /bin/systemctl --quiet is-active btrLeAppMgr && /bin/systemctl stop btrLeAppMgr
+    /bin/systemctl --quiet is-active btmgr && /bin/systemctl stop btmgr
+    /bin/systemctl --quiet is-active bluetooth && /bin/systemctl stop bluetooth
+    /bin/systemctl --quiet is-active bt-hciuart && /bin/systemctl stop bt-hciuart
+    /bin/systemctl --quiet is-active btmac-preset && /bin/systemctl stop btmac-preset
+    /bin/systemctl --quiet is-active bt && /bin/systemctl stop bt
 fi
 
 if [ -f /lib/rdk/dumpLogs.sh ];then

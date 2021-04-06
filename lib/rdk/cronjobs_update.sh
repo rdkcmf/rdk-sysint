@@ -61,7 +61,7 @@ check_entry()
 # Start crond daemon for yocto builds if not running
 if [ -f /etc/os-release ]; then
     touch /var/spool/cron/root
-    pidof crond
+    pidof crond >> $log_file
     if [ $? -ne 0 ]; then
         crond -b -L /dev/null -c /var/spool/cron/
     fi

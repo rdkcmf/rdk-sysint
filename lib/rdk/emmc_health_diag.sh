@@ -15,6 +15,10 @@ if [ ! -f $LOG_FILE ]; then
      touch $LOG_FILE
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 TMP_EMMCLOG=/tmp/emmc-report.log
 TMP_EMMCVAL=/tmp/emmc-val.log
 
@@ -48,6 +52,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Pre EOL State EUDA: $regval" >> $LOG_FILE
+    t2ValNotify "emmcPEOLEuda_split" "$regval"
 
     # [155:152] Pre EOL State System
     ext=`dd skip=153 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -55,6 +60,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Pre EOL State System: $regval" >> $LOG_FILE
+    t2ValNotify "emmcSystem_split" "$regval"
 
     # [159:156] Pre EOL State MCL
     ext=`dd skip=157 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -69,6 +75,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Health Device Level EUDA: $regval" >> $LOG_FILE
+    t2ValNotify "emmcHDLEUda_split" "$regval"
 
     # [183:180] Health Device level System
     ext=`dd skip=181 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -76,6 +83,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Health Device Level System: $regval" >> $LOG_FILE
+    t2ValNotify "emmcHealthSystem_split" "$regval"
 
     # [187:184] Health Device level MLC
     ext=`dd skip=185 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -90,6 +98,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$Freemem"
     echo "`/bin/timestamp`: Free Block Count in Enhanced Partion: $regval" >> $LOG_FILE
+    t2ValNotify "emmcFreeBlk_split" "$regval"
     Freecount=$((0x$regval))
 
     # [199:196] Count of Enhanced Premature Closures
@@ -98,6 +107,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Count of Enhanced Premature closures: $regval" >> $LOG_FILE
+    t2ValNotify "emmcPremClsCnt_split" "$regval"
 
     # [203:200] EUDA accumulated host write count in 100MB
     ext=`dd skip=201 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -105,6 +115,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: EUDA accumulated host write count: $regval" >> $LOG_FILE
+    t2ValNotify "emmcEudaWrCnt_split" "$regval"
 
     # [207:204] Enhanced accumulated host write count in 100MB
     ext=`dd skip=205 count=4 if=$TMP_EMMCLOG of=$TMP_EMMCVAL bs=2 2>&1 > /dev/null`
@@ -112,6 +123,7 @@ if [ "$report" != "" ]; then
 
     conv_val "$mem"
     echo "`/bin/timestamp`: Enhanced accumulated host write count: $regval" >> $LOG_FILE
+    t2ValNotify "emmcEnhWrCnt_split" "$regval"
 
     echo "`/bin/timestamp`: Start the sync for emmc diag report"
     sync

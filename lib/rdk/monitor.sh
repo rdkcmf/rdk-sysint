@@ -15,6 +15,10 @@
 . /etc/device.properties
 . /etc/env_setup.sh
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 . $RDK_PATH/commonUtils.sh
 . $RDK_PATH/interfaceCalls.sh
 if [ -f $RDK_PATH/getSecureDumpStatus.sh ]; then
@@ -85,6 +89,7 @@ if [ "$ret" == "1" ]; then
                exit 0                                                                
           else                                                                      
                echo  `/bin/timestamp` -----Box has rebooted 10 times.. no more reboot---- >> /opt/logs/ocapri_log.txt
+               t2CountNotify "SYST_ERR_10Times_reboot"
 	       exit 1
           fi
      fi

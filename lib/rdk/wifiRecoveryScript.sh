@@ -3,6 +3,10 @@
 . /etc/include.properties
 . $RDK_PATH/utils.sh
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 prevResetCount=0
 logsFile=$LOG_PATH/xiConnectionStats.txt
 wifiResetCounterFile="/tmp/.wifiResetCounter" 
@@ -39,6 +43,7 @@ do
     if [ $resetCounter -eq 24 ]; then
         resetCounter=0
         echo "`/bin/timestamp` Start WiFi Reset. !!!!!!!!!!!!!!"  >> $logsFile
+        t2CountNotify "WIFIV_ERR_Selfheal"
         if [ ! -f /usr/sbin/wifi_reset.sh ]; then
             echo "`/bin/timestamp` /usr/sbin/wifi_reset.sh script not there exiting!" >> $logsFile
             exit 0
@@ -57,6 +62,7 @@ do
         echo $prevResetCount > $wifiResetCounterFile
         if [ "$prevResetCount" -eq 3 ]; then
             echo "`/bin/timestamp` Done Enough Wi-Fi reset on this boot ! Wi-Fi Reset Done = $prevResetCount" >> $logsFile
+            t2CountNotify "WIFIV_ERR_MaxReset"
             exit 0
 	    fi
     fi

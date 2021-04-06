@@ -16,6 +16,10 @@ if [ -f /lib/rdk/rfcOverrides.sh ]; then
     . /lib/rdk/rfcOverrides.sh
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 if [ -z $LOG_PATH ]; then
     LOG_PATH="/opt/logs/"
 fi
@@ -195,6 +199,9 @@ sendTLSRequestForImageDownload()
     esac
 
     echo "Curl download return code : $TLSRet"
+    if [ "$TLSRet" = "7" ]; then
+         t2CountNotify "swdl_failed_7"
+    fi
 }
 
 downloadPeripheralFirmware()
@@ -205,6 +212,8 @@ downloadPeripheralFirmware()
 
     if [ $TLSRet -eq 0 ] && [ "$http_code" = "200" ]; then
         echo "Downloading $firmware_version.tgz is successful"
+        # !! Have to stick with this message format as current dashboard is expecting this data !!
+        t2ValNotify "xr_fwdnld_split" "${firmware_version:2}.tgz is successful"
         previous_downloadversions="${previous_downloadversions},${firmware_version}.tgz"
         if [ "$downloaded_version" != "" ]; then
             previous_downloadversions=`echo $previous_downloadversions | sed "s/,$downloaded_version//g"`

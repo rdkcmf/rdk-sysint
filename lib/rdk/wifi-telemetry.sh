@@ -15,6 +15,10 @@ if [ ! -f /lib/rdk/isFeatureEnabled.sh ]; then
     exit
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 . /lib/rdk/isFeatureEnabled.sh WIFI_TM_DC
 
 if [ "$RFC_ENABLE_WIFI_TM_DC" == "true" ] || [ "$RFC_ENABLE_WIFI_TM_DC" == "1" ] ; then
@@ -166,6 +170,7 @@ doWifiCounterCaching()
 doLogging()
 {
     echo "temperature:$wifiTemperature"
+    t2ValNotify "Board_temperature_split" "$wifiTemperature"
     # Wifi Data Logging
     for ((i=0; i < wifiDataArrayLen; i++)); do
         echo "${wifiDataHeader[i]}:${wifiDataValues[i]}"

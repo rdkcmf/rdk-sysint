@@ -20,6 +20,11 @@ if [ -f /etc/device.properties ];then
 else
 	echo "Missing Device Property file.."
 fi
+
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
+
 service=$1
 extn="_restart_count"
 
@@ -37,6 +42,7 @@ rebootCounterCheck()
    fi
    if [ $count -gt 10 ];then
         echo "`/bin/timestamp`-----Box has rebooted 10 times.. no more reboot----" >> $logFile
+        t2CountNotify "SYST_ERR_MaxReboots"
    else
         count=1
         if [ -f /opt/.upload_on_startup ];then

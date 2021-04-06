@@ -13,6 +13,9 @@ if [ -f /etc/device.properties ];then
      . /etc/device.properties
 fi
 
+if [ -f /lib/rdk/t2Shared_api.sh ]; then
+    source /lib/rdk/t2Shared_api.sh
+fi
 
 DNS_SERVERS=$*
 LOG_FILE="/opt/logs/named.log"
@@ -61,6 +64,7 @@ if [ "x$BIND_ENABLED" = "xtrue" -a "x$RFC_BIND_ENABLED" = "xtrue" ]; then
 		systemctl stop dnsmasq.service
 		systemctl restart named.service
 		echo "`/bin/timestamp` Bind Support is enabled, named is used for  DNS Resolutions." >> $LOG_FILE
+                t2CountNotify "SYST_INFO_DNSNamed"
         else
 		echo "`/bin/timestamp` Bind Support is enabled, named binary is not present, DnsMasq is used in DNS Resolutions." >> $LOG_FILE
         fi
