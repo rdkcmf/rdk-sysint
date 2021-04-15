@@ -440,8 +440,9 @@ if [ "$DEVICE_TYPE" != "mediaclient"  ]; then
 fi
 
 if [ "$HDD_ENABLED" = "false" ]; then
-     maxFile=`find /opt/logs -type f | grep -v PreviousLogs | xargs ls -S | grep -v -E '[0-9]$|\.tgz$|\.gz$' | grep -v pcap | head -n 1 | grep -v -E "txt.\*|.log.\*"`
-     if  [ "$skyMessagesLog" != "$maxFile" ] && [ -f "$maxFile" ]; then
+     # Find the biggest .log or .txt file which isn't a sky-messages log file and rotate it.
+     maxFile=`find /opt/logs -maxdepth 1 -type f -name '*.log' -o -name '*.txt' | xargs ls -S | head -n 1`
+     if  [[ ! "${maxFile}" =~ "${skyMessagesLog}" ]] && [ -f "$maxFile" ]; then
           size=`stat $maxFile | grep Size: | cut -d ":" -f2 | awk '{print $1}'`
           if [[ $size -gt 2097152 ]]; then
                echo "logrotate started for maxfile: ${maxFile} size: ${size} inode : `ls -i ${maxFile} | awk '{print $1;}'` date : `date +"%d/%m/%Y - %H.%M.%S"` "
