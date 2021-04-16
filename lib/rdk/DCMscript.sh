@@ -460,19 +460,19 @@ sendTLSDCMRequest()
             msg_tls_source="mTLS certificate from xPKI"
             echo "Connect with $msg_tls_source"
             CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
-        elif [ -f /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem ]; then
-            msg_tls_source="mTLS certificate from RDK-CA"
+        elif [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
+            msg_tls_source="mTLS using static xpki certificate"
             echo "Connect with $msg_tls_source"
             if [ ! -f /usr/bin/GetConfigFile ]; then
                 echo "Error: GetConfigFile Not Found"
                 exit 127
             fi
-            ID="/tmp/uydrgopwxyem"
+            ID="/tmp/.cfgStaticxpki"
             GetConfigFile $ID
             if [ ! -f "$ID" ]; then
                 echo "Error: Getconfig file failed"
             fi
-            CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
+            CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         fi
     else
         msg_tls_source="TLS"
