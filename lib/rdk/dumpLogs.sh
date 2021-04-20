@@ -148,17 +148,17 @@ logunit()
    fi
 
    if [ ! -f $logname ]; then
-       opts="-o short-precise -q --show-cursor ${unitstring}"
+       opts="--no-hostname -o short-precise -q --show-cursor ${unitstring}"
        whole_cmd="$cmd $opts $more_opts | awk $awk_field_separator \"{ if (/-- cursor/) { print > \\\"/tmp/.${timestampname}_log_timestamp\\\" } \
                   else { print $awk_field_number >> \\\"${logname}\\\" } }\""
    else
        cursorValue=`/bin/cat /tmp/.${timestampname}_log_timestamp`
        if [ "$cursorValue" ]; then
-           opts="-o short-precise -q --show-cursor $unitstring --after-cursor=\"$cursorValue\""
+           opts="--no-hostname -o short-precise -q --show-cursor $unitstring --after-cursor=\"$cursorValue\""
            whole_cmd="$cmd $opts $more_opts | awk $awk_field_separator \"{ if (/-- cursor/) { print > \\\"/tmp/.${timestampname}_log_timestamp\\\" } \
                       else { print $awk_field_number >> \\\"${logname}\\\" } }\""
        else
-           opts="-o short-precise -q --show-cursor $unitstring"
+           opts="--no-hostname -o short-precise -q --show-cursor $unitstring"
            whole_cmd="$cmd $opts $more_opts | awk $awk_field_separator \"{ if (/-- cursor/) { print > \\\"/tmp/.${timestampname}_log_timestamp\\\" } \
                       else { print $awk_field_number >> \\\"${logname}\\\" } }\""
        fi
