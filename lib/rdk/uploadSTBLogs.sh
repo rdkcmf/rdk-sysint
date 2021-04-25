@@ -39,6 +39,19 @@ if [ $# -ne 6 ]; then
      echo "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink>"
 fi
 
+IARM_EVENT_BINARY_LOCATION=/usr/bin
+if [ ! -f /etc/os-release ]; then
+    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
+fi
+
+eventSender()
+{
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
+    then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    fi
+}
+
 # assign the input arguments
 TFTP_SERVER=$1
 FLAG=$2
@@ -115,6 +128,8 @@ pidCleanup()
 if [ ! -d $PREV_LOG_PATH ]; then
       echo "The Previous Logs folder is missing" >> $LOG_PATH/dcmscript.log
       if [ ! -f /etc/os-release ];then pidCleanup;fi
+      MAINT_LOGUPLOAD_ERROR=5
+      eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
       exit 0
 fi
 
@@ -222,6 +237,8 @@ modifyFileWithTimestamp()
          ret=`ls $srcLogPath/*.log | wc -l`
          if [ ! $ret ]; then 
               if [ ! -f /etc/os-release ];then pidCleanup;fi
+              MAINT_LOGUPLOAD_ERROR=5
+              eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
               exit 1
          fi
     fi
@@ -261,6 +278,8 @@ modifyTimestampPrefixWithOriginalName()
          ret=`ls $srcLogPath/*.log | wc -l`
          if [ ! $ret ]; then
               if [ ! -f /etc/os-release ];then pidCleanup;fi
+              MAINT_LOGUPLOAD_ERROR=5
+              eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
               exit 1
          fi
     fi
@@ -508,11 +527,11 @@ HttpLogUpload()
                 if [ $skipcodebig -eq 0 ]; then
                     while [ "$cbretries" -le $CB_NUM_UPLOAD_ATTEMPTS ]
                     do 
-                        echo "`/bin/timestamp`HttpLogUpload: Direct log upload failed: httpcode=$http_code, attempting Codebig" >> $LOG_PATH/dcmscript.log
+                        echo "`/bin/timestamp`HttpLogUpload: Direct log upload failed: httpcode=$http_code, attempting Codebig" >> $LOG_PATH/dcmscript.log     
                         DoCodebigSSR $1
                         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                         if [ "$http_code" = "200" ]; then
-                            echo "`/bin/timestamp`HttpLogUpload: CodeBig log upload Success: httpcode=$http_code " >> $LOG_PATH/dcmscript.log
+                            echo "`/bin/timestamp`HttpLogUpload: CodeBig log upload Success: httpcode=$http_code " >> $LOG_PATH/dcmscript.log                      
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                 echo "`/bin/timestamp`HttpLogUpload: Use CodeBig and Blocking Direct attempts for 24hrs" >> $LOG_PATH/dcmscript.log
@@ -675,8 +694,12 @@ uploadDCMLogs()
         if [ "$UploadProtocol" == "HTTP" ];then
             retval=$(HttpLogUpload $LOG_FILE)
             if [ $retval -eq 0 ];then
+                maintenance_error_flag=0
                 echo "`/bin/timestamp` Done Uploading Logs through HTTP" >> $LOG_PATH/dcmscript.log
+            else
+                maintenance_error_flag=1 
             fi
+           
         else
             echo "UploadProtocol is not HTTP" >> $LOG_PATH/dcmscript.log
         fi
@@ -696,6 +719,8 @@ uploadLogOnReboot()
          ret=`ls $PREV_LOG_PATH/*.log | wc -l` 
          if [ ! $ret ]; then 
                if [ ! -f /etc/os-release ];then pidCleanup;fi
+               MAINT_LOGUPLOAD_ERROR=5
+               eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR 
                exit 1
          fi
     fi
@@ -731,6 +756,9 @@ uploadLogOnReboot()
             retval=$(HttpLogUpload $LOG_FILE)
             if [ $retval -ne 0 ];then
                 echo "`/bin/timestamp`  HTTP log upload failed" >> $LOG_PATH/dcmscript.log
+                maintenance_error_flag=1
+            else
+                maintenance_error_flag=0
             fi
         fi
         clearOlderPacketCaptures
@@ -777,6 +805,7 @@ else
            uploadLogOnReboot true	
         else 
            echo "`/bin/timestamp` Not Uploading Logs with DCM UploadOnReboot set to false" >> $LOG_PATH/dcmscript.log
+           maintenance_error_flag=1
            uploadLogOnReboot false
            echo $PERM_LOG_PATH >> $DCM_UPLOAD_LIST
        fi
@@ -804,5 +833,16 @@ else
        fi
     fi
 fi 
+if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+        if [ "$maintenance_error_flag" -eq 1 ]
+        then
+            MAINT_LOGUPLOAD_ERROR=5
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
+        else
+            MAINT_LOGUPLOAD_COMPLETE=4
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+        fi
+fi
 if [ ! -f /etc/os-release ];then pidCleanup;fi
 

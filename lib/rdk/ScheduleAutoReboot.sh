@@ -193,7 +193,10 @@ ScheduleCron()
 calcRebootExecTime
 if [ -f $CRONTAB_FILE ]
 then
-    ScheduleCron
-    echo "$(timestamp) [ScheduleAutoReboot.sh] Auto Reboot cron job succesfully scheduled" >> "$AR_LOG_FILE"
+    if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
+    then
+        ScheduleCron
+        echo "$(timestamp) [ScheduleAutoReboot.sh] Auto Reboot cron job succesfully scheduled" >> "$AR_LOG_FILE"
+    fi
 fi
 rm -f $FILE_LOCK

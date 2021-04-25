@@ -101,7 +101,10 @@ while [ $reboot_device_success -eq 0 ]; do
         fi
     else
         #this means AutoRebootEnable = false.
-        Removecron
+        if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
+        then
+            Removecron
+        fi
         exit
     fi
 done # While loop for reboot manager

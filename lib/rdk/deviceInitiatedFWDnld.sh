@@ -71,6 +71,8 @@ eventSender()
     fi
 }
 
+
+
 IMAGE_FWDNLD_UNINITIALIZED=0
 IMAGE_FWDNLD_DOWNLOAD_INPROGRESS=1
 IMAGE_FWDNLD_DOWNLOAD_COMPLETE=2
@@ -86,6 +88,17 @@ FW_STATE_FAILED=3
 FW_STATE_DOWNLOAD_COMPLETE=4
 FW_STATE_VALIDATION_COMPLETE=5
 FW_STATE_PREPARING_TO_REBOOT=6
+
+#maintaince states
+MAINT_FWDOWNLOAD_COMPLETE=8
+MAINT_FWDOWNLOAD_ERROR=9
+MAINT_FWDOWNLOAD_ABORTED=10
+MAINT_CRITICAL_UPDATE=11
+MAINT_REBOOT_REQUIRED=12
+
+isCriticalUpdate=false # setting default value as false
+
+maintenance_error_flag=0
 
 #Upgrade events
 FirmwareStateEvent="FirmwareStateEvent"
@@ -238,6 +251,10 @@ if [ "$DEVICE_TYPE" != "mediaclient" ]; then
     snmpCommunityVal=`head -n 1 /tmp/snmpd.conf | awk '{print $4}'`
     if [ ! "$snmpCommunityVal" ]; then 
         echo "Missing the SNMP community string, existing..!"; 
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
         exit 1;
     fi
 fi
@@ -247,6 +264,10 @@ if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ] ; then
     echo "$urlString" | grep -q -i "^http.*://"
     if [ $? -ne 0 ]; then
         echo "`Timestamp` Device configured with an invalid overriden URL : $urlString !!! Exiting from Image Upgrade process..!"
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
         exit 0
     fi
 fi
@@ -280,6 +301,10 @@ fi
 
 if [ "$Fwupdate_auto_exclude" == "true" ] && [ $BUILD_TYPE != "prod" ] && [ ! $urlString ] ; then
     echo "Device excluded from firmware update. Exiting !!"
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    fi
     exit 0
 fi
 
@@ -288,6 +313,10 @@ if [ -f /tmp/DIFD.pid ]; then
     if [ -d /proc/$pid ]; then
         echo "Device initiated CDL is in progress.."
         echo "Exiting without triggering device initiated firmware download."
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
         exit 0
     fi
 fi
@@ -310,6 +339,10 @@ fi
 if [ $skipUpgrade -eq 1 ] ; then
     echo "Device/ECM/Previous initiated firmware upgrade in progress."
     echo "Exiting without triggering device initiated firmware download."
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    fi
     exit 0
 fi
 
@@ -322,6 +355,10 @@ else
     echo "Usage: sh <SCRIPT> <failure retry count> <Image trigger Type>"
     echo "     failure retry count: This value from DCM settings file, if not \"0\""
     echo "     Image  trigger Type : Bootup(1)/scheduled(2)/tr69 or SNMP triggered upgrade(3)/App triggered upgrade(4)/(5) Delayed Download"
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    fi
     exit 0
 fi
 
@@ -339,6 +376,10 @@ elif [ $triggerType -eq 6 ]; then
      echo "`Timestamp` State Red Image Upgrade ..!"
 else
      echo "`Timestamp` Invalid Upgrade request : $triggerType !"
+     if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+     then
+        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+     fi
      exit 0
 fi
 
@@ -1407,21 +1448,28 @@ postFlash () {
     sleep 5
     sync
     eventManager $FirmwareStateEvent $FW_STATE_PREPARING_TO_REBOOT
-    sed -i 's/fwUpdateState|.*/fwUpdateState|Preparing to reboot/g' $STATUS_FILE
+    
+    sed -i 's/FwUpdateState|.*/FwUpdateState|Preparing to reboot/g' $STATUS_FILE
 
     if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
         echo "Reboot Not Needed after PDRI Upgrade..!"
-    else
-        echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
-        if [ $REBOOT_FLAG -eq 1 ]; then
-            echo "Download is complete. Rebooting the box now...\n"
-            echo "Trigger RebootPendingNotification in background"
-            if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
-                Trigger_RebootPendingNotify &
-            fi
-            echo "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
-            sleep $REBOOT_PENDING_DELAY
-            sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box after Firmware Image Upgrade..."
+    else  
+       if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+         then 
+            echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
+	    eventSender "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
+       else    
+             echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
+             if [ $REBOOT_FLAG -eq 1 ]; then
+                 echo "Download is complete. Rebooting the box now...\n"
+                 echo "Trigger RebootPendingNotification in background"
+                 if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
+                      Trigger_RebootPendingNotify &
+                 fi
+                 echo "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
+                 sleep $REBOOT_PENDING_DELAY
+                 sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box after Firmware Image Upgrade..."
+             fi
         fi    
     fi
 } 
@@ -1618,6 +1666,10 @@ triggerPCIUpgrade () {
     if [ -f $HTTP_CDL_FLAG ] || [ -f $SNMP_CDL_FLAG ] || [ -f $ECM_CDL_FLAG ]; then
          echo "[$0]: Exiting from DEVICE INITIATED HTTP CDL"
          echo "[$0]: Another upgrade is in progress"
+         if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+         then
+             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+         fi
          exit 0
     fi
 
@@ -1723,6 +1775,11 @@ checkForUpgrades () {
         else
             checkForValidPCIUpgrade
             if [ $pci_upgrade -eq 1 ]; then
+                if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+                then  
+                    eventSender "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
+                    isCriticalUpdate=true 
+                fi 
                 triggerPCIUpgrade
                 pci_upgrade_status=$?
             fi
@@ -1811,6 +1868,10 @@ processJsonResponse()
         echo "`Timestamp` Exiting from Image Upgrade process..!"
         updateFWDownloadStatus "$cloudProto" "Failure" "$cloudImmediateRebootFlag" "Cloud FW Version is invalid" "$cloudFWVersion" "$cloudFWFile" "$runtime" "Failed" "$DelayDownloadXconf"
         eventManager $FirmwareStateEvent $FW_STATE_FAILED
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
         rm -f $FILENAME $HTTP_CODE
         exit 0
     fi
@@ -1866,6 +1927,10 @@ exitForXconf404response () {
     echo "`Timestamp` Exiting from Image Upgrade process..!"
     updateFWDownloadStatus "" "Failure" "" "Invalid Request" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_FAILED
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    fi
     rm -f $FILENAME $HTTP_CODE
     exit 0
 }
@@ -2265,6 +2330,7 @@ if [ $triggerType -eq 1 ]; then
                 sed -i "s/Status.*/Status|Failure/" $STATUS_FILE
                 sed -i "s/FailureReason.*/FailureReason|Upgrade failed after flash write/" $STATUS_FILE
             fi
+            maintenance_error_flag=1
         fi
     fi
     if [ -f $STATUS_FILE ]; then
@@ -2319,11 +2385,16 @@ do
     rm -f $FILENAME $HTTP_CODE
     if [ $cdlRet != 0 ]; then
         echo "`Timestamp` sendJsonRequestToCloud failed with httpcode: $http_code Ret: $cdlRet"
+        maintenance_error_flag=1
         sleep 5
 
 #update state red status
         if [ $triggerType -eq 6 ]; then
             unsetStateRed
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+               then
+                 eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+            fi
             exit 1
         else
             stateRedlog "firmware download failed"
@@ -2332,13 +2403,38 @@ do
 
         if [ "$http_code" == "404" ];then
             echo "`Timestamp` Giving up all retries as received $http_code response..."
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+               then
+                 eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+            fi
             exit 1
         fi
     else
         echo "`Timestamp` sendJsonRequestToCloud succeeded with httpcode: $http_code Ret: $cdlRet"
         unsetStateRed
+        maintenance_error_flag=0
+    fi
+
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ] && [ "x$isCriticalUpdate" != "xtrue" ]
+    then  
+        abort_flag=`cat /opt/maintenance_mgr_record.conf | cut -d "=" -f2`
+        if [ "x$abort_flag" == "xtrue" ]
+        then
+           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
+	   exit 1
+        fi
     fi
 
     retryCount=$((retryCount + 1))
 done
+
+if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+  then
+     if [ "$maintenance_error_flag" -eq 1 ]
+        then
+            eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        else
+            eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_COMPLETE
+        fi
+fi
 
