@@ -110,6 +110,25 @@ prevUploadFlag=0
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
+#get telemetry opt out status
+getOptOutStatus()
+{
+    optoutStatus=0
+    currentVal="false"
+    #check if feature is enabled through rfc
+    rfcStatus=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.TelemetryOptOut.Enable 2>&1 > /dev/null)
+    #check the current option
+    if [ -f /opt/tmtryoptout ]; then
+        currentVal=$(cat /opt/tmtryoptout)
+    fi
+    if [ "x$rfcStatus" == "xtrue" ]; then
+        if [ "x$currentVal" == "xtrue" ]; then
+            optoutStatus=1
+        fi
+    fi
+    return $optoutStatus
+}
+
 checkXpkiMtlsBasedLogUpload()
 {
     xpkiMtlsRFC=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UseXPKI.Enable 2>&1 > /dev/null)
@@ -823,6 +842,15 @@ for item in `ls $LOG_PATH/*-*-*-*-*M-* | grep "[0-9]*-[0-9]*-[0-9]*-[0-9]*-M*" |
         rm -rf $item
     fi
 done
+
+getOptOutStatus
+opt_out=$?
+if [ $opt_out -eq 1 ]; then
+    echo "Logupload is disabled as TelemetryOptOut is set" >> $LOG_PATH/dcmscript.log
+    MAINT_LOGUPLOAD_COMPLETE=4
+    eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+    exit 0
+fi
 
 if [ $DCM_FLAG -eq 0 ] ; then 
      echo "`/bin/timestamp`  Uploading Without DCM" >> $LOG_PATH/dcmscript.log

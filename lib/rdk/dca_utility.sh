@@ -141,6 +141,40 @@ if [ "$FORCE_MTLS" == "true" ]; then
     mTlsDCMUpload=true
 fi
 
+#get telemetry opt out status
+getOptOutStatus()
+{
+    optoutStatus=0
+    currentVal="false"
+    #check if feature is enabled through rfc
+    rfcStatus=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.TelemetryOptOut.Enable 2>&1 > /dev/null)
+    #check the current option
+    if [ -f /opt/tmtryoptout ]; then
+        currentVal=$(cat /opt/tmtryoptout)
+    fi
+    if [ "x$rfcStatus" == "xtrue" ]; then
+        if [ "x$currentVal" == "xtrue" ]; then
+            optoutStatus=1
+        fi
+    fi
+    return $optoutStatus
+}
+
+#Obfuscate MAC address
+ObfuscateMAC()
+{
+    ofcmac=""
+    if [ -f /usr/bin/rdkssacli ]; then
+        #GDPR_LOCALE defined in device.properties
+        /usr/bin/rdkssacli "{PRIVACY=APPLY,POLICY=DEFAULT,LOCALE=$GDPR_LOCALE,SRC=TELEMETRY,DST=ANY,ITEM=MAC,VALUE=`/usr/bin/rdkssacli \"{IDENT=BASEMACADDRESS}\"`}" > /tmp/ofcmac
+        if [ -f /tmp/ofcmac ]; then
+            ofcmac=$(cat /tmp/ofcmac)
+            rm -rf /tmp/ofcmac
+        fi
+    fi
+    echo "$ofcmac"
+}
+
 getMTLSTelemetryEndpointURL() {
     if [ "$mTlsDCMUpload" = "true" ] || [ "$mTLS_RPI" == "true" ]; then
         #Sky endpoints dont use /secure extenstion;
@@ -531,6 +565,14 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
        experience=$(getExperience)
        firmwareVersion=$(getFWVersion)
        cur_time=`date "+%Y-%m-%d %H:%M:%S"`
+
+       getOptOutStatus
+       opt_out=$?
+       if [ $opt_out -eq 1 ]; then
+          echo "TelemetryOptOut is true" >> $RTL_LOG_FILE
+          estbMac=$(ObfuscateMAC)
+          echo "Obfuscated MAC is $estbMac" >> $RTL_LOG_FILE
+       fi
 
        if [ "$estbIp" = "" -a "$sendInformation" != "1" ]; then
            estbIp="$DEFAULT_IP"

@@ -146,6 +146,7 @@ if [ -f /opt/uimgr_settings.bin ]; then rm -f /opt/uimgr_settings.bin;fi
 if [ -f /opt/uploadSTBLogs.out ]; then rm -f /opt/uploadSTBLogs.out;fi
 if [ -d /opt/upnp ]; then rm -rf /opt/upnp/*;fi
 if [ -L /opt/www/htmldiag ]; then rm -f /opt/www/htmldiag;fi
+if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
 
 # DRM data cleanup
 PROVISION_PROPERTIES=/etc/provision.properties

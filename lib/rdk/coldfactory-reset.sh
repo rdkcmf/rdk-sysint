@@ -76,6 +76,7 @@ if [ -f /opt/xdevice.conf ];then rm -rf /opt/xdevice.conf ; fi
 if [ -f /opt/gzdisabled ];then rm -rf /opt/gzdisabled ; fi
 if [ -f /opt/enable_delia_dual ];then rm -rf /opt/enable_delia_dual ; fi
 if [ -f /opt/hddEnable ];then rm -rf /opt/hddEnable ; fi
+if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
 # Kill the nrdPluginApp first, else the /opt/netflix would be re-created by this process.
 killall -s SIGKILL nrdPluginApp
 if [ -d /opt/netflix ]; then rm -rf /opt/netflix; fi

@@ -93,6 +93,7 @@ if [ -d /opt/data ];then rm -rf /opt/data;fi
 if [ -d /opt/.gstreamer ]; then rm -rf /opt/.gstreamer; fi
 if [ -d /opt/persistent/dvr ]; then rm -rf /opt/persistent/dvr; fi
 if [ -d /opt/etc ];then rm -rf /opt/etc;fi
+if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
 
 # DRM data cleanup
 PROVISION_PROPERTIES=/etc/provision.properties
