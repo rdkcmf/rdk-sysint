@@ -151,12 +151,12 @@ WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 CAPABILITIES='&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
 
 ## curl URL and options
-ImageDownloadURL=""
 imageHTTPURL=""
 serverUrl=""
 CB_SIGNED_REQUEST=""
 CLOUD_URL=""
 CURL_OPTION="-w"
+DnldURLvalue="/opt/.dnldURL"
 
 ## Status of each upgrade
 pci_upgrade_status=1
@@ -595,7 +595,7 @@ updateFWDownloadStatus()
     echo "FailureReason|$failureReason" >> $TEMP_STATUS
     echo "DnldVersn|$DnldVersn" >> $TEMP_STATUS
     echo "DnldFile|$DnldFile" >> $TEMP_STATUS
-    echo "DnldURL|$ImageDownloadURL" >> $TEMP_STATUS
+    echo "DnldURL|`cat $DnldURLvalue`" >> $TEMP_STATUS
     echo "LastRun|$LastRun" >> $TEMP_STATUS
     echo "FwUpdateState|$fwUpdateState" >> $TEMP_STATUS
     echo "DelayDownload|$delayDnld" >> $TEMP_STATUS
@@ -1344,8 +1344,8 @@ imageDownloadToLocalServer ()
     elif [ $UPGRADE_PROTO -eq 2 ]; then
         # Change to support whether full http URL
         imageHTTPURL="$UPGRADE_LOCATION/$UPGRADE_FILE"  
-        ImageDownloadURL=$imageHTTPURL
         echo  "`Timestamp` IMAGE URL= $imageHTTPURL"
+        echo "$imageHTTPURL" > $DnldURLvalue
         httpDownload 
         ret=$?
     fi

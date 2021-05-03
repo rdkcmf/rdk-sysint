@@ -61,6 +61,8 @@ RCDL_FLAG="/tmp/device_initiated_rcdl_in_progress"
 HTTP_CODE="/tmp/rcdl_curl_httpcode"
 rm -rf $HTTP_CODE
 
+DnldURLvalue="/opt/.dnldURL"
+
 RETRY_COUNT=3
 CB_RETRY_COUNT=1
 DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_userdl"
@@ -124,8 +126,6 @@ fi
 REQUEST_TYPE_FOR_CODEBIG_URL=14
 
 FOUR_CMDLINE_PARAMS=4
-
-ImageDownloadURL=""
 
 log ()
 {
@@ -308,7 +308,7 @@ updateFWDnldStatus()
     echo "FailureReason|$failureReason" >> $FW_DNLD_STATUS_FILE
     echo "DnldVersn|$DnldVersn" >> $FW_DNLD_STATUS_FILE
     echo "DnldFile|$DnldFile" >> $FW_DNLD_STATUS_FILE
-    echo "DnldURL|$ImageDownloadURL" >> $FW_DNLD_STATUS_FILE
+    echo "DnldURL|`cat $DnldURLvalue`" >> $FW_DNLD_STATUS_FILE
     echo "DnldPercent|$DnldPercent" >> $FW_DNLD_STATUS_FILE
     echo "LastRun|$LastRun" >> $FW_DNLD_STATUS_FILE
     echo "Codebig_Enable|$Codebig" >> $FW_DNLD_STATUS_FILE
@@ -455,8 +455,8 @@ imageDownloadToLocalServer ()
         # Change to support whether full http URL
         imageHTTPURL="$UPGRADE_LOCATION/$UPGRADE_FILE"
     fi
-    ImageDownloadURL=$imageHTTPURL
     log "imageHTTPURL = $imageHTTPURL"
+    echo "$imageHTTPURL" > $DnldURLvalue
 
     ret=1
     model_num=$MODEL_NUM

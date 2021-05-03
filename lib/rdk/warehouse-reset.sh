@@ -149,6 +149,7 @@ rm -rf /tmp/ecm_initiated_cdl_in_progress
 rm -rf /tmp/.imageDnldInProgress
 rm -rf /tmp/currently_running_image_name
 
+rm -rf /opt/.dnldURL
 #Removing proxy mapping file
 rm -rf /opt/apps/common/proxies.conf
 

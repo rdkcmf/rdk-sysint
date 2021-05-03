@@ -34,6 +34,7 @@ SVR_MAC_ADDRESS_LOCATION="macAddressConf"
 RETRY_COUNT=3
 httpURL=""
 ImageDownloadURL=""
+DnldURLvalue="/opt/.dnldURL"
 TLS="--tlsv1.2"
 
 # File to save http code
@@ -105,7 +106,7 @@ updateFWDownloadStatusLog()
     echo "CurrFile|$CurrFile" >> $STATUS_FILE
     echo "DnldVersn|$DnldVersn" >> $STATUS_FILE
     echo "DnldFile|$DnldFile" >> $STATUS_FILE
-    echo "DnldURL|$ImageDownloadURL" >> $STATUS_FILE
+    echo "DnldURL|`cat $DnldURLvalue`" >> $STATUS_FILE
     echo "LastRun|$LastRun" >> $STATUS_FILE
 
 }
@@ -146,6 +147,7 @@ downloadImage()
      getHTTPaddr
      imageHTTPURL="$httpURL/$UPGRADE_FILE"
      ImageDownloadURL=$imageHTTPURL
+     echo "$imageHTTPURL" > $DnldURLvalue
      echo  "PROTO: HTTP , IMAGE URL= $imageHTTPURL" >> $LOG_PATH/ipdllogfile.txt
      ret=1
      retryCount=0
