@@ -82,33 +82,6 @@ TLSRet=""
 MAX_UPLOAD_ATTEMPTS=3
 RETRY_DELAY=60
 
-if [ "$LIGHTSLEEP_ENABLE" == "true" ] && [ -f /tmp/.standby ]; then
-    if [ ! -d /tmp/logs ] ;then
-        mkdir /tmp/logs
-    fi
-
-    if [ -f /lib/rdk/cpu-statistics.sh ];then
-        sh /lib/rdk/cpu-statistics.sh >> $TEMP_LOG
-    fi
-    if [ -f /lib/rdk/vm-statistics.sh ];then
-        sh /lib/rdk/vm-statistics.sh >> $TEMP_LOG
-    fi
-    exit 0
-else
-    if [ -f $TEMP_LOG ] && [ -f /etc/os-release ]; then
-        cat $TEMP_LOG >> $LOG_PATH/messages.txt
-        rm $TEMP_LOG
-    fi
-    if [ -f /lib/rdk/cpu-statistics.sh ];then
-        echo "Retrieving CPU instantaneous information for telemetry support" >> $RTL_LOG_FILE
-        sh /lib/rdk/cpu-statistics.sh >> $LOG_PATH/messages.txt
-    fi
-    if [ -f /lib/rdk/vm-statistics.sh ];then
-        echo "Retrieving virtual memory information for telemetry support" >> $RTL_LOG_FILE
-        sh /lib/rdk/vm-statistics.sh >> $LOG_PATH/messages.txt
-    fi
-fi
-
 if [ $# -ne 2 ]; then
    echo "Usage : `basename $0` <Trigger Type> sendInformation 0 or 1" >> $RTL_LOG_FILE
    echo "Trigger Type : 1 (Upon log upload request)/ 0 (Count updating to file)" >> $RTL_LOG_FILE

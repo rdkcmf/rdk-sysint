@@ -99,10 +99,19 @@ TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 TELEMETRY_PATH_TEMP="$TELEMETRY_PATH/tmp"
 T2_SERVICE_PATH="/tmp/enable_t2_service"
 
+SYSTEM_METRIC_CRON_INTERVAL="*/15 * * * *"
+
 t2Log() {
     timestamp=`date +%Y-%b-%d_%H-%M-%S`
     echo "$0 : $timestamp $*" >> $T2_0_LOGFILE
 }
+
+systemHealthLog=`sh /lib/rdk/cronjobs_update.sh "check-entry" "vm_cpu_temp-check.sh"`
+if [ "$systemHealthLog" != "0" ]; then
+    sh /lib/rdk/cronjobs_update.sh "remove" "vm_cpu_temp-check.sh"
+fi
+
+sh /lib/rdk/cronjobs_update.sh "update" "vm_cpu_temp-check.sh" "$SYSTEM_METRIC_CRON_INTERVAL nice -n 10 sh $RDK_PATH/vm_cpu_temp-check.sh"
 
 # Check for RFC Telemetry.Enable settings
 # Internal syscfg database used by RFC parameter -  Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.Enable
@@ -143,15 +152,6 @@ fi
 touch $TELEMETRY_PREVIOUS_LOG
 # Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
 sh /lib/rdk/dca_utility.sh 0 0 &
-
-# Start crond daemon for yocto builds
-if [ -f /etc/os-release ]; then
-    touch /var/spool/cron/root
-    pidof crond
-    if [ $? -ne 0 ]; then
-        crond -b -L /dev/null -c /var/spool/cron/
-    fi
-fi
 
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
