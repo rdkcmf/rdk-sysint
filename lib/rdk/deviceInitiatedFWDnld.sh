@@ -63,6 +63,14 @@ if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 fi
 
+eventSender()
+{
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
+    then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    fi
+}
+
 IMAGE_FWDNLD_UNINITIALIZED=0
 IMAGE_FWDNLD_DOWNLOAD_INPROGRESS=1
 IMAGE_FWDNLD_DOWNLOAD_COMPLETE=2
@@ -97,6 +105,22 @@ FILENAME="$PERSISTENT_PATH/response.txt"
 ## File to save http code and curl progress
 HTTP_CODE="$PERSISTENT_PATH/xconf_curl_httpcode"
 CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
+
+if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
+    ##File to save pid
+    CURL_PID_FILE="/tmp/.curl.pid"
+    FWDNLD_PID_FILE="/tmp/.fwdnld.pid"
+    PWR_STATE_LOG="/opt/logs/pwrstate.log"
+
+    echo "$$" > $FWDNLD_PID_FILE
+
+    if [ -f /usr/bin/pwrstate_notifier ]; then
+         /usr/bin/pwrstate_notifier &> $PWR_STATE_LOG &
+    fi
+
+    PID_PWRSTATE=`pidof pwrstate_notifier`
+    trap 'interrupt_download' 15
+fi
 
 ## PDRI image filename
 pdriFwVerInfo=""
@@ -756,7 +780,14 @@ sendTLSCodebigRequest()
         else
             echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        result= eval $CURL_CMD &> $CURL_PROGRESS
+        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
+              result= eval $CURL_CMD &> $CURL_PROGRESS &
+              echo "$!" > $CURL_PID_FILE
+              CurlPid=`cat $CURL_PID_FILE`
+              wait $CurlPid
+        else
+              result= eval $CURL_CMD &> $CURL_PROGRESS
+        fi
         rc=$?
         if [ $rc -eq 28 ]; then
             # Curl returns 28 if speed is less than 100 kbit/sec
@@ -910,7 +941,14 @@ sendTLSRequest()
         else
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        result= eval $CURL_CMD &> $CURL_PROGRESS
+        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
+              result= eval $CURL_CMD &> $CURL_PROGRESS &
+              echo "$!" > $CURL_PID_FILE
+              CurlPid=`cat $CURL_PID_FILE`
+              wait $CurlPid
+        else
+              result= eval $CURL_CMD &> $CURL_PROGRESS
+        fi
         rc=$?
         if [ $rc -eq 28 ]; then
             # Curl returns 28 if speed is less than 100 kbit/sec
@@ -1168,6 +1206,22 @@ tftpDownload () {
         echo "`Timestamp` $UPGRADE_FILE TFTP Download Completed.!"
     fi
     return $ret
+}
+
+interrupt_download()
+{
+     echo "Download is interrupted due to the PowerState changed to ON"
+     if [ -f $CURL_PID_FILE ]; then
+        kill -9 $CurlPid
+        rm -rf "$CURL_PID_FILE"
+     fi
+
+     rm -rf "$FWDNLD_PID_FILE"
+
+     if [ "$PID_PWRSTATE" != "" ]; then
+        kill -9 $PID_PWRSTATE
+     fi
+     exit
 }
 
 getNewCronTime ()
