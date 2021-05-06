@@ -111,7 +111,7 @@ EnableOCSP="/tmp/.EnableOCSPCA"
 checkXpkiMtlsBasedLogUpload()
 {
     xpkiMtlsRFC=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UseXPKI.Enable 2>&1 > /dev/null)
-    if [ "x$xpkiMtlsRFC" = "xtrue" ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+    if [ "x$xpkiMtlsRFC" = "xtrue" ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ] && [ "$MODEL_NUM" != "SX022AN" ]; then
         useXpkiMtlsLogupload="true"
     else
         useXpkiMtlsLogupload="false"
@@ -379,6 +379,19 @@ sendTLSSSRRequest()
             msg_tls_source="mTLS certificate from xPKI"
             echo "Connect with $msg_tls_source"
             CURL_CMD="curl --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") -w '%{http_code}\n' -d \"filename=$1\" $URLENCODE_STRING -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout $CURL_TLS_TIMEOUT -m 10"
+        elif [ -f /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem ]  && [ "$MODEL_NUM" == "SX022AN" ]; then
+            msg_tls_source="mTLS certificate from RDK-CA"
+            echo "Connect with $msg_tls_source"
+            if [ ! -f /usr/bin/GetConfigFile ]; then
+                echo "Error: GetConfigFile Not Found"
+                exit 127
+            fi
+            ID="/tmp/uydrgopwxyem"
+            GetConfigFile $ID
+            if [ ! -f "$ID" ]; then
+                echo "Error: Getconfig file failed"
+            fi
+            CURL_CMD="curl --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem -w '%{http_code}\n' -d \"filename=$1\" $URLENCODE_STRING -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout $CURL_TLS_TIMEOUT -m 10"
         elif [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
             msg_tls_source="mTLS using static xpki certificate"
             echo "Connect with $msg_tls_source"
