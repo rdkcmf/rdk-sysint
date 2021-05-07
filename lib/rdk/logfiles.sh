@@ -167,6 +167,8 @@ hwselfLog="hwselftest.log"
 hwselfLogsBackup="hwselftest.log.*"
 wpeframeworkLog="wpeframework.log"
 wpeframeworkLogsBackup="wpeframework.log.*"
+residentAppLog="residentapp.log"
+residentAppLogsBackup="residentapp.log.*"
 servicenumberLog="servicenumber.log"
 servicenumberLogsBackup="servicenumber.log.*"
 appmanagerLog="appmanager.log"
@@ -719,6 +721,7 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $nlmonLogsBackup $destn
         moveFiles $opern $source $hwselfLogsBackup $destn
         moveFiles $opern $source $wpeframeworkLogsBackup $destn
+        moveFiles $opern $source $residentAppLogsBackup $destn
         moveFiles $opern $source $servicenumberLogsBackup $destn
     	moveFiles $opern $source $dropbearLog $destn
      	moveFiles $opern $source $dropbearLogsBackup $destn
@@ -858,6 +861,7 @@ backupSystemLogFiles()
      if [ -f $source/$nlmonLog ] ; then $operation $source/$nlmonLog $destn; fi
      if [ -f $source/$hwselfLog ] ; then $operation $source/$hwselfLog $destn; fi
      if [ -f $source/$wpeframeworkLog ] ; then $operation $source/$wpeframeworkLog $destn; fi
+     if [ -f $source/$residentAppLog ] ; then $operation $source/$residentAppLog $destn; fi
      if [ -f $source/$servicenumberLog ] ; then $operation $source/$servicenumberLog $destn; fi
      if [ -f $source/$appmanagerLog ] ; then $operation $source/$appmanagerLog $destn; fi
      if [ -f $source/$xdialLog ] ; then $operation $source/$xdialLog $destn; fi

@@ -337,6 +337,7 @@ else
 	logRotateFramework $nlmonLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $hwselfLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $wpeframeworkLog $logRotateWPEFrameworkCount $logRotateGenericSize
+        logRotateFramework $residentAppLog $logRotateResidentAppCount $logRotateGenericSize
         logRotateFramework $servicenumberLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $dropbearLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $appmanagerLog $appmanagerLogRotateCount $appmanagerLogRotateSize
