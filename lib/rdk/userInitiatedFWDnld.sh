@@ -475,12 +475,13 @@ imageDownloadToLocalServer ()
     fi
     if [ "$Protocol" = "usb" ]; then
 	DEFER_REBOOT=1
-	cp "$ImageDownloadURL" "$DIFW_PATH/$UPGRADE_FILE"
-	ret=$?
-        if [ $ret -ne 0 ]; then
+	# Overwrite the path to program directly from the USB
+        DIFW_PATH=$UPGRADE_LOCATION
+        if [ ! -f $DIFW_PATH/$UPGRADE_FILE ]; then
+	    log "Error: $DIFW_PATH/$UPGRADE_FILE not found"
             http_code="404"
-	    log "Error: cp $ImageDownloadURL $DIFW_PATH/$UPGRADE_FILE failed"
         else
+            ret=0
             http_code="200"
         fi
     else
@@ -555,7 +556,9 @@ imageDownloadToLocalServer ()
             fi
         fi
         # image file can be deleted now
-        rm -rf $DIFW_PATH/$UPGRADE_FILE
+        if [ "$Protocol" != "usb" ]; then
+            rm -rf $DIFW_PATH/$UPGRADE_FILE
+        fi
     else
         imagePath="\"$DIFW_PATH/"$UPGRADE_FILE"\""
         log "imagePath = $imagePath"
