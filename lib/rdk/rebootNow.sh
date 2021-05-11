@@ -25,13 +25,13 @@ pid_file="/tmp/.rebootNow.pid"
 
 if [ -f $pid_file ]
 then
-   pid=`cat $pid_file`
-   if [ -d /proc/$pid ]
-   then
-      echo "`/bin/timestamp` An instance of "$0" with pid $pid is already running.."
-      echo "`/bin/timestamp` Exiting script"
-      exit 0
-   fi
+    pid=`cat $pid_file`
+    if [ -d /proc/$pid ]
+    then
+        echo "`/bin/timestamp` An instance of "$0" with pid $pid is already running.."
+        echo "`/bin/timestamp` Exiting script"
+        exit 0
+    fi
 fi
 
 echo $$ > $pid_file
@@ -44,7 +44,7 @@ REBOOTINFO_LOGFILE=/opt/logs/rebootInfo.log
 
 # Define Reasons for APP_TRIGGERED, OPS_TRIGGERED and MAINTENANCE_TRIGGERED cases 
 APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset WarehouseService HrvInitWHReset HrvColdInitReset HtmlDiagnostics InstallTDK StartTDK TR69Agent)
-OPS_TRIGGERED_REASONS=(ScheduledReboot FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning)
+OPS_TRIGGERED_REASONS=(ScheduledReboot RebootSTB.sh FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning)
 MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
 touch $REBOOTINFO_LOGFILE
@@ -65,7 +65,6 @@ syncLog()
     else
          echo "Sync Not needed, Same log folder"
     fi
-
 }
 
 # Save the reboot info with all the fields
@@ -168,12 +167,12 @@ fi
 rebootTime=`date -u`
 
 # Added check for Hal_SYS_reboot source
-multipleSource=`cat $REBOOTINFO_LOGFILE | grep -E HAL_SYS_Reboot`
+multipleSource=`grep -E HAL_SYS_Reboot $REBOOTINFO_LOGFILE`
 if [ -z "$multipleSource" ];then
     rebootSource=$source
 else
-    rebootSource=`cat $REBOOTINFO_LOGFILE | grep RebootReason | grep -v HAL_SYS_Reboot | grep -v grep | awk -F " " '{print $5}'`
-    otherReason=`cat $REBOOTINFO_LOGFILE | grep RebootReason | grep -v HAL_SYS_Reboot | grep -v grep | awk -F 'HAL_CDL_notify_mgr_event' '{print $NF}' | sed 's/(.*//'`
+    rebootSource=`grep RebootReason $REBOOTINFO_LOGFILE | grep -v HAL_SYS_Reboot | grep -v grep | awk -F " " '{print $5}'`
+    otherReason=`grep RebootReason $REBOOTINFO_LOGFILE | grep -v HAL_SYS_Reboot | grep -v grep | awk -F 'HAL_CDL_notify_mgr_event' '{print $NF}' | sed 's/(.*//'`
 fi
 
 # Assign rebootreason from source category.
@@ -195,8 +194,6 @@ isMmgbleNotifyEnabled=$(tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Man
 if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
     tr181 -s -v 10 Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification
 fi
-
-
 
 ####
 #  All housekeeping before actual device reboot starts from here 
@@ -239,21 +236,21 @@ if [ ! -f $PERSISTENT_PATH/.lightsleepKillSwitchEnable ]; then
 fi
 
 if [ "$DEVICE_NAME" = "XI6" ];then
-# Get eMMC Health report
-if [ -f /lib/rdk/emmc_health_diag.sh ]; then
-     sh /lib/rdk/emmc_health_diag.sh "reboot"
-     echo "Updated eMMC Health report" >> $LOG_FILE
-fi
+    # Get eMMC Health report
+    if [ -f /lib/rdk/emmc_health_diag.sh ]; then
+        sh /lib/rdk/emmc_health_diag.sh "reboot"
+        echo "Updated eMMC Health report" >> $LOG_FILE
+    fi
 
-# See if we need to Upgrade the eMMC FW
-if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
-     echo "Upgrade eMMC FW if required"
-     sh /lib/rdk/eMMC_Upgrade.sh
-fi
+    # See if we need to Upgrade the eMMC FW
+    if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
+        echo "Upgrade eMMC FW if required" >> $LOG_FILE
+        sh /lib/rdk/eMMC_Upgrade.sh
+    fi
 fi
 
 if [ -f /lib/rdk/aps4_reset.sh ]; then
-       sh /lib/rdk/aps4_reset.sh
+    sh /lib/rdk/aps4_reset.sh
 fi
 
 if [ -f /lib/rdk/update_www-backup.sh ]; then
