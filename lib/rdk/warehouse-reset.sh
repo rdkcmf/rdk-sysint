@@ -10,11 +10,13 @@
 # ============================================================================
 . /etc/device.properties
 
-warehouse_clear_event()
-{
-    echo "Sending warehouse_clear_event"
-    IARM_event_sender WarehouseClearEvent "$1"
-}
+if [ -f /tmp/warehouse_reset_suppress_reboot_clear ]; then
+   #sending CLEAR_STARTED event
+   t=`/usr/bin/WPEFrameworkSecurityUtility`; t=${t%\",*}; t=${t#*:\"}
+   result=$( curl -H "Content-Type: application/json"  -H "Authorization: Bearer $t" -X POST -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.PersistentStore.1.setValue", "params":{"namespace":"FactoryTest", "key":"FTAClearStatus", "value":"CLEAR_STARTED"}}' http://127.0.0.1:9998/jsonrpc )
+   echo "Warehouse_clear set value: $result"
+fi
+
 echo "Warehouse Reset:Clearing Remote Pairing Data"
 # clear pairing data
 if [ -f /usr/bin/ctrlmTestApp ]; then
@@ -204,8 +206,8 @@ if [ "$DEVICE_TYPE" = "mediaclient" ];then
          sh /rebootNow.sh -s WarehouseReset -o "Rebooting the box after hrvinit WareHouse Reset flag check..."
      else
          echo "Warehouse Reset:Suppressing reboot after WH Reset"
-         rm /tmp/.warehouse-reset
-         rm /tmp/warehouse_reset_suppress_reboot
+         rm -f /tmp/.warehouse-reset
+         rm -f /tmp/warehouse_reset_suppress_reboot
         
          /bin/systemctl restart iarmbusd.service
          echo "Warehouse Reset:Restarting the xre receiver"
@@ -223,8 +225,10 @@ if [ "$DEVICE_TYPE" = "mediaclient" ];then
 
              sleep 20
          else
+              #sending CLEAR_COMPLETED event
+              result=$( curl -H "Content-Type: application/json"  -H "Authorization: Bearer $t" -X POST -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.PersistentStore.1.setValue", "params":{"namespace":"FactoryTest", "key":"FTAClearStatus", "value":"CLEAR_COMPLETED"}}' http://127.0.0.1:9998/jsonrpc )
+              echo "Warehouse_clear set value: $result"
               rm -f /tmp/warehouse_reset_suppress_reboot_clear
-              warehouse_clear_event "success"
          fi
          echo "Warehouse Reset:Deleting receiver.conf override"
          rm /opt/receiver.conf
