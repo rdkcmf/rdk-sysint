@@ -148,8 +148,7 @@ getOptOutStatus()
 
 checkXpkiMtlsBasedLogUpload()
 {
-    xpkiMtlsRFC=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UseXPKI.Enable 2>&1 > /dev/null)
-    if [ "x$xpkiMtlsRFC" = "xtrue" ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ] && [ "$MODEL_NUM" != "SX022AN" ]; then
+    if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ] && [ "$MODEL_NUM" != "SX022AN" ]; then
         useXpkiMtlsLogupload="true"
     else
         useXpkiMtlsLogupload="false"
@@ -425,7 +424,9 @@ sendTLSSSRRequest()
                 exit 127
             fi
             ID="/tmp/uydrgopwxyem"
-            GetConfigFile $ID
+            if [ ! -f "$ID" ]; then
+                GetConfigFile $ID
+            fi
             if [ ! -f "$ID" ]; then
                 echo "Error: Getconfig file failed"
             fi
@@ -438,7 +439,9 @@ sendTLSSSRRequest()
                 exit 127
             fi
             ID="/tmp/.cfgStaticxpki"
-            GetConfigFile $ID
+            if [ ! -f "$ID" ]; then
+                GetConfigFile $ID
+            fi
             if [ ! -f "$ID" ]; then
                 echo "Error: Getconfig file failed"
             fi

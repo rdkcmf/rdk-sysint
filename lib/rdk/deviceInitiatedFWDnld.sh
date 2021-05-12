@@ -134,6 +134,12 @@ FILENAME="$PERSISTENT_PATH/response.txt"
 HTTP_CODE="$PERSISTENT_PATH/xconf_curl_httpcode"
 CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
 
+if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+    useXpkiMtlsLogupload="true"
+else
+    useXpkiMtlsLogupload="false"
+fi
+
 if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
     ##File to save pid
     CURL_PID_FILE="/tmp/.curl.pid"
@@ -916,25 +922,34 @@ sendTLSRequest()
         if [ "$mTLS_RPI" == "true" ] ; then
             CURL_CMD="curl -vv --cert-type pem --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem --key /tmp/xconf-file.tmp -w '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout 10 -m 10"
 
-        elif [ "$mTlsXConfDownload" == "true" ]; then
-            if [ -d /etc/ssl/certs ]; then
-                if [ ! -f /usr/bin/GetConfigFile ]; then
-                    echo "Error: GetConfigFile Not Found"
-                    exit 127
-                fi
-                ID="/tmp/uydrgopwxyem"
-                GetConfigFile $ID
-            fi
-            CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
         else
-            CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+            if [ $useXpkiMtlsLogupload == "true" ]; then
+                CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"    
+            else    
+                if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
+                    if [ ! -f /usr/bin/GetConfigFile ]; then
+                        echo "Error: GetConfigFile Not Found"
+                        exit 127
+                    fi
+                    ID="/tmp/.cfgStaticxpki"
+                    if [ ! -f "$ID" ]; then
+                        GetConfigFile $ID
+                    fi
+                    if [ ! -f "$ID" ]; then
+                        echo "Error: Getconfig file failed"
+                    fi
+                    CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+                else
+                    CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+                fi
+            fi
         fi
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
         if [ "$BUILD_TYPE" != "prod" ]; then
-           echo CURL_CMD: $CURL_CMD
+           echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
         else 
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
@@ -952,7 +967,9 @@ sendTLSRequest()
                     exit 127
                 fi
                 ID="/tmp/uydrgopwxyem"
-                GetConfigFile $ID
+                if [ ! -f "$ID" ]; then
+                    GetConfigFile $ID
+                fi
             fi
             if [ "$DEVICE_TYPE" == "mediaclient" ]; then
                if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" != "true" ]; then
@@ -993,9 +1010,9 @@ sendTLSRequest()
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
-        echo CURL_CMD: $CURL_CMD
+        echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
         if [ "$BUILD_TYPE" != "prod" ]; then
-           echo CURL_CMD: $CURL_CMD
+           echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
         else
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi

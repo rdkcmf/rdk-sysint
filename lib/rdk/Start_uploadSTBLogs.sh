@@ -56,8 +56,8 @@ tftp_server=$LOG_SERVER # from dcm.properties
 #---------------------------------------------------------------------------------------------
 checkXpkiMtlsBasedLogUpload()
 {
-    xpkiMtlsRFC=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UseXPKI.Enable 2>&1 > /dev/null)
-    if [ "x$xpkiMtlsRFC" = "xtrue" ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+    
+    if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
         useXpkiMtlsLogupload="true"
     else
         useXpkiMtlsLogupload="false"

@@ -109,6 +109,13 @@ CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_cdl_thunder"
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
+
+if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+    useXpkiMtlsLogupload="true"
+else
+    useXpkiMtlsLogupload="false"
+fi
+
 if [ -z $LOG_PATH ]; then
     LOG_PATH="/opt/logs/"
 fi
@@ -299,7 +306,7 @@ sendTLSCodebigRequest()
             sh /lib/rdk/logMilestone.sh "CONNECT_TO_XCONF_CDL"
         fi
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
-           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 10"
+           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 10"      
         else
            CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 10"
         fi
@@ -339,25 +346,34 @@ sendTLSRequest()
         if [ "$mTLS_RPI" == "true" ] ; then
             CURL_CMD="curl -vv --cert-type pem --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem --key /tmp/xconf-file.tmp -w '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout 10 -m 10"
 
-        elif [ "$mTlsXConfDownload" == "true" ]; then
-            if [ -d /etc/ssl/certs ]; then
-                if [ ! -f /usr/bin/GetConfigFile ]; then
-                    echo "Error: GetConfigFile Not Found"
-                    exit 127
-                fi
-                ID="/tmp/uydrgopwxyem"
-                GetConfigFile $ID
-            fi
-            CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
         else
-            CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+            if [ $useXpkiMtlsLogupload == "true" ]; then
+                CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+            else    
+                if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
+                    if [ ! -f /usr/bin/GetConfigFile ]; then
+                        echo "Error: GetConfigFile Not Found"
+                        exit 127
+                    fi
+                    ID="/tmp/.cfgStaticxpki"
+                    if [ ! -f "$ID" ]; then
+                        GetConfigFile $ID
+                    fi
+                    if [ ! -f "$ID" ]; then
+                        echo "Error: Getconfig file failed"
+                    fi
+                    CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+                else
+                    CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+                fi
+            fi
         fi
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
         if [ "$BUILD_TYPE" != "prod" ]; then
-           echo CURL_CMD: $CURL_CMD
+           echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.* /devicecert_1.pk12<hidden key>/' | sed 's/staticXpkiCr.* /staticXpkiCrt.pk12<hidden key>/'`
         else 
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
