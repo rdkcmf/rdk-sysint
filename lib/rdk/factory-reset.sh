@@ -124,6 +124,7 @@ if [ -f /opt/gzdisabled ];then rm -rf /opt/gzdisabled ; fi
 if [ -f /opt/enable_delia_dual ];then rm -rf /opt/enable_delia_dual ; fi
 if [ -f /opt/hddEnable ];then rm -rf /opt/hddEnable ; fi
 if [ -d /opt/wifi ]; then rm -rf /opt/wifi/*;fi
+if [ -d /opt/secure/wifi ]; then rm -rf /opt/secure/wifi/*;fi
 if [ -f /opt/DCMscript.out ]; then rm -f /opt/DCMscript.out;fi
 if [ -d /opt/QT ]; then rm -rf /opt/QT/*;fi
 if [ -f /opt/comcast-acs ]; then rm -f /opt/comcast-acs;fi
