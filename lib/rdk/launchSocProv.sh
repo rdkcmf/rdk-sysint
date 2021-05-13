@@ -21,7 +21,9 @@ else
   RT_PROTOCOL_VERSION="1"
 fi
 
-DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
+# DELIA-50370 (temporary fix)
+DISABLE_RTV2="true"
+#DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
 
 if [ $DISABLE_RTV2 = "true" ]; then
   RT_PROTOCOL_VERSION="1"
