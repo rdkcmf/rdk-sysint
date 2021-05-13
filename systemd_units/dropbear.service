@@ -1,0 +1,28 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=SSH Per-Connection Server
+After=network-online.target
+
+[Service]
+Type=forking
+EnvironmentFile=-/etc/default/dropbear
+EnvironmentFile=/etc/device.properties
+ExecStartPre=/lib/rdk/startSSH.sh
+ExecStartPre=/bin/systemctl import-environment IP_ADDRESS
+ExecStartPre=/bin/systemctl import-environment DROPBEAR_PARAMS_1
+ExecStartPre=/bin/systemctl import-environment DROPBEAR_PARAMS_2
+ExecStart=/usr/sbin/dropbear -s -b /etc/sshbanner.txt -s -a -r ${DROPBEAR_PARAMS_1} -r ${DROPBEAR_PARAMS_2} -p ${IP_ADDRESS}:22
+ExecStartPost=/bin/sh -c "rm -rf /tmp/.dropbear"
+RestartSec=5s
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

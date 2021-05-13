@@ -1,0 +1,23 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=Dump Backup Service
+Wants=moca.service 
+After=securemount.service nvram.service tr69hostif.service local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/dump-backup-service start
+ExecReload=/etc/dump-backup-service restart
+ExecStop=/etc/dump-backup-service stop
+
+[Install]
+WantedBy=multi-user.target

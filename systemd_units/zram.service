@@ -1,0 +1,22 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2017 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=zram initialization service
+
+After=local-fs.target nvram.service previous-log-backup.service network-online.target dcm-log.service systemd-timesyncd.service tr69hostif.service
+Requires=network-online.target tr69hostif.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c '/lib/rdk/init-zram.sh &'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+#!/bin/sh
+DEVICE=/dev/mmcblk0
+function partition_sdcard() {
+	echo "partition_sdcard: Creating single SD card partition ..."
+	sgdisk -Z ${DEVICE} || true
+	echo n  > /tmp/fdisk.input
+	echo p >> /tmp/fdisk.input
+	echo 1 >> /tmp/fdisk.input
+	echo   >> /tmp/fdisk.input
+	echo   >> /tmp/fdisk.input
+	echo w >> /tmp/fdisk.input
+	fdisk -u ${DEVICE} < /tmp/fdisk.input
+	rm -f /tmp/fdisk.input
+	# this shouldn't be tried. This will always be unreliable 
+	# way of trying to get the disk to appear
+	# partprobe can be called to get the disk, but some kernel versions
+	# might still not have the device populated. Waiting till next reboot is
+	# only sane choice here.
+	#wait=1
+	#while [ $wait -eq 1 ] ; do
+	#	echo "partition_sdcard: Waiting for device node to appear ..."
+	#	sleep 1
+	#	if [ -e ${DEVICE}p1 ] ; then wait=0 ; fi
+	#done
+	echo "partition_sdcard: ... done"
+}
+if [ ! -e ${DEVICE} ] ; then
+	echo "prepare_sdcard: No SD card found at ${DEVICE}"
+	ls -l /dev/mm*
+	exit 1
+fi
+if [ ! -e ${DEVICE}p1 ] ; then
+	echo "prepare_sdcard: Repartition because ${DEVICE}p1 not found"
+	partition_sdcard
+else
+	echo "prepare_sdcard: Partitioned OK - no action needed"
+fi

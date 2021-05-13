@@ -1,0 +1,135 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:       setupfolders 
+# Should-Start: 
+# Required-Start: dns-service 
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="APPLICATION FOLDER SETUP"    # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                         # pid file name
+INIT_SCRIPT_LOGFILE="system.log"               # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+
+. /etc/device.properties
+if [ -f /lib/rdk/getSecureDumpStatus.sh ]; then
+. /lib/rdk/getSecureDumpStatus.sh
+fi
+
+start_function () {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    cd $INIT_SCRIPT_HOMEDIR
+    mkdir -p $LOG_PATH
+    mkdir -p $LOG_PATH/PreviousLogs
+    mkdir -p $LOG_PATH/PreviousLogs_backup/
+    if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+         mkdir -p /opt/data/OCAP_MSV/0/0/DEFAULT_RECORDING_VOLUME/dvr/chunks/
+         mkdir -p $PERSISTENT_PATH/ocap/storage
+         if [ ! -d /opt/dhcpv6 ]; then
+              if [ -d /var/lib/dhcpv6 ]; then
+                   mv /var/lib/dhcpv6 /opt/
+              fi
+         fi
+         rm -rf /var/lib/dhcpv6
+         ln -s /opt/dhcpv6 /var/lib/dhcpv6
+    fi
+    # Required for log-rotate
+    mkdir -p /var/lib/
+    # changes to generate coredump in gz format
+    mkdir -p $CORE_PATH
+    mkdir -p $CORE_BACK_PATH
+    mkdir -p $MINIDUMPS_PATH 
+    mkdir -p $PERSISTENT_PATH/.adobe 
+    mkdir -p $PERSISTENT_PATH/.macromedia 
+    if [ "$SOC" = "BRCM" ];then
+        mkdir -p $PERSISTENT_PATH/persistent/hn
+        mkdir -p /tmp/spool 
+        touch /tmp/estbconfigsettings.bin
+        # BCOM-347 : Set min_free_kbytes to 8kB - for page allocation failures
+        echo 8192 > /proc/sys/vm/min_free_kbytes
+    fi
+    echo "Creating directories for /var links"
+    mkdir -p /tmp/log
+    mkdir -p /tmp/run
+    if [ -d /tmp/opt/ ]; then
+        mkdir -p /tmp/opt/logs
+    fi
+    mkdir -p $PERSISTENT_PATH/persistent
+    if [ "$APP_PERSISTENT_PATH" = "/opt/persistent" ]; then
+          if [ -d /tmp/mnt/diska3 ]; then             
+               if [ -d /tmp/mnt/diska3/persistent ];then
+                   rm -rf /tmp/mnt/diska3/persistent
+               fi
+               ln -s $PERSISTENT_PATH/persistent /tmp/mnt/diska3/persistent
+          fi                              
+    else                                  
+          mkdir -p $APP_PERSISTENT_PATH/persistent/usr/1112/703e/
+    fi
+    mkdir -p /dev/shm
+    # Clean up
+    if [ -f $LOG_PATH/.cdl.txt ]; then
+        rm $LOG_PATH/.cdl.txt
+    fi
+    rm -rf /opt/QT/cacheComcast/
+    rm -rf /opt/logs/PreviousLogs_backup/*
+    # Temporary fix
+    if [ -f /etc/common.properties ]; then
+        cp /etc/common.properties /tmp/
+    fi
+    if [ -f /mnt/nfs/bin/target-snmp/bin/snmpd.conf ]; then
+        cp /mnt/nfs/bin/target-snmp/bin/snmpd.conf /tmp/
+    fi
+    touch /opt/gzenabled
+    echo 1 > /opt/gzenabled
+    if [ -f /opt/gzdisabled ] && [ "$BUILD_TYPE" != "prod" ]; then
+              echo 0 > /opt/gzenabled
+    fi
+    post_start 0
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac

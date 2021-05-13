@@ -1,0 +1,26 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=Previous Log Backup Service
+
+Before=multi-user.target
+After=nvram.service 
+
+[Service]
+Type=notify
+NotifyAccess=all
+Environment="LOG_PATH=/opt/logs"
+Environment="RDK_PATH=/lib/rdk"
+ExecStart=/lib/rdk/backupLogs.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=local-fs.target
+

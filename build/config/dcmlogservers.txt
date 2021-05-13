@@ -1,0 +1,4 @@
+DEV|10.253.97.249
+VBN|stblogger.ccp.xcal.tv
+PROD|stblogger.ccp.xcal.tv
+GSLB|stblogger.ccp.xcal.tv

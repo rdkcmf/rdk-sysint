@@ -1,0 +1,4 @@
+DEV|10.253.97.249
+VBN|stbscp.ccp.xcal.tv
+PROD|stbscp.ccp.xcal.tv
+GSLB|stbscp.ccp.xcal.tv

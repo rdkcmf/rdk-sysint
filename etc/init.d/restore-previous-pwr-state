@@ -1,0 +1,85 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:     restore-previous-pwr-state
+# Should-Start: 
+# Required-Start:   monitoring-services 
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="RESTORE PREVIOUR POWER STATE"    # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                          # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                             # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                            # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                             # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"             # log file name 
+INIT_SLEEPTIME=""                                  # how long to wait for startup and shutdown
+
+flag=`cat /mnt/nfs/env/mpeenv.ini | grep "SAVE_POWERSTATE_ON_REBOOT" | cut -d "=" -f2`
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib:/usr/lib:/usr/local/lib
+ 
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    # Script to restore the power state before reboot 
+    # Please refer to PARKER-4473 for details
+    # first check if the config flag is set
+    #restore the power state if flag is TRUE; do nothing otherwise
+    if [ $flag == "TRUE" ]; then
+        # check if the file existis
+        if [ -f $PERSISTENT_PATH/lastPowerState ] ; then
+              str=`cat $PERSISTENT_PATH/lastPowerState`
+              echo "Last power state of the box: $str"
+              if [ -f /SetPowerState ]; then
+                   /SetPowerState $str
+              else
+                   "Missing the binary /SetPowerState..!"
+              fi
+              rm -rf $PERSISTENT_PATH/lastPowerState
+        fi
+    fi
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

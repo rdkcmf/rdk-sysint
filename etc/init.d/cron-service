@@ -1,0 +1,107 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: cron-service
+# Should-Start: 
+# Required-Start: setupfolders
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="CRON-SERVICE-STARTUP"        # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE="/var/run/cron.pid"        # pid file name
+INIT_SCRIPT_LOGFILE="system.log"               # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+
+export PATH=$PATH:/usr/sbin:/sbin
+CRON_SPOOL="/var/spool/cron"
+CRON_FIFO_FILE="/etc/cron.d/FIFO"
+CRON_LOG_FILE="${LOG_PATH}/cron.log"
+#TODO CRON_LOG_FILE="/dev/null"
+
+. /etc/env_setup.sh
+
+is_running () {
+  # Test whether process is running or not
+  ps | grep crond | grep -v grep >/dev/null 2>&1 || return 1
+  # Is running
+  return 0
+}
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    # Add device-specific cron jobs
+    if [ -h /var/spool/cron ]; then
+         rm -rf /var/spool/cron
+    fi
+    if [ -d /var/spool/cron ]; then
+         rm -rf /var/spool/cron/*
+    else
+         mkdir -p /var/spool/cron
+    fi
+
+    ret=`crond -b -L /dev/null -c ${CRON_SPOOL}`
+    #sleep $INIT_SLEEPTIME
+    if ! is_running; then
+         echo "Cron Daemon died immediately after starting. Please check your logs and configurations."
+         crond -b -L /dev/null -c ${CRON_SPOOL}
+         ret=1
+    else
+         ret=0
+    fi
+    if [ -f $RDK_PATH/add_cron_jobs.sh ]; then
+         $RDK_PATH/add_cron_jobs.sh &
+    else
+         echo "Missing the script $RDK_PATH/add_cron_jobs.sh..!"
+    fi
+    post_start $ret
+}
+
+stop_function() {
+    pre_stop
+    rm -f ${CRON_FIFO_FILE}
+    # kill any existing crond services
+    ret=`killall crond`
+    post_stop $ret
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart|reload|force-reload)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

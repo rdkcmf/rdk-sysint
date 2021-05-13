@@ -1,0 +1,237 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+########################################################################
+#
+# Description : Main Run Level Control Script
+#
+########################################################################
+
+# setup system properties
+if [ -f /etc/system_setup.sh ]; then
+     sh /etc/system_setup.sh
+fi
+
+if [ -f /etc/profile ]; then
+     . /etc/profile
+else
+     "Missing the profile file..!"
+fi
+
+CONCURRENCY=startpar
+#CONCURRENCY=none
+
+export BUILD_TIME=
+startpar_bin=/bin/startpar
+
+if [ $CONCURRENCY = startpar ] && [ -f ${startpar_bin} ] && [ "$2" != "none" ]; then
+        ${startpar_bin} -p 4 -t 20 -T 3 -P 0 -R 3 -M start &
+    echo "Init with startpar done"
+    exit 0
+else
+    echo "Init in the serial mode"
+fi
+
+duration_of_each_attempt=5 # for interactive mode: check status every N sec
+maximum_waiting_time=120    # for interactive mode: max waiting time
+
+log_dir="/var/log"
+if [ ! -e ${log_dir} ]; then
+    log_dir="does_not_exists"
+else
+    if [ -h ${log_dir} ]; then
+        log_dir=readlink ${log_dir}
+        
+        if [ ! -e ${log_dir} ]; then
+            log_dir="does_not_exists"
+        fi
+    fi
+fi
+
+if [ ${log_dir} != "does_not_exists" ]; then
+    boot_log_path="${log_dir}/bootlog"
+else
+    boot_log_path="&2"
+fi
+
+rez_file="/tmp/finish_with_retcode"
+
+export PATH=$PATH:/lib/rdk/:/init
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+export wrapper=`dirname $0`"/rc.interactive"
+mkdir -p /tmp/log
+
+
+check_script_status()
+{
+   # $i is set when called
+   if [ ! -f ${i} ]; then
+      echo "${i} is not a valid symlink." | tee -a $boot_log_path
+      continue
+   fi
+
+   if [ ! -x ${i} ]; then
+      echo "${i} is not executable, skipping." | tee -a $boot_log_path
+      continue
+   fi
+}
+
+run()
+{
+   if [ -z $interactive ]; then
+      ${1} ${2}
+      return 0
+   fi
+   
+   link_target=`readlink ${1}`
+   short_name=`basename ${link_target}`
+
+   while true; do
+      echo "------------------------------------------------------"
+      echo "What should be done with ${short_name}? Please select:"
+      echo "Press Enter - ${2} it, show log and go to the next script"
+      echo "r [and press Enter] - ${2} it and repeat the question (does not move to the next)"
+      echo "l [and press Enter] - show log ${log_dir}/${short_name}.log"
+      echo "e [and press Enter] - edit script (with vi editor)"
+      echo "g [and press Enter] - go to the next script"
+      echo "x [and press Enter] - exit (terminate the initialization process)"
+      echo "s [and press Enter] - switch to a non-interactive mode; skip this script and run all following"
+      echo "------------------------------------------------------"
+
+      action="error"
+      read runit
+      if [ $? -eq 0 ]; then 
+          action=`expr substr "${runit}" 1 1`
+          if [ "x$action" = x ]; then
+              action="run_and_go"
+          fi
+      fi
+
+      case ${action} in
+         x | X)
+            return 1
+            ;;
+         s | S)
+            interactive=""
+            return 0
+            ;;
+
+         g | G)
+            return 0
+            ;;
+
+         r | R | run_and_go )
+             timer=0
+             rm -f $rez_file
+             echo -n "try to ${2} ${1}."
+
+             ${wrapper} ${1} ${2} ${rez_file} &
+             while [ $timer -le $maximum_waiting_time ]; do
+                 sleep $duration_of_each_attempt
+                 if [ -f ${rez_file} ]; then
+                     exec 3<&0            # save current stdin
+                     exec 0<"${rez_file}" # and change it to read from file.
+                     read retcode 
+                     exec 0<&3            # restore previous stdin.
+                     echo "INFO: ${2} ${1} with retcode=${retcode}" | tee -a $boot_log_path
+                     break;
+                 else
+                     timer=`expr $timer + $duration_of_each_attempt`
+                     echo -n "." 
+                 fi
+             done
+             echo 
+             if [ ! -f ${rez_file} ]; then
+                 echo "${1}: Exceeded the maximum waiting time (${maximum_waiting_time} sec). Send kill signal."
+                 killall -q ${1}
+             fi
+            
+             if [ $action = run_and_go ]; then
+                 if [ -f "${log_dir}/${short_name}.log" ]; then
+                    echo "=== begin of ${log_dir}/${short_name}.log ==="
+                    cat "${log_dir}/${short_name}.log"
+                    echo "=== end of ${log_dir}/${short_name}.log ==="
+                 else
+                     echo "${log_dir}/${short_name}.log does not exist." | tee -a $boot_log_path
+                 fi
+                 return 0
+             fi
+             ;;
+            
+         l | L)
+            if [ -f "${log_dir}/${short_name}.log" ]; then
+                echo "=== begin of ${log_dir}/${short_name}.log ==="
+                cat "${log_dir}/${short_name}.log"
+                echo "=== end of ${log_dir}/${short_name}.log ==="
+            else
+                echo "${log_dir}/${short_name}.log does not exist." | tee -a $boot_log_path
+            fi
+            ;;
+            
+         e | E)
+            vi ${1}
+            ;;    
+         error )
+            echo "**** ERROR: I/O error!"
+            ${1} ${2}
+            return 0
+            ;;
+         *)
+            echo "**** ERROR: wrong command!"
+            ;;
+      esac
+   done
+
+}
+
+# These 3 signals will not cause our script to exit
+trap "" INT QUIT TSTP
+
+# Setup a 'sane' umask for subprocesses which create files
+umask 0022
+
+[ "${1}" != "" ] && runlevel=${1}
+
+if [ "${runlevel}" == "" ]; then
+   echo "Usage: ${0} <runlevel>" >&2
+   exit 1
+fi
+
+if [ ! -d /etc/rc${runlevel}.d ]; then
+   echo "/etc/rc${runlevel}.d does not exist." >&2 
+   exit 1
+fi
+ 
+[ -f /step-by-step ] && interactive="i"
+[ "${interactive}" != "i" ] && interactive=""
+
+# Start all functions in this runlevel
+for i in $( ls -v /etc/rc${runlevel}.d/S* 2> /dev/null)
+do
+   check_script_status
+
+   case ${runlevel} in
+      0|6)
+         run ${i} stop
+         if [ "$?" -ne 0 ]; then
+             exit 0
+         fi
+         ;;
+      *)
+         run ${i} start
+         if [ "$?" -ne 0 ]; then
+             exit 0
+         fi
+         ;;
+   esac
+done
+
+# End rc.start

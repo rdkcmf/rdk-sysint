@@ -1,0 +1,21 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=NTP Time Checker
+After=systemd-timesyncd.service
+Requires=systemd-timesyncd.service
+
+[Service]
+Type=forking
+ExecStart=/bin/sh -c "/lib/rdk/ntp-time-checker.sh &"
+
+
+[Install]
+WantedBy=multi-user.target

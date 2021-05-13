@@ -1,0 +1,5 @@
+DEV|ccpapp-dt-v001-i.dt.ccp.cable.comcast.com:10001|10.253.97.214|proxy.dt.ccp.cable.comcast.com:3128
+VBN|xre.ccp.xcal.tv:10001|logs.xcal.tv|pxy.ccp.xcal.tv:3128 
+PROD|xre.ccp.xcal.tv:10001|logs.xcal.tv|pxy.ccp.xcal.tv:3128
+GSLB|xre.ccp.xcal.tv:10001|logs.xcal.tv|pxy.ccp.xcal.tv:3128
+

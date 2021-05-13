@@ -1,0 +1,121 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:     monitoring-services
+# Should-Start:  disk-eventmgr-service
+# Required-Start: 
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="SERVICES-FOR-ANALYSIS"           # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                          # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                             # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                            # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                             # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"             # log file name 
+INIT_SLEEPTIME=""                                  # how long to wait for startup and shutdown
+ 
+. /etc/device.properties
+. /etc/env_setup.sh
+
+TOPLOG="$LOG_PATH/top_log.txt"
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     TOPLOG_PIPE="$TEMP_LOG_PATH/pipe_top_log"
+     count1=`find $TEMP_LOG_PATH -name pipe_top_log -type f`
+     if [ "$count1" != "" ]; then
+          cat $TOPLOG_PIPE >> $TOPLOG
+          echo "$TOPLOG_PIPE is not a pipe" >> $LOG_PATH/lightsleep.log
+          rm -rf $TOPLOG_PIPE
+     fi
+     mkfifo $TOPLOG_PIPE &> /dev/null
+     # Checking the logging pipe before startup
+     value=`ps | grep $TOPLOG_PIPE | grep -v grep`
+     if [ "$value" = "" ]; then
+         cat $TOPLOG_PIPE >> $TOPLOG &
+     fi
+else
+     TOPLOG_PIPE=$TOPLOG
+fi
+
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>" 
+    if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+        # Log the card entitlement data
+        if [ -f $RDK_PATH/cardEntitlementRequest.sh ]; then
+          nice -n 19 sh $RDK_PATH/cardEntitlementRequest.sh &
+        fi
+
+        # Log the rf statistics data
+        if [ -f $RDK_PATH/rfStatisticsCheck.sh ]; then
+          nice -n 19 sh $RDK_PATH/rfStatisticsCheck.sh &
+        fi
+
+    fi
+	
+    if [ -f $PERSISTENT_PATH/TDK/StartTDK.sh ]; then
+	     chmod -R 777 $PERSISTENT_PATH/TDK/ 	
+             sh $PERSISTENT_PATH/TDK/StartTDK.sh &
+    fi
+	
+    if [ "$BUILD_TYPE" = "dev" ]; then
+          [ -e $RDK_PATH/vlthd.sh ] && sh $RDK_PATH/vlthd.sh 600 &
+    fi
+    if [ -f $RDK_PATH/processMonitor.sh ]; then
+         nice -n 19 sh $RDK_PATH/processMonitor.sh &
+    fi
+
+    if [ -f $RDK_PATH/vitalProcessInfo.sh ]; then
+        nice -n 19 sh $RDK_PATH/vitalProcessInfo.sh 600 > $TOPLOG_PIPE &
+    fi
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    sh /lib/rdk/processPID.sh /lib/rdk/cardEntitlementRequest.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /lib/rdk/rfStatisticsCheck.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /lib/rdk/processMonitor.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /lib/rdk/vitalProcessInfo.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /var/logs/pipe_top_log | xargs kill -9
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

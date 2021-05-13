@@ -1,0 +1,112 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          card-provision-check
+# Should-Start:      ip-gateway-service 
+# Required-Start:    ethernet-vpop-killswitch-update
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="CARD-PROVISION-CHECK"        # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                         # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"         # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+
+. /etc/device.properties
+
+status=0
+
+executeScript()
+{
+   runScript=$1
+   if [ -f $runScript ]; then
+        sh $runScript
+   else
+        echo "Missing $runScript cleanup script..!"
+        status=1
+   fi
+}
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    if [ "$WHITEBOX_ENABLED" == "true" ]; then
+         . /etc/wbdevice.conf
+    else
+         wbpath=/opt/www/whitebox 
+    fi
+    . /etc/authService.conf
+    
+    if [ -f $aspath/deviceid.dat ] || [ -f $wbpath/wbdevice.dat ] ; then
+         echo "Device is provisioned, leave si cache alone"
+    else
+         echo "Device is not provisioned, safe to clear si cache"
+         echo "Cleanup the SI cache"
+         if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+              if [ -d /HrvInitScripts ]; then
+                   executeScript /HrvInitScripts/clear_xre_contents.sh
+                   executeScript /HrvInitScripts/clear_persistent_generic_feature_params.sh
+                   executeScript /HrvInitScripts/clear_persistent_dvb_storage.sh
+                   executeScript /HrvInitScripts/clear_cached_unbound_ocap_apps.sh
+                   executeScript /HrvInitScripts/clear_registered_libraries.sh
+                   executeScript /HrvInitScripts/clear_persistent_host_memory.sh
+                   executeScript /HrvInitScripts/clear_security_element_values_passed.sh
+              else
+                  echo "Missing the HRV Inits scripts folder..!"
+                  status=2
+              fi
+         else
+              if [ -f $RDK_PATH/warehouse_reset.sh ]; then
+                   sh $RDK_PATH/warehouse_reset.sh
+              else
+                   echo "Missing $RDK_PATH/warehouse_reset.sh cleanup script..!"
+                  status=3
+              fi
+         fi
+    fi
+    post_start $status
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac

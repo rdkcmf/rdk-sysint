@@ -1,0 +1,28 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+. /etc/include.properties
+
+MODULE_NAME=$1
+echo $MODULE_NAME
+
+loop=1
+while [ $loop -eq 1 ]
+do
+    if [ -f $RAMDISK_PATH/.IarmBusMngrFlag ]; then
+          loop=0
+          echo "IARM is up, ready to start $MODULE_NAME"
+          #rm -rf $RAMDISK_PATH/.IarmBusMngrFlag
+    else
+         sleep 1
+         echo "$MODULE_NAME waiting for IARM manager binaries..!"
+    fi
+done
+exit 0

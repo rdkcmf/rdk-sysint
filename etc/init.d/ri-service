@@ -1,0 +1,129 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: ri-service
+# Should-Start: 
+# Required-Start:   xre-service 
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="RI-STARTUP"                    # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                        # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                           # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                          # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                           # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"           # log file name 
+INIT_SLEEPTIME=""                                # how long to wait for startup and shutdown
+ 
+. /etc/device.properties
+. /etc/env_setup.sh
+
+RILOG="$LOG_PATH/ocapri_log.txt"
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     RILOG_PIPE="$TEMP_LOG_PATH/pipe_ocapri_log"
+     count1=`find $TEMP_LOG_PATH -name pipe_ocapri_log -type f`
+     if [ "$count1" != "" ]; then
+          cat $RILOG_PIPE >> $RILOG
+          echo "$RILOG_PIPE is not a pipe" >> $LOG_PATH/lightsleep.log
+          rm -rf $RILOG_PIPE
+     fi
+     mkfifo $RILOG_PIPE &> /dev/null
+     # Checking the logging pipe before startup
+     value=`ps | grep $RILOG_PIPE | grep -v grep`
+     if [ "$value" = "" ]; then
+         cat $RILOG_PIPE >> $RILOG &
+    fi
+else
+     RILOG_PIPE=$RILOG
+fi
+DISKINFO="$LOG_PATH/diskInfo.txt"
+
+export PATH=$PATH:/usr/bin:/bin:/usr/local/bin:/sbin:/usr/local/lighttpd/sbin:/usr/local/sbin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib:/mnt/nfs/bin/target-snmp/lib
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    if [ -f /lib/rdk/ri-recovery-mechanism.sh ]; then
+        sh /lib/rdk/ri-recovery-mechanism.sh &
+    fi
+    touch /tmp/ri-recovery-flag1
+    proxyPath=`cat /mnt/nfs/env/final.properties | grep OCAP.persistent.root | cut -d "=" -f2`
+    echo "--------- proxy path= $proxyPath"
+    if [ -f $proxyPath/usr/1112/703e/proxy-is-up ]; then
+         rm -rf $proxyPath/usr/1112/703e/proxy-is-up
+    fi
+    if [ -f $RAMDISK_PATH/stt_received ]; then
+         rm -rf $RAMDISK_PATH/stt_received
+    fi
+
+    if [ -f /tmp/mnt/diska3/diskLogs/disk_log.txt ]; then
+        cat /tmp/mnt/diska3/diskLogs/disk_log.txt >> $DISKINFO
+    fi
+    # Disk Information
+    if [ -d /opt/data ]; then
+         echo `/bin/timestamp` ========== DISK USAGE ======== >> $DISKINFO
+         du -h /opt/data | /dump >> $DISKINFO
+         echo `/bin/timestamp` ========== ====== ======== >> $DISKINFO
+    fi
+    if [ "$IARM_DEPENDENCY_ENABLE" = "true" ]; then 
+          # Call the ri using dependency starter
+          sh /lib/rdk/module-starter "RI" "$RILOG_PIPE" runRI &
+    else
+          /bin/sh $RDK_PATH/runRI >> $RILOG_PIPE &
+    fi
+    if [ -f $PERSISTENT_PATH/.ri ]; then
+         rm -rf $PERSISTENT_PATH/.ri
+    fi
+    echo "0" > /opt/.mpeos-main
+    # mpeos-main monitor
+    sh $RDK_PATH/monitor.sh & 
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    killall mpeos-main
+    sh /lib/rdk/processPID.sh /lib/rdk/runri.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /lib/rdk/runRI | xargs kill -9
+    sh /lib/rdk/processPID.sh /var/logs/pipe_oacpri_log | xargs kill -9
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

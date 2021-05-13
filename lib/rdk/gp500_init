@@ -1,0 +1,287 @@
+#!/bin/sh
+#
+# gp500_init: Startup script for Greenpeak GP500 drivers on X1.
+#
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2017 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+SCRIPTNAME=`basename $0` 
+
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin
+
+. /etc/init.d/init_utilities
+. /lib/rdk/init-functions
+. /etc/env_setup.sh
+
+process=`pidof IARMDaemonMain`
+while [ ! "$process" ]
+do
+   sleep 1
+   process=`pidof IARMDaemonMain`
+done
+
+# List of GP500 kernel modules that need installing via insmod -s
+GP500_KERNEL_MODULES="
+intelce3100_spi
+intelce3100_io
+gp500
+hardwareinfo
+"
+
+GP500_CHAR_DEV="gp500"
+
+MAX_WAIT_SECONDS=15
+
+export GP_LOG_FILE=/opt/logs/gp_init.log
+
+# Return timestamp in log file format
+Timestamp()
+{
+        date +"%Y-%m-%d %T"
+ }
+
+#
+# Set this variable to 1 to enable debug by way of the DEBUG function below.
+#
+#_DEBUG=0
+_DEBUG=1
+
+#
+# "DEBUG" echoes a line of debug information to a log file if _DEBUG equals 1.
+#
+DEBUG()
+{
+   # Save the current exit status and return it afterwards. This is to stop the
+   # "${_DEBUG} -eq 1" test from propagating a false error if debug isn't enabled.
+   local SAVE_EXIT_STATUS=$?
+
+   [ ${_DEBUG} -eq 1 ] && ( echo $@ >>/var/run/${SCRIPTNAME}_debug )
+
+   return $SAVE_EXIT_STATUS
+}
+
+#
+# "wait_exec" waits for AppMSOTarget to start. Returns 1 if started, 0 if not.
+#
+wait_exec()
+{
+   local fn_name=wait_exec
+   local wait_count=1
+   local app_has_started=0
+
+   while true ;
+   do
+      # Check that AppMSOTarget has started
+      APP_PID="`ps | grep '[/]usr/bin/AppMSOTarget' | cut -d' ' -f 2`"
+      DEBUG "${fn_name}: wait_count=${wait_count} APP_PID=${APP_PID}"
+
+      if [ ! -z "$APP_PID" ] ;
+      then
+         # AppMSOTarget has started
+         app_has_started=1
+         echo `Timestamp` "AppMSOTarget has started" | tee -a $GP_LOG_FILE
+         DEBUG "${fn_name}: AppMSOTarget has started"
+         break
+      fi
+
+      sleep 1
+      wait_count=$((wait_count+1))
+
+      # Avoid infinite loop just in case something goes wrong
+      if [ ${wait_count} -ge ${MAX_WAIT_SECONDS} ] ;
+      then
+         DEBUG "${fn_name}: ERROR: Maximum wait count of ${MAX_WAIT_SECONDS} reached!"
+         break
+      fi
+   done
+
+   return ${app_has_started}
+}
+
+#
+# "do_exec" executes AppMSOTarget.
+#
+do_exec()
+{
+   touch "/var/run/gp500_exec_running"
+
+ while [ -f "/var/run/gp500_exec_running" ] ;
+  do 
+     # Run the RF4CE application
+     if [ -x "/usr/bin/AppMSOTarget" ] ;
+     then
+        killall AppMSOTarget	# kill  AppMSOTarget if gp500_pty is alone not running
+        echo "AppMSOTarget not running - starting!"
+	# Make back up log files
+	   log_count=1
+	   while [ $log_count -ge 1 ] 
+	     do 
+	       if [ -f /opt/logs/greenpeak.log.$log_count ]
+		then
+		  log_count=`expr $log_count + 1`
+		else 
+#          		if [ ! -f /opt/.disableLS ]
+##          		then
+#            			cat /var/logs/gp.log >> /opt/logs/gp.log
+#            			rm /var/logs/gp.log
+#			fi
+                  if [ -s /opt/logs/gp.log ]; then 
+		       mv /opt/logs/gp.log /opt/logs/greenpeak.log.$log_count
+                  fi
+		  log_count=0
+	       fi
+	    done 
+	   # Run the RF4CE application
+	    /usr/bin/gp500_pty /usr/bin/AppMSOTarget | tee -a /var/logs/gp.log 
+
+     else
+        echo "AppMSOTarget gone - leaving!"
+        return 0
+     fi
+     sleep 5
+  done
+
+}
+
+#
+# "monitor_exec" monitors the execution of AppMSOTarget and automatically restarts it
+# if it terminates. AppMSOTarget will usually terminate if it asserts due to an
+# unrecoverable error. This should seldom occur but we need to look for it nevertheless.
+#
+monitor_exec()
+{
+   local fn_name=monitor_exec
+
+   while true ;
+   do
+      # Check that AppMSOTarget is still running
+      APP_PID="`ps | grep '[/]usr/bin/AppMSOTarget' | cut -d' ' -f 2`"
+      DEBUG "${fn_name}: APP_PID=${APP_PID}"
+
+      if [ -z "$APP_PID" ] ;
+      then
+         # AppMSOTarget isn't running any more, so restart it
+         DEBUG "${fn_name}: AppMSOTarget is not running any more, restarting it"
+         echo `Timestamp` "AppMSOTarget is not running any more, restarting it" | tee -a $GP_LOG_FILE
+         do_exec
+
+         sleep 1
+
+         # Wait for AppMSOTarget to actually start before continuing
+         wait_exec
+      fi
+
+      sleep 1
+   done
+
+}
+
+start_function()
+{
+   local fn_name=start_function
+
+   ulimit -c 1024000000
+
+   # Set up MAF/DBus environment
+   . /scripts/SetEnv.sh
+
+   cd /lib/modules
+
+   # Install each module in turn only if it's not currently installed
+   for CURRENT_MODULE in ${GP500_KERNEL_MODULES}
+   do
+      lsmod | grep "^${CURRENT_MODULE}" >/dev/null
+      [ $? -eq 0 ] || try_command insmod -s "${CURRENT_MODULE}.ko"
+   done
+
+   make_dev ${GP500_CHAR_DEV} ${GP500_CHAR_DEV}
+
+   # Execute the RF4CE application
+   do_exec &
+   EXEC_PID=$!
+   echo -n ${EXEC_PID} >/var/run/${SCRIPTNAME}_exec_pid
+
+   # Wait for the RF4CE application to start
+   wait_exec
+
+#   if [ $? -eq 1 ] ;
+#   then
+#      # Monitor the execution of AppMSOTarget so that we can automatically restart it if it terminates.
+#      monitor_exec &
+#
+#      # Save the pid of the background monitoring process so that we can kill it if told to stop.
+#      MONITOR_EXEC_PID=$!
+#      echo -n ${MONITOR_EXEC_PID} >/var/run/${SCRIPTNAME}_monitor_exec_pid
+#      DEBUG "${fn_name}: monitor_exec pid:${MONITOR_EXEC_PID}"
+#   fi
+    return 0
+}
+
+stop_function()
+{
+   local fn_name=stop_function
+
+   # Ensure the background monitoring process quits
+   rm "/var/run/gp500_exec_running"
+
+   # Kill the background monitoring process if it is running
+   if [ -e /var/run/${SCRIPTNAME}_monitor_exec_pid ] ;
+   then
+      MONITOR_EXEC_PID="`cat /var/run/${SCRIPTNAME}_monitor_exec_pid`"
+      DEBUG "${fn_name}: Killing monitor_exec pid:${MONITOR_EXEC_PID}"
+      kill -SIGTERM "$MONITOR_EXEC_PID"
+      rm -f /var/run/${SCRIPTNAME}_monitor_exec_pid
+   fi
+
+   # List of GP500 apps which need terminating
+   GP500_APPS_TO_BE_TERMINATED="
+   DBusTestApplication
+   /usr/bin/AppMSOTarget
+   "
+
+   for CURRENT_APP in ${GP500_APPS_TO_BE_TERMINATED}
+   do
+      # The sed command puts square braces round the first character (which isn't a backslash or
+      # a left-square brace) to avoid picking up the grep process itself and ending up trying to
+      # terminate the wrong process id
+      CURRENT_APP="`echo "${CURRENT_APP}" | sed 's/\([\\]\)*\([[]\)*\(.\)/\1\2[\3]/'`"
+      APP_PID=`pidof "${CURRENT_APP}"`
+      DEBUG "${fn_name}: CURRENT_APP=${CURRENT_APP} APP_PID=${APP_PID}"
+      [ ! -z "$APP_PID" ] && ( DEBUG "${fn_name}: Killing pid:$APP_PID" ; kill -SIGTERM "$APP_PID" )
+   done
+
+   # Uninstall each module in turn. Step through the list twice to handle any interdependencies
+   max_count=1; while [ ${max_count} -le 2 ] ;
+   do
+      for CURRENT_MODULE in ${GP500_KERNEL_MODULES}
+      do
+         lsmod | grep "^${CURRENT_MODULE}" >/dev/null && rmmod "${CURRENT_MODULE}.ko" 2>/dev/null
+      done
+
+      max_count=$((max_count+1))
+   done
+
+   rm -f /dev/${GP500_CHAR_DEV}*
+}
+
+case $1 in
+    "start")
+        start_function
+        ;;
+    "stop")
+        stop_function
+        ;;
+   "restart")
+      stop_function
+      start_function
+      ;;
+   *)
+      echo "Usage: $0 {start|stop|restart}"
+esac

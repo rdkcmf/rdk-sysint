@@ -1,0 +1,6 @@
+LOG_SERVER=10.253.97.249
+DCM_LOG_SERVER=10.253.97.249
+DCM_LOG_SERVER_URL=https://ccpxcb-dt-a001-d-1.dt.ccp.cable.comcast.com:8080/loguploader/getSettings
+DCM_SCP_SERVER=10.253.97.249
+HTTP_UPLOAD_LINK=https://ssr.ccp.xcal.tv/cgi-bin/S3.cgi
+DCA_UPLOAD_URL=https://stbrtl.xcal.tv

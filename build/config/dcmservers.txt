@@ -1,0 +1,4 @@
+DEV|http://ccpxcb-dt-a001-d-1.dt.ccp.cable.comcast.com:8080/loguploader/getSettings
+VBN|http://xconf.xcal.tv/loguploader/getSettings
+PROD|http://xconf.xcal.tv/loguploader/getSettings
+GSLB|http://ccpxcb-dt-a001-q-1.dt.ccp.cable.comcast.com:8080/loguploader/getSettings

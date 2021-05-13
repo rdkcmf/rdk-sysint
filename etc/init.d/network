@@ -1,0 +1,167 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: network-service
+# Required-Start:
+# Should-Start: 
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="NETWORK STARTUP"       # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                          # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                             # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                            # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                             # pid file name
+INIT_SCRIPT_LOGFILE="system.log"                   # log file name 
+INIT_SLEEPTIME=""                                  # how long to wait for startup and shutdown
+
+SCRIPTNAME=`basename $0`
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin/
+
+. /etc/device.properties
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    cmdline=`cat /proc/cmdline`
+
+    if [[ "$cmdline" != *nfsroot=* ]]; then
+         # Adding config for avoiding CDVR issue
+         if [ "$DEVICE_TYPE" != "mediaclient" ];then
+             if [ -f /lib/rdk/disableIpv6Autoconf.sh ];then
+                 sh /lib/rdk/disableIpv6Autoconf.sh $MOCA_INTERFACE
+             fi
+         fi
+          
+         # Disabling USB keyboard 
+         if [ "$BUILD_TYPE" == "prod" ] && [ -f /proc/sys/kernel/sysrq ];then 
+             sysctl -w "kernel.sysrq=0"
+         fi
+
+	 # set up networking if we are not on an NFS rootfs
+         if [ "$DEVICE_NAME" != "RNG150" ];then
+	    for x in `ls /sys/class/net`; do
+		    echo "Configuring $x interface"
+		    /sbin/ifup $x
+            done
+         fi
+         if [ "$DEVICE_TYPE" = "mediaclient" ];then
+              /sbin/ifup "$MOCA_INTERFACE:0"
+         fi
+    fi
+    # just configure loopback
+    /sbin/ifup lo
+    echo "Setting up initial hosts file"
+    if [ -f /etc/hosts.default ];then
+         cp /etc/hosts.default /tmp/hosts
+    fi
+    if [ -f /etc/hosts.brcm ];then
+        cat /etc/hosts.brcm >> /tmp/hosts                                                         
+    fi
+
+
+    echo "Configuring Ethernet Interface"              
+    if [ -f /lib/rdk/interface-launcher ];then
+         sh /lib/rdk/interface-launcher
+    else
+         if [ "$DEVICE_TYPE" != "mediaclient" ];then
+              ifconfig $ESTB_IF up                                           
+              if [ "$DEFAULT_ESTB_IP " ];then
+                   ifconfig $ESTB_IF $DEFAULT_ESTB_IP                 
+              else
+                   echo "Missing DEFAULT_ESTB_IP..!"
+              fi
+              ifconfig $DEFAULT_ESTB_IF $ESTB_ECM_COMMN_IP netmask 255.255.255.0 up
+              if [ "$ECM_ROUTE_ADDR" ];then
+                   route add $ECM_ROUTE_ADDR $ESTB_IF                           
+              fi
+         fi
+    fi
+   
+    if [ "$MOCA_INTERFACE" ];then
+        ifconfig $MOCA_INTERFACE up 
+    fi
+    echo -e "nameserver \t127.0.0.1" >> /tmp/resolv.conf
+    # Bringing down the unused gigabit interface (eth0) in Xi3v2 for power saving
+    # XG1 for security reasons
+    if [ "$BUILD_TYPE" = "prod" ] || [ "$DEVICE_TYPE" = "mediaclient" ]; then
+        ifconfig $ETHERNET_INTERFACE down
+    fi
+
+    # Set up WLAN, if present
+    if [ -f /lib/rdk/wireless-setup ]; then
+         sh /lib/rdk/wireless-setup
+    fi
+    # insmod the wireless module
+    [ -e /lib/modules/wl.ko ] && insmod /lib/modules/wl.ko
+   
+    if [ -f /etc/hosts.default ]; then
+          cp /etc/hosts.default /tmp/hosts
+    fi
+    # Update the hosts
+    if [ "$BUILD_TYPE" != "prod" ] ; then
+         # To update the /etc/hosts                                        
+         if [ -f $PERSISTENT_PATH/hosts ] ; then
+               cat $PERSISTENT_PATH/hosts >> /tmp/hosts
+         fi
+    fi
+    hostname $HOST_NAME
+    echo "127.0.0.1 localhost" >> /tmp/hosts
+    if [ "$SOC" = "BRCM" ] && [ "$GATEWAY_DEVICE" = "yes" ];then
+        # enable Xg1 as a MoCA gateway for Xi3 for Broadcom
+        echo 1 > /proc/sys/net/ipv4/ip_forward
+        echo 1 > /proc/sys/net/ipv4/tcp_syn_retries
+        ifconfig ${MOCA_INTERFACE}:0 192.168.0.1
+    fi
+    # device specific DMA BUS wait                                                                                           
+    if [ -f /lib/rdk/host_interface_dma_bus_wait ];then
+        sh /lib/rdk/host_interface_dma_bus_wait
+    fi
+    post_start 0
+    return 0
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+    return 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

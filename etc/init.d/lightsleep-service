@@ -1,0 +1,59 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: lightsleep-service
+# Required-Start:
+# Should-Start: network disk_check lighttpd 
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+
+SCRIPTNAME=`basename $0`
+export PATH=$PATH:/usr/bin:/bin:/usr/local/bin:/sbin:/usr/local/sbin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib:/usr/local/lib
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin
+
+. /etc/include.properties
+. /lib/rdk/init-functions
+
+start_function() {
+      # Cleaning the older disable flag
+      sh $RDK_PATH/lightsleep_utility.sh &  
+}
+
+stop_function() {
+   echo stopping lightsleep 
+   killall lightsleep
+}
+
+case $1 in
+    "start")
+        pre_start "lightsleep.log" ">>"
+        start_function
+        post_start $?
+        ;;
+    "stop")
+        pre_stop
+        stop_function
+        post_stop $?
+        ;;
+    "restart")
+        stop_function
+        start_function
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        ;;
+esac

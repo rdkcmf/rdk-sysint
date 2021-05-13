@@ -1,0 +1,108 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          si-snmpagent-service
+# Should-Start:      html-diagnostics-presetup 
+# Required-Start:    dcm-log-service 
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+#Preserve active image name in /tmp/currently_running_image_name
+CDL_FLASHED_IMAGE="/opt/cdl_flashed_file_name"
+PREVIOUS_FLASHED_IMAGE="/opt/previous_flashed_file_name"
+CURRENTLY_RUNNING_IMAGE="/tmp/currently_running_image_name"
+
+if [ -f $CDL_FLASHED_IMAGE ]
+then
+    myFWVersion=`grep "^imagename" /version.txt | cut -d ':' -f2`
+    cdlFlashedFileName=`cat $CDL_FLASHED_IMAGE`
+    echo "$cdlFlashedFileName" | grep -q "$myFWVersion"
+    if [ $? -ne 0 ]; then
+        echo "Looks like previous upgrade failed but flashed image status is showing success"
+        if [ -f $PREVIOUS_FLASHED_IMAGE ]; then
+            prevCdlFlashedFileName=`cat $PREVIOUS_FLASHED_IMAGE`
+            echo "$prevCdlFlashedFileName" | grep -q "$myFWVersion"
+            if [ $? -eq 0 ]; then
+                echo "Updating /tmp/currently_running_image_name with previous successful flashed imagename"
+                cp $PREVIOUS_FLASHED_IMAGE $CURRENTLY_RUNNING_IMAGE
+            fi
+        else
+            echo "Previous flashed file name not found !!! "
+            echo "Updating currently_running_image_name with cdl_flashed_file_name ... "
+            cp $CDL_FLASHED_IMAGE $CURRENTLY_RUNNING_IMAGE
+        fi
+    else
+        #Save succesfully flashed file name to identify the previous flashed image for next upgrades
+        cp $CDL_FLASHED_IMAGE $PREVIOUS_FLASHED_IMAGE
+        cp $CDL_FLASHED_IMAGE $CURRENTLY_RUNNING_IMAGE
+    fi
+else
+    #DELIA-20725: During  bootup with PCI image, it tries to create /tmp/currently_running_image_name from /opt/cdl_flashed_file_name which is missing results to perform CDL again for same image.
+    #Hence, update the currently running imagename with from the imagename in version.txt.
+    echo "cdl_flashed_file_name file not found !!! "
+    echo "Updating currently_running_image_name with version.txt ..."
+    currentImage=`grep "^imagename" /version.txt | cut -d ':' -f2`
+    currentImage=$currentImage-signed.bin
+    echo $currentImage > $PREVIOUS_FLASHED_IMAGE
+    echo $currentImage > $CURRENTLY_RUNNING_IMAGE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="SI SNMP AGENT"                     # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                           # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                              # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                             # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                              # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"              # log file name 
+INIT_SLEEPTIME=""                                   # how long to wait for startup and shutdown
+ 
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    sh $RDK_PATH/runSysSnmpAgent.sh &
+    post_start $?  
+}
+
+stop_function() {
+    pre_stop
+    killall syssnmpagent
+    sh /lib/rdk/processPID.sh $RDK_PATH/runSysSnmpAgent.sh | xargs kill -9
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

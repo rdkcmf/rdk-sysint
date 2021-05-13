@@ -1,0 +1,71 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+# only for use as a "zcip" callback script
+if [ "x$interface" = x ]
+then
+	exit 1
+fi
+
+# zcip should start on boot/resume and various media changes
+case "$1" in
+init)
+	# for now, zcip requires the link to be already up,
+	# and it drops links when they go down.  that isn't
+	# the most robust model...
+	exit 0
+	;;
+config)
+	if [ "x$ip" = x ]
+	then
+		exit 1
+	fi
+
+	firstbyte=`echo $ip | cut -d "." -f1`
+	secondbyte=`echo $ip | cut -d "." -f2`
+	thirdbyte=`echo $ip | cut -d "." -f3`
+	fourthbyte=`echo $ip | cut -d "." -f4` 
+	
+	if [ "x$thirdbyte" = "x85" ];then
+		ip="$firstbyte.$secondbyte.100.$fourthbyte"
+	fi
+	if [ "x$thirdbyte" = "x1" ];then
+		ip="$firstbyte.$secondbyte.100.$fourthbyte"
+	fi
+
+	# remember $ip for $interface, to use on restart
+	if [ ! -f /etc/os-release ]; then
+		if [ "x$IP" != x -a -w "$IP.$interface" ]
+		then
+			echo $ip > "$IP.$interface"
+		fi
+	else
+		if [ ! -f /opt/ip.$interface ]; then
+			echo $ip > /opt/ip.$interface
+		else
+			if [ "x$ip" != "x`cat /opt/ip.$interface`" ]
+			then
+				echo $ip > /opt/ip.$interface
+			fi
+		fi
+	fi
+#	exec ip address add dev $interface label $interface:0 \
+#		scope link local "$ip/16" broadcast +
+	exec ifconfig $interface $ip netmask 255.255.0.0
+	;;
+deconfig)
+	if [ x$ip = x ]
+	then
+		exit 1
+	fi
+	exec ip address del dev $interface local $ip
+	;;
+esac
+exit 1

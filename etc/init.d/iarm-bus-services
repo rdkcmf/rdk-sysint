@@ -1,0 +1,140 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          iarm-bus-services
+# Should-Start:      ntp-client-start 
+# Required-Start:    reset-reboot-flag
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="IARM-BUS-MANAGERS"              # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                         # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                            # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                           # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                            # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"            # log file name 
+INIT_SLEEPTIME=""                                 # how long to wait for startup and shutdown
+
+. /etc/env_setup.sh
+. /etc/device.properties
+
+if [ -f $RDK_PATH/uimgr_soc.sh ]; then
+     . $RDK_PATH/uimgr_soc.sh
+fi
+
+createPipeNode()
+{
+   pipeName=$1
+   mknodBin=`which mknod`
+   if [ "$mknodBin" ];then
+         $mknodBin $pipeName p >/dev/null
+   fi
+   mkfifoBin=`which mkfifo`
+   if [ "$mkfifoBin" ];then
+         $mkfifoBin $pipeName >/dev/null
+   fi
+}
+
+pipeFrameworkStartup()
+{
+     count1=`find $TEMP_LOG_PATH -name $2 -type f`
+     if [ "$count1" != "" ]; then
+          cat $2 >> $1
+          echo "$2 is not a pipe" >> $LOG_PATH/lightsleep.log
+          rm -rf $2
+     fi
+     createPipeNode $2 
+     # Checking the logging pipe before startup
+     value=`ps | grep $2 | grep -v grep`
+     if [ "$value" = "" ]; then
+         cat $2 >> $1 &
+     fi
+}
+
+UIMGR_LOG="$LOG_PATH/uimgr_log.txt"
+RF4CE_LOG="$LOG_PATH/rf4ce_log.txt"
+DSMGR_LOG="$LOG_PATH/dsmgr_log.txt"
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     UIMGR_PIPE="$TEMP_LOG_PATH/pipe_uimgr_log"
+     RF4CE_PIPE="$TEMP_LOG_PATH/pipe_rf4ce_log"
+     pipeFrameworkStartup "$UIMGR_LOG" "$UIMGR_PIPE"
+     pipeFrameworkStartup "$RF4CE_LOG" "$RF4CE_PIPE"
+     if [ "$SOC" = "BRCM" ]; then
+          DSMGR_PIPE="$TEMP_LOG_PATH/pipe_dsmgr_log"
+          pipeFrameworkStartup "$DSMGR_LOG" "$DSMGR_PIPE"
+     fi
+else
+     UIMGR_PIPE=$UIMGR_LOG
+     RF4CE_PIPE=$RF4CE_LOG
+     if [ "$SOC" = "BRCM" ]; then
+          DSMGR_PIPE=$UIMGR_LOG
+     fi
+fi
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    sh $RDK_PATH/runIBusMgrs >> $UIMGR_PIPE &
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    killall uimgr_main runIBusMgrs
+    sh /lib/rdk/processPID.sh /lib/rdk/monitorIarmMgrs.sh | xargs kill -9
+    sh /lib/rdk/processPID.sh /lib/rdk/gp500_init start | xargs kill -9
+    killall IARMDaemonMain
+    killall dsMgrMain
+    killall irMgrMain
+    killall pwrMgrMain
+    killall sysMgrMain
+    killall mfrMgrMain
+    killall tr69BusMain
+    killall storageMgrMain
+    sh /lib/rdk/processPID.sh /lib/rdk/runIBusMgrs | xargs kill -9
+    sh /lib/rdk/processPID.sh /var/logs/pipe_uimgr_log | xargs kill -9
+    sh /lib/rdk/processPID.sh /var/logs/pipe_rf4ce_log | xargs kill -9
+    if [ "$RF4CE_CAPABLE" = "true" ]; then
+         killall vrexMgrMain
+         killall deviceUpdateMgrMain
+    fi
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

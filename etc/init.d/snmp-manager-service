@@ -1,0 +1,121 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          snmp-manager-service
+# Should-Start:       
+# Required-Start:    pod-service
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="SNMP"                          # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                        # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                           # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                          # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                           # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"           # log file name 
+INIT_SLEEPTIME=""                                # how long to wait for startup and shutdown
+
+. /etc/device.properties
+. /etc/env_setup.sh
+
+isSeparateLog=FALSE
+dbgenvPath=/etc/debug.ini
+if [ -f $PERSISTENT_PATH/debug.ini ] && [ "$BUILD_TYPE" != "prod" ] ; then
+      dbgenvPath=$PERSISTENT_PATH/debug.ini                      
+fi
+if [ -f $dbgenvPath ]; then
+     isSeparateLog=`grep "SEPARATE.LOGFILE.SUPPORT" "$dbgenvPath" | cut -d '=' -f2`  
+fi
+
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then                                                      
+     if [ "$isSeparateLog" = "TRUE" ] ; then                                                    
+           echo "RDK separate log: is enabled"                                                  
+           LOG_FILE=$LOG_PATH/snmp_log.txt                                                    
+           LOG_PIPE="$TEMP_LOG_PATH/pipe_snmp_log" 
+           count1=`find $TEMP_LOG_PATH -name pipe_snmp_log -type f`
+           if [ "$count1" != "" ]; then
+                cat $LOG_PIPE >> $LOG_FILE
+                echo "$LOG_PIPE is not a pipe" >> $LOG_PATH/lightsleep.log
+                rm -rf $LOG_PIPE
+           fi                                            
+     else                                                                                       
+           LOG_FILE=$LOG_PATH/ocapri_log.txt                                                    
+           LOG_PIPE="$TEMP_LOG_PATH/pipe_ocapri_log"  
+           count1=`find $TEMP_LOG_PATH -name pipe_ocapri_log -type f`
+           if [ "$count1" != "" ]; then
+                cat $LOG_PIPE >> $LOG_FILE
+                echo "$LOG_PIPE is not a pipe" >> $LOG_PATH/lightsleep.log
+                rm -rf $LOG_PIPE
+           fi                                          
+     fi                                                                                         
+     mkfifo $LOG_PIPE &> /dev/null
+     # Checking the logging path before startup                                           
+     value=`ps | grep $LOG_PIPE | grep -v grep`                                       
+     if [ "$value" = "" ]; then                                                           
+           cat $LOG_PIPE >> $LOG_FILE &                                                    
+     fi                                                                                   
+else                                                                                            
+     if [ "$isSeparateLog" = "TRUE" ] ; then                                                    
+          echo "RDK separate log: is enabled"                                
+          LOG_PIPE=$LOG_PATH/snmp_log.txt                                  
+     else                                                                     
+          LOG_PIPE=$LOG_PATH/ocapri_log.txt                                  
+     fi                                                                       
+fi
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    # Call the module starter with module name and the utility script
+    sh /lib/rdk/module-starter "SNMP" "$LOG_PIPE" runSnmp.sh &
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    if [ -f $RAMDISK_PATH/.snmpmanager_started ]; then rm -rf $RAMDISK_PATH/.snmpmanager_started;fi
+    killall runSnmp
+    if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+        sh /lib/rdk/processPID.sh /var/logs/pipe_oacpri_log | xargs kill -9
+        sh /lib/rdk/processPID.sh /var/logs/pipe_snmp_log | xargs kill -9
+    fi
+    post_stop $?
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

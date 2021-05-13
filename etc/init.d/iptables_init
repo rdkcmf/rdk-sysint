@@ -1,0 +1,94 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+### BEGIN INIT INFO
+# Provides: iptables_init
+# Required-Start:
+# Should-Start:
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+
+SCRIPTNAME=`basename $0`
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin
+
+. /etc/init.d/init_utilities
+. /lib/rdk/init-functions
+
+INIT_SCRIPT_NAME="IPTABLES_INIT"               # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                         # pid file name
+INIT_SCRIPT_LOGFILE="system.log"               # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+#
+# Set this variable to 1 to enable debug by way of the DEBUG function below.
+#
+_DEBUG=0
+
+#
+# "DEBUG" echoes a line of debug information to a log file if _DEBUG equals 1.
+#
+DEBUG()
+{
+   # Save the current exit status and return it afterwards. This is to stop the
+   # "${_DEBUG} -eq 1" test from propagating a false error if debug isn't enabled.
+   local SAVE_EXIT_STATUS=$?
+
+   [ ${_DEBUG} -eq 1 ] && ( echo $@ >>/var/run/${SCRIPTNAME}_debug )
+
+   return $SAVE_EXIT_STATUS
+}
+
+start_function()
+{
+   pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+
+   # device specific iptable rules
+   if [ -f /etc/iptables_rules.sh ];then
+        sh /etc/iptables_rules.sh
+   fi
+   # generic RDK iptables rule
+   if [ -f /lib/rdk/iptables_init ] ;then
+       sh /lib/rdk/iptables_init &
+   else
+      echo "The script /lib/rdk/iptables_init not found - not applying iptables rules"
+   fi
+
+   post_start $?
+}
+
+stop_function()
+{
+   echo "${SCRIPTNAME}: Stopping - nothing to do."
+}
+
+case $1 in
+    "start")
+        pre_start "system.log" ">>"
+        start_function
+        post_start $?
+        ;;
+    "stop")
+        pre_stop
+        stop_function
+        post_stop $?
+        ;;
+    "restart")
+        stop_function
+        start_function
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        ;;
+esac

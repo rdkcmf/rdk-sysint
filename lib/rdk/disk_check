@@ -1,0 +1,174 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin
+
+# call platform specific prepare_disk before doing anything else
+if [ -f /etc/prepare_sdcard ]; then
+    sh /etc/prepare_sdcard
+fi
+
+DEV_FILE=/dev/mmcblk0p1
+
+. /etc/include.properties
+
+if [ -f /etc/os-release ]; then
+    mkdir -p /tmp/data
+    MOUNT_PATH=/tmp/data
+else
+    mkdir -p /opt/data
+    MOUNT_PATH=/opt/data
+fi
+
+TIMESTAMP=`date "+%m-%d-%y-%I-%M-%S%p"`
+
+
+mount_SDCard()
+{
+  if [ -b $DEV_FILE ]; then
+    # ------- Check SD Card mount infromation -----#
+    checkmount=`mount | grep -i $DEV_FILE`
+    if [ ! "$checkmount" ]; then
+      echo "SD card is not mounted."
+      echo "Now mounting ..."
+      mkdir -p $MOUNT_PATH
+      mount -t ext4 -O noatime,nodiratime,data=writeback $DEV_FILE $MOUNT_PATH
+      if [ $? -eq 0 ]; then
+        echo "Mount successful."
+      else
+        echo "Mount failed."
+        exit -1 
+      fi   
+    else
+      echo "SD card is already mounted in $MOUNT_PATH."
+      exit 0
+    fi
+  fi
+}
+
+
+create_Ext4_FileSystem()
+{
+  if [ -b $DEV_FILE ]; then
+    checkmount=`mount | grep -i $DEV_FILE`
+    if [ "$checkmount" ]; then
+       umount $MOUNT_PATH
+    fi
+
+    #--- Create ext4 file system without journal ---
+    mkfs.ext4 -t ext4 -O ^has_journal $DEV_FILE
+    echo "Created ext4 with disabled journal."
+  fi
+}
+
+fix_FileSystem_error()
+{
+  if [ -b $DEV_FILE ]; then
+    # --------- Check file system ----------
+    ret=`mount | grep -i $DEV_FILE`
+    if [ "$ret" ]; then
+      umount $MOUNT_PATH
+      echo "Umount Successful $?."
+    fi
+    echo "Fix file system : Start"
+    e2fsck -p $DEV_FILE
+    echo "Fix file system : Done"
+  fi
+}
+
+umount_SDcard()
+{
+  i="0"
+  # ------- Check SD Card infromation -----#
+  while true; do
+  
+    umount $MOUNT_PATH
+    ret=$?
+    if [ $ret -eq 0 ]; then
+      echo "Umount successful $ret."
+      break;
+    else
+      echo "Fail to umount $ret."
+      echo "Retring: $i."
+        
+      if [ $i -eq 10 ]; then
+        echo "Failed to umount, retried: $i."
+        break
+      fi  
+      i=$[$i+1]
+    fi
+    sleep 5
+  done
+  
+}
+
+start_function()
+{
+   create_Ext4_FileSystem
+   fix_FileSystem_error
+#   mount_SDCard
+   sync
+   # Cleanup: if softlink present, then delete.
+   if [  -h /opt/data ]; then
+       rm -rf /opt/data
+   fi
+
+}
+
+
+stop_function()
+{
+#    pre_stop
+    echo nothing to do
+}
+
+mount_function()
+{
+  fix_FileSystem_error
+  mount_SDCard
+}
+
+umount_function()
+{
+  umount_SDcard
+}
+
+## Main App ##
+#--------------
+case $1 in
+    "start")
+        echo "Calling start_function()"
+        start_function
+        ;;
+   "stop")
+        echo "Calling stop_function()"
+        stop_function
+        ;;
+   "mount")
+        echo "Calling mount_function()"
+        mount_function
+        ;;
+   "umount")
+        echo "Calling umount_function()"
+        umount_function
+        ;;
+   "restart")
+        echo "Calling restart_function()"
+        stop_function
+        start_function
+        ;;
+    *)
+
+      echo "Usage: $0 {start|stop|restart|mount|umount}"
+      ;;
+esac
+
+
+

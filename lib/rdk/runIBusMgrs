@@ -1,0 +1,246 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+. /etc/device.properties
+. /etc/include.properties
+
+# logging framework setup
+UIMGR_LOG="$LOG_PATH/uimgr_log.txt"
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     UIMGR_PIPE="$TEMP_LOG_PATH/pipe_uimgr_log"
+else
+     UIMGR_PIPE=$UIMGR_LOG
+fi
+
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     if [ "$SOC" = "BRCM" ];then
+           DSMGR_PIPE="$TEMP_LOG_PATH/pipe_dsmgr_log"
+     else
+   	       DSMGR_PIPE=$UIMGR_PIPE
+     fi
+else
+     DSMGR_PIPE=$UIMGR_LOG
+fi
+
+RF4CE_LOG="$LOG_PATH/rf4ce_log.txt"
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then
+     RF4CE_PIPE="$TEMP_LOG_PATH/pipe_rf4ce_log"
+else
+     RF4CE_PIPE=$RF4CE_LOG
+fi
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib:/usr/lib:/usr/local/lib:/mnt/nfs/lib
+trap "" 13
+
+DS_MGR_PATH="/usr/local/bin"
+IARM_BIN_PATH="/mnt/nfs/env"
+DS_PERSISTENT_PATH="$APP_PERSISTENT_PATH/ds/"
+
+if [ ! -d /dev/shm ]; then mkdir -p /dev/shm; fi
+if [ ! -d $DS_PERSISTENT_PATH ]; then
+     echo "The DS Host Persistent folder is missing"
+     mkdir -p $DS_PERSISTENT_PATH
+fi
+if [ -f /lib/modules/fusion.ko ];then
+     insmod /lib/modules/fusion.ko
+else 
+	 insmod /usr/local/lib/modules/fusion.ko
+fi
+
+
+if [ -f /opt/debug.ini ]; then
+    debugConfigFile="/opt/debug.ini"
+else
+    debugConfigFile="/etc/debug.ini"
+fi
+
+if [ -f $RDK_PATH/runHostDataConverter.sh ]; then
+    sh $RDK_PATH/runHostDataConverter.sh & 
+fi
+
+# start the IARM manager monitor script
+if [ -f $RDK_PATH/monitorIarmMgrs.sh ]; then
+    nice -n 19 sh $RDK_PATH/monitorIarmMgrs.sh >> $UIMGR_PIPE &
+fi
+
+touch $RAMDISK_PATH/.IarmBusMngrStart
+
+cd $IARM_BIN_PATH
+echo "`/bin/timestamp` -------IARM Managers are coming up -----"
+
+if [ -f ./IARMDaemonMain ]; then
+     ./IARMDaemonMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+     sleep 1
+else
+     echo "Missing the binary IARMDaemonMain"
+fi
+
+echo ----------- Starting GP Manger ------------
+if [ -f $RDK_PATH/gp500_init ]; then
+     sh $RDK_PATH/gp500_init start >> $RF4CE_PIPE
+     sleep 1
+else
+     echo "Missing the utility gp500_init_iarm"
+fi
+
+
+if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+     if [ -f $RDK_PATH/hooks/post-rf4ce-start.sh ]; then
+         echo ----------- Calling post-rf4ce-start hook ------------
+         $RDK_PATH/hooks/post-rf4ce-start.sh >> $RF4CE_PIPE &
+     else
+         echo "Missing the utility $RDK_PATH/hooks/post-rf4ce-start.sh"
+     fi
+
+     if [ -f ./sysMgrMain ]; then
+         echo ----------- SysMgrMain coming up ------------
+         ./sysMgrMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+         sleep 1
+     else
+         echo "Missing the binary sysMgrMain"
+
+     fi
+
+     if [ -f ./mfrMgrMain ]; then
+         echo ----------- mfrMgrMain coming up ------------
+         ./mfrMgrMain >> $UIMGR_PIPE &
+     fi
+     sleep 1
+     if [ -f ./dsMgrMain ]; then
+         echo ----------- dsMgrMain coming up ------------
+         ./dsMgrMain --debugconfig $debugConfigFile >> $DSMGR_PIPE &
+         sleep 1
+     else
+         echo "Missing the binary dsMgrMain"
+     fi
+
+else
+     echo ----------- SysMgrMain coming up ------------
+     if [ -f ./sysMgrMain ]; then
+         ./sysMgrMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+         sleep 1
+     else
+         echo "Missing the binary sysMgrMain"
+     fi
+     if [ -f ./mfrMgrMain ]; then
+         echo ----------- mfrMgrMain coming up ------------
+         ./mfrMgrMain >> $UIMGR_PIPE &
+     fi
+     sleep 1
+     cd $DS_MGR_PATH
+     if [ -f ./dsMgrMain ]; then
+         ./dsMgrMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+     else
+         echo "Missing the binary dsMgrMain"
+     fi
+     sleep 1
+     cd $IARM_BIN_PATH
+fi
+echo ----------- irMgrMain coming up ------------
+if [ -f ./irMgrMain ]; then
+     ./irMgrMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+else
+     echo "Missing the binary irMgrMain"
+fi
+sleep 1
+echo ----------- pwrMgrMain coming up ------------
+if [ -f ./pwrMgrMain ]; then
+     ./pwrMgrMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+else
+     echo "Missing the binary pwrMgrMain"
+fi
+sleep 1
+
+echo ----------- deepSleepMgrMain coming up ------------
+if [ -f ./deepSleepMgrMain ]; then
+     ./deepSleepMgrMain >> $UIMGR_PIPE &
+fi
+sleep 1
+
+#Temp start:
+#CecDaemonMain & CECDevMgr: Supported only for pacexg1v3 & pacexi3v2
+if [ -f ./CecDaemonMain ]; then
+     ./CecDaemonMain >> $LOG_PATH/cec_log.txt &
+     sleep 1
+else
+     echo "Missing the binary CecMDaemonMain"
+fi
+if [ -f ./CECDevMgr ]; then
+     ./CECDevMgr >> $LOG_PATH/cec_log.txt &
+     sleep 1
+else
+     echo "Missing the binary CECDevMgr"
+fi
+#Temp end
+
+
+if [ "$RF4CE_CAPABLE" = "true" ]; then
+    if [ -f ./vrexMgrMain ]; then
+        echo ----------- vrexMgrMain coming up ------------
+        ./vrexMgrMain --debugconfig $debugConfigFile >> $RF4CE_PIPE &
+        sleep 1
+    fi
+
+    if [ -f ./deviceUpdateMgrMain ]; then
+       echo ----------- deviceUpdateMgrMain coming up ------------
+       ./deviceUpdateMgrMain --debugconfig $debugConfigFile >> $RF4CE_PIPE &
+       sleep 1
+    fi
+fi
+
+
+if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+     if [ -f ./tr69BusMain ]; then
+         ./tr69BusMain --debugconfig $debugConfigFile >> $UIMGR_PIPE &
+     else
+         echo "Missing the binary tr69BusMain"
+     fi
+     sleep 1
+     cd $DS_MGR_PATH
+     sleep 5
+     if [ -f ./tenableHDCP ]; then
+         ./tenableHDCP true &
+     fi
+     cd /usr/bin
+     if [ -f ./storageMgrMain ]; then
+         if [ -f $PERSISTENT_PATH/storageMgr.conf ] && [ "$BUILD_TYPE" != "prod" ]; then
+             export stmMgrConfigFile=$PERSISTENT_PATH/storageMgr.conf
+         else
+             export stmMgrConfigFile=/etc/storageMgr.conf
+         fi
+         ./storageMgrMain --debugconfig $debugConfigFile --configFilePath $stmMgrConfigFile >> $UIMGR_PIPE &
+     fi
+     if  [ ! -f /tmp/tuneReadySend ]; then                             
+   	 if [ -f /usr/local/bin/IARM_event_sender ]; then
+	     /usr/local/bin/IARM_event_sender ChannelMapEvent 2
+	     sleep 1
+	     /usr/local/bin/IARM_event_sender TuneReadyEvent 1
+   	 else
+	     echo "`/bin/timestamp` IARM_event_sender not there  "  
+   	 fi
+   	 echo "`/bin/timestamp` Tune Ready and Channel Map event Send  "  
+   	 touch /tmp/tuneReadySend                                        
+     fi
+     cd $IARM_BIN_PATH 
+fi
+
+if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+     echo "Check for binary tenableHDCP"
+     cd $DS_MGR_PATH
+     sleep 5
+     if [ -f ./tenableHDCP ]; then
+         ./tenableHDCP true >> $UIMGR_PIPE &
+     else
+         echo "Missing the binary /usr/local/bin/tenableHDCP"
+     fi
+fi
+sleep 1
+echo "IARM flag Setup"
+touch $RAMDISK_PATH/.IarmBusMngrFlag

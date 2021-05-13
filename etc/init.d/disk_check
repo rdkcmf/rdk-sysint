@@ -1,0 +1,85 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: disk_check
+# Required-Start:    
+# Should-Start: udev network 
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="DISK-CHECK"                       # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                           # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                              # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                             # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                              # pid file name
+INIT_SCRIPT_LOGFILE="system.log"                    # log file name 
+INIT_SLEEPTIME=""                                   # how long to wait for startup and shutdown
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    if [ -f /lib/rdk/disk_check ];then
+        sh /lib/rdk/disk_check start
+    fi
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    if [ -f /lib/rdk/disk_check ];then
+        sh /lib/rdk/disk_check stop
+    fi
+    post_stop
+}
+
+## Main App ##
+#--------------
+case $1 in
+    "start")
+        echo "Calling start_function()"
+        start_function
+        ;;
+   "stop")
+        echo "Calling stop_function()"
+        stop_function
+        ;;
+   "mount")
+        echo "Calling mount_function()"
+        sh /lib/rdk/disk_check "mount"
+        ;;
+   "umount")
+        echo "Calling umount_function()"
+        sh /lib/rdk/disk_check "umount"
+        ;;
+   "restart")
+        echo "Calling restart_function()"
+        stop_function
+        start_function
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        ;;
+esac
+

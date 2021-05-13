@@ -1,0 +1,26 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=Moca Virtual Interface
+After=moca.service
+Requires=moca.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+Environment=DEFAULT_MOCA_IFACE_IP=192.168.18.10
+EnvironmentFile=/etc/device.properties
+ExecStartPre=/sbin/ifconfig ${MOCA_INTERFACE}:0 ${DEFAULT_MOCA_IFACE_IP} up
+ExecStart=/sbin/udhcpc -i ${MOCA_INTERFACE}:0 -p /tmp/udhcpc.${MOCA_INTERFACE}:0.pid --foreground
+ExecStop=/sbin/ifconfig ${MOCA_INTERFACE}:0 down
+
+[Install]
+WantedBy=multi-user.target

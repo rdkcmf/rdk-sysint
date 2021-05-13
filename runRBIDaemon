@@ -1,0 +1,36 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2018 RDK Management, LLC. All rights reserved.
+# ============================================================================
+. /etc/include.properties
+
+flag=FALSE
+
+propertyFile="/etc/rmfconfig.ini"
+if [ "$BUILD_TYPE" != "prod" ]; then
+     if [ -f /opt/rmfconfig.ini ]; then
+          propertyFile="/opt/rmfconfig.ini"
+     fi
+fi
+
+if [ -f $propertyFile ]; then
+   flag=`grep "FEATURE.RBI.ENABLED" $propertyFile |grep -v "^[#]"| cut -d "=" -f2`
+   if [ "$flag" != "TRUE" ]; then
+      flag=FALSE
+   fi
+fi
+
+if [ "$flag" ] && [ "$flag" = "FALSE" ]; then
+   if [ -f /opt/persistent/lsaEnable ]; then
+      flag=TRUE
+   fi
+fi
+
+if [ "$flag" ] && [ "$flag" = "TRUE" ]; then
+   rbiDaemon $PERSISTENT_PATH/rbiDaemon.cfg &> $LOG_PATH/rbiDaemon.log &
+fi

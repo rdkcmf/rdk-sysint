@@ -1,0 +1,22 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=RDNSS starter for IPv6
+After=network-online.target var-lib.mount
+Requires=network-online.target var-lib.mount
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/rdnssd -u root -r /tmp/resolv.dnsmasq.rdnssd -H /lib/rdk/rdnssd-hook.sh &
+TimeoutStartSec=10s
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

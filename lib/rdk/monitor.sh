@@ -1,0 +1,98 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+#
+
+
+. /etc/include.properties   
+. /etc/device.properties
+. /etc/env_setup.sh
+
+. $RDK_PATH/commonUtils.sh
+. $RDK_PATH/interfaceCalls.sh
+if [ -f $RDK_PATH/getSecureDumpStatus.sh ]; then
+. $RDK_PATH/getSecureDumpStatus.sh
+fi
+
+Timestamp()
+{
+    date +"%Y-%m-%d %T"
+}
+
+check=0
+loop=1
+cnt=0
+sleep 10
+
+startmonitor=0
+
+while [ $startmonitor -eq 0 ]
+do
+    id=`pidof mpeos-main|wc -w`
+    if [ $id -eq 0 ]; then
+         sleep 5
+    else
+         startmonitor=1
+         echo "Started mpeos, starting monitoring..!"
+    fi
+done
+
+while [ $loop -eq 1 ]
+do
+
+# Check the MPEOS MAIN process
+ret=`processCheck mpeos-main`
+if [ "$ret" == "1" ]; then
+    echo "mpeos process is killed.."
+      check=`expr $check + 1`
+      if [ $check -gt 6 ]; then
+	  if [ -f /opt/.reboot ]; then
+	      r=`cat /opt/.reboot`
+	  else
+	      r=0
+	  fi
+          r=`expr $r + 1`
+          if [ $r -le 10 ]; then
+               echo " mpeos-main is not alive.. rebooting the box"
+               echo $r > /opt/.reboot
+               echo `Timestamp` 'Rebooting the box'>> $LOG_PATH/ocapri_log.txt
+               echo 0 > /opt/.rebootFlag
+               echo `/bin/timestamp` ------------ Rebooting due to mpeos crash ----------------- >> $LOG_PATH/ocapri_log.txt
+               if [ "$HDD_ENABLED" = "false" ]; then
+                    if [[ `haveCoreToUpload` == 'true' ]] ; then
+                             waitForDumpCompletion 300
+                             TS=`date +%Y-%m-%d-%H-%M-%S`
+                             sh $RDK_PATH/uploadDumps.sh $TS 1
+                    fi
+                    fileName=`ls $CORE_PATH/*core.prog_mpeos-main.signal_*.gz`
+			if [ -f $fileName ] ; then
+			 echo `ls $CORE_PATH/*mpeos-main* -tc1 | head -1` > $CORE_BACK_PATH/.mpeos_crashed
+			fi
+               else
+                    cp $LOG_PATH/receiver.log $LOG_PATH/receiver.log_mpeos-main
+                    cp $LOG_PATH/ocapri_log.txt $LOG_PATH/ocapri_log.txt_mpeos-main
+                    cp $LOG_PATH/messages.txt $LOG_PATH/messages.txt_mpeos-main
+                    cp $LOG_PATH/app_status.log $LOG_PATH/app_status_backup.log_mpeos-main
+               fi
+               /rebootNow.sh -s MpeosRecovery -o "Rebooting the box due to mpeos process crash..."
+               exit 0                                                                
+          else                                                                      
+               echo  `/bin/timestamp` -----Box has rebooted 10 times.. no more reboot---- >> /opt/logs/ocapri_log.txt
+	       exit 1
+          fi
+     fi
+ fi
+
+ sleep 15
+ cnt=`expr $cnt + 1`
+ if [ $cnt -eq 80 ]; then
+    echo 0 > /opt/.reboot
+ fi
+done

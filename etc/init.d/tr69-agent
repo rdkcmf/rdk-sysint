@@ -1,0 +1,129 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          tr69-agent
+# Required-Start:    
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+
+if [ ! -f /etc/os-release ]; then
+    . /lib/rdk/init-functions
+fi
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="TR69-AGENT"                  # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                         # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"         # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+ 
+if [ ! -f /etc/os-release ]; then
+	TR69_AGENT_PATH="/usr/local/tr69agent"
+	TR69_LOG_REDIRECTION=1
+else
+	TR69_AGENT_PATH="/usr/bin"
+	TR69_LOG_REDIRECTION=0
+fi
+TR69_AGENT_DB="/opt/tr69agent-db"
+TR69_BOOTSTRAP_FILE="/opt/persistent/tr69bootstrap.dat"
+
+. /etc/device.properties
+. /etc/include.properties
+
+start_function() {
+
+    if [ ! -f /etc/os-release ]; then
+	pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    fi
+
+    if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+         #Kill and start the tr069 CPE client                                
+         kill -9 `ps aux | grep -i start.sh | grep -v grep | awk '{print $2}'` &>/dev/null
+         kill -9 `ps aux | grep -i dimclient | grep -v grep | awk '{print $2}'` &>/dev/null
+	 if [ ! -f /etc/os-release ]; then
+		kill -9 `ps aux | grep -i tr69hostif | grep -v grep | awk '{print $2}'` &>/dev/null
+	 fi
+         sleep 1  
+
+	 if [ ! -f /etc/os-release ]; then
+		$RDK_PATH/runTR69HostIf 1>> $LOG_PATH/tr69hostif.log 2>&1  &
+		sleep 1
+	 fi
+      
+        if [ -f $TR69_AGENT_DB/HTTP.log  ]; then
+	   rm -rf $TR69_AGENT_DB/HTTP.log*
+	   rm -rf $TR69_AGENT_DB/TEST.log*
+	fi
+	if [ -f $TR69_BOOTSTRAP_FILE  ]; then
+	    echo " Already bootstrap event is send, starting agent with BOOT event"
+            if [ ! -z $TR69_LOG_REDIRECTION ]; then
+                sh $TR69_AGENT_PATH/start.sh boot 1>> $LOG_PATH/tr69agent.log 2>&1  &
+            else
+		sh $TR69_AGENT_PATH/start.sh boot
+            fi
+	else
+	    echo " Starting agent with bootstrap event"
+            if [ ! -z $TR69_LOG_REDIRECTION ]; then
+	        sh $TR69_AGENT_PATH/start.sh 1>> $LOG_PATH/tr69agent.log 2>&1  &
+            else
+		sh $TR69_AGENT_PATH/start.sh
+            fi
+	fi
+    fi
+
+    if [ ! -f /etc/os-release ]; then
+        post_start $?
+    fi
+}
+
+stop_function() {
+    if [ ! -f /etc/os-release ]; then
+	pre_stop
+    fi
+    killall dimclient
+    kill -9 `ps aux | grep -i start.sh | grep -v grep | awk '{print $2}'` &>/dev/null
+    kill -9 `ps aux | grep -i dimclient | grep -v grep | awk '{print $2}'` &>/dev/null
+    if [ ! -f /etc/os-release ]; then
+        kill -9 `ps aux | grep -i tr69hostif | grep -v grep | awk '{print $2}'` &> /dev/null
+    fi
+    if [ ! -f /etc/os-release ]; then
+        post_stop 0
+    fi
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac

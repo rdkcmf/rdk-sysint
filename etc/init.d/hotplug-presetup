@@ -1,0 +1,81 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          hotplug-presetup
+# Required-Start:    pre-start-setup
+# Should-Start:      
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="HOTPLUG-SETUP"               # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                      # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                         # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                        # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                         # pid file name
+INIT_SCRIPT_LOGFILE="system.log"               # log file name 
+INIT_SLEEPTIME=""                              # how long to wait for startup and shutdown
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
+export LD_LIBRARY_PATH=.:/usr/local/lib:/usr/lib:/lib
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    
+    if [[ `cat /proc/cmdline` != *root=* ]] ; then             
+          echo "CDL build"                                   
+          # Override dfbhotplug to install Usb hotplug handler to handle usb hotplug reboot cases:
+          # The handler will invoke /usr/local/etc/hotplug.d/dfbhotplug used by rundfb.sh         
+          echo "/etc/usbhotplug" > /proc/sys/kernel/hotplug                                     
+          usbhotplug=/sys/block/sda                                                             
+          echo "USB hotplug device : $usbhotplug"                                               
+          echo "${usbhotplug}" > /tmp/.usbhotplug                                               
+    else                                                                                          
+          echo "Dev build"                                                                      
+    fi 
+    echo "Hotplug handler:" `cat /proc/sys/kernel/hotplug`
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac

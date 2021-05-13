@@ -1,0 +1,108 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          trm-service
+# Should-Start:      
+# Required-Start:    xre-service
+# Required-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="TRM STARTUP"                    # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                         # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                            # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                           # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                            # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"            # log file name 
+INIT_SLEEPTIME=""                                 # how long to wait for startup and shutdown
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/mnt/nfs/lib
+export LOG4C_RCPATH=/etc
+
+. /etc/device.properties
+. /etc/include.properties
+
+LOG_FW="$LOG_PATH/trm.log"                                                              
+if [ "$LIGHTSLEEP_ENABLE" = "true" ]; then                                                           
+     if [ -f $RDK_PATH/log_framework.sh ]; then
+          sh $RDK_PATH/log_framework.sh "trm.log" "pipe_trm_log"
+     fi
+     LOG_FW="$TEMP_LOG_PATH/pipe_trm_log"
+fi
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    #launch TRM
+
+    if [ -f /opt/debug.ini ] && [ "BUILD_TYPE" != "prod" ]; then
+        export debugConfigFile=/opt/debug.ini
+    else
+        export debugConfigFile=/etc/debug.ini
+    fi
+
+    if [ -f /usr/local/bin/trmsrv ]; then
+         /usr/local/bin/trmsrv -ip 127.0.0.1 -port 9987 -debugconfig $debugConfigFile >> $LOG_FW 2>&1 &
+         sleep 2
+    else
+         echo "Missing the binary /usr/local/bin/trmsrv"
+         return 1
+    fi
+    if [ -f /usr/local/bin/websocket-trm-proxy ]; then
+        /usr/local/bin/websocket-trm-proxy 127.0.0.1 9987 --debugconfig $debugConfigFile >> $LOG_FW 2>&1 & 
+        echo "Starting web-trm PROXY"
+    else
+        echo "Missing the binary /usr/local/bin/websocket-trm-proxy..!"    
+        return 2
+    fi
+    touch /tmp/.trm_started
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    killall trmsrv
+    killall websocket-trm-proxy
+    sh /lib/rdk/processPID.sh "/var/logs/pipe_trm_log" | xargs kill -9
+    if [ -f /tmp/.trm_started ]; then 
+         rm -rf /tmp/.trm_started
+    fi
+    post_stop 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+  $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

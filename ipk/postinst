@@ -1,0 +1,14 @@
+#!/bin/sh
+OPTS=""
+
+if [ -n "$D" ]; then
+    OPTS="--root=$D"
+fi
+
+if type systemctl >/dev/null 2>/dev/null; then
+	systemctl $OPTS enable hosts.service dcm-log.service previous-log-backup.service swupdate.service ip-setup-monitor.service dump-log.timer logrotate.timer mocastatuslogger.timer scheduled-reboot.service dump-backup.service
+
+	if [ -z "$D" -a "enable" = "enable" ]; then
+		systemctl restart hosts.service dcm-log.service previous-log-backup.service swupdate.service ip-setup-monitor.service dump-log.timer logrotate.timer mocastatuslogger.timer scheduled-reboot.service dump-backup.service
+	fi
+fi

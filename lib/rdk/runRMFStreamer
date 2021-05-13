@@ -1,0 +1,124 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+. /etc/include.properties
+. /etc/device.properties
+
+dependencyWait()
+{
+   loop=1
+   while [ $loop -eq 1 ]
+   do
+       if [ -f $RAMDISK_PATH/.IarmBusMngrFlag ]; then
+          echo "IARM modules are up, checking whether SD card is mounted"
+          val=`mount | grep -c mmcblk | tail -1`
+	  if [ $val -gt 0 ]; then
+	     loop=0
+      	     echo "SD card is mounted"
+          else
+             sleep 2
+          fi
+       else
+         echo "RMF Streamer is waiting for IARM module processes..!"
+	 sleep 1
+       fi
+   done
+}
+
+if [ -f $PERSISTENT_PATH/rmfconfig.ini ] && [ "$BUILD_TYPE" != "prod" ]; then
+     export rmfConfigFile=$PERSISTENT_PATH/rmfconfig.ini
+else
+     export rmfConfigFile=/etc/rmfconfig.ini
+fi
+if [ -f $PERSISTENT_PATH/debug.ini ] && [ "$BUILD_TYPE" != "prod" ]; then
+     export debugConfigFile=$PERSISTENT_PATH/debug.ini
+else
+     export debugConfigFile=/etc/debug.ini
+fi
+cd /mnt/nfs/env/
+
+if [ -f $rmfConfigFile ]; then
+      flag=`grep "USE.GENERIC.GSTREAMER.TEE" $rmfConfigFile |grep -v "^[#]"| cut -d "=" -f2`
+      if [ "$flag" ] && [ "$flag" = "TRUE" ]; then
+              echo "flag is true - USE_GENERIC_GSTREAMER_TEE is true "
+              export USE_GENERIC_GSTREAMER_TEE=true
+      else
+              echo "flag is false - USE_GENERIC_GSTREAMER_TEE is false "
+              export USE_GENERIC_GSTREAMER_TEE=false
+      fi
+else
+      echo "Not found configuration file - rmfconfig.ini .!"
+fi
+
+if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+     if [ ! -f /etc/os-release ]; then
+       export DtcpSrmFilePath=/mnt/nvram1/dtcp.srm
+     else
+       export DtcpSrmFilePath=/opt/persistent/dtcp.srm
+     fi
+
+     if [ ! -e $DtcpSrmFilePath ]; then
+         touch $DtcpSrmFilePath
+     fi
+     export dtcp_create_session_wait=y
+     if [ -d /opt/data ]; then
+          rm -rf /opt/data/*
+     else
+          mkdir -p /opt/data
+     fi
+
+#     val=`mount | grep mmcblk | tail -1`
+     val=`cat /proc/partitions | grep -c mmcblk`
+     if [ $val -eq 0 ]; then echo "NO SD card found..!" ; touch /tmp/no-sd-card ; exit 0; fi
+     dependencyWait
+     touch /tmp/.rmfstreamer_started
+     /etc/run.sh rmfStreamer --config $rmfConfigFile --debugconfig $debugConfigFile &
+else
+     export RMF_OSAL_THREAD_INFO_CALL_PORT=54128 # Added so that only rmfStreamer creates the UDP Server to handle rmfapicaller commands
+     if [ -f /lib/rdk/rmfExports.sh ];then
+          . /lib/rdk/rmfExports.sh
+     fi
+
+     if [ ! -f /etc/os-release ]; then
+       export DtcpSrmFilePath=$APP_PERSISTENT_PATH/dtcp.srm
+     else
+       export DtcpSrmFilePath=/opt/persistent/dtcp.srm
+     fi
+
+     if [ ! -e $DtcpSrmFilePath ]; then
+           touch $DtcpSrmFilePath
+     fi
+
+     export PFC_ROOT=/
+     export VL_ECM_RPC_IF_NAME=$DEFAULT_ESTB_INTERFACE
+     export VL_DOCSIS_DHCP_IF_NAME=$DEFAULT_ESTB_INTERFACE
+     export VL_DOCSIS_WAN_IF_NAME=$DEFAULT_ESTB_IF
+
+     LD_LIBRARY_PATH=/opt/hold:/lib:/usr/local/Qt/lib:/usr/local/lib:/mnt/nfs/lib:/mnt/nfs/bin/target-snmp/lib:$LD_LIBRARY_PATH
+     GST_PLUGIN_PATH=/lib/gstreamer-0.10:/usr/local/lib/gstreamer-0.10:/mnt/nfs/gstreamer-plugins
+     export GST_REGISTRY="/opt/.gstreamer/registry.bin"
+     export GST_REGISTRY_FORK="no"
+     export GST_PLUGIN_PATH GST_PLUGIN_SCANNER GST_REGISTRY
+     export PATH HOME LD_LIBRARY_PATH
+     ulimit -c unlimited
+     #once run.sh is used we will move this to run.sh
+     ulimit -s 128
+     # check for device specific setup script and invoke the process
+     if [ -f /etc/run.sh ]; then
+         touch /tmp/.rmfstreamer_started
+         /etc/run.sh rmfStreamer --config $rmfConfigFile --debugconfig $debugConfigFile &
+     else
+         rm /opt/.xreisup
+         touch /tmp/.rmfstreamer_started
+         rmfStreamer --config $rmfConfigFile --debugconfig $debugConfigFile &
+    fi
+    # Launch RBI Daemon if enabled
+    $UTILITY_PATH/runRBIDaemon  
+fi

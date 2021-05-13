@@ -1,0 +1,116 @@
+#! /bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides: network-service
+# Required-Start:
+# Should-Start: 
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3
+# Default-Stop:
+# Short-Description: 
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+     . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="NETWORK INTERFACE STARTUP"       # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                          # options to pass to the executable 
+INIT_SCRIPT_OPTIONS=""                             # a decriptive name 
+INIT_SCRIPT_HOMEDIR="/"                            # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                             # pid file name
+INIT_SCRIPT_LOGFILE="system.log"                   # log file name 
+INIT_SLEEPTIME=""                                  # how long to wait for startup and shutdown
+
+SCRIPTNAME=`basename $0`
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin/
+
+. /etc/device.properties
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+    #if [ -f /lib/rdk/interface-launcher ];then
+    #    sh /lib/rdk/interface-launcher
+    #fi    
+    # Use this script only for PCIe interconnect between
+    # BCM7425 and BCM3383.
+    #cd /root
+    # enable memory overcommit
+    ##echo 0 > /proc/sys/vm/overcommit_memory
+    ##insmod bcmpcieeth.ko
+
+    #config hosts file
+    ##cat /etc/hosts.default > /etc/hosts
+
+    if [ -f /lib/rdk/ecm-reset-setup ];then
+         sh /lib/rdk/ecm-reset-setup &
+    fi
+    ##source /root/docsis_bridge.sh
+    if [ -f /lib/rdk/ecm-launcher ];then
+        sh /lib/rdk/ecm-launcher &
+    fi
+    
+	##ecramImage=/root/ecram_sto.bin.3383
+	##if [ ! -e $ecramImage ]; then
+        ##	ecramImage=/root/bcm93383ecmpci_certification_iprnvol_fat_sto.bin
+	##fi
+	##if [ -e /root/ecram_sto.bin.mac14.3600 ]; then
+	##	ecramImage=/root/ecram_sto.bin.mac14.3600
+	##fi
+
+	##if [ ! -e  /opt/PermanentNonVolSettings.bin ]; then
+	##	cp ./PermanentNonVolSettings.bin /opt
+	##fi
+	##if [ ! -e /opt/DynamicNonVolSettings.bin ]; then
+	##	cp ./DynamicNonVolSettings.bin /opt
+	##fi
+	##./rnonvolhost bcm0 192.168.17.10 192.168.17.1 /opt/PermanentNonVolSettings.bin /opt/DynamicNonVolSettings.bin &
+	##./hostboot bootpci3383.bin $ecramImage $ecramImage /opt/PermanentNonVolSettings.bin /opt/DynamicNonVolSettings.bin &
+
+    #echo -e "nameserver \t127.0.0.1" >> /tmp/resolv.conf
+
+   # if [ "$BUILD_TYPE" = "prod" ] ; then
+   #     ifconfig $ETHERNET_INTERFACE down
+   # fi
+    post_start $?
+    return 0
+}
+
+stop_function() {
+    pre_stop
+    post_stop 0
+    return 0
+}
+ 
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

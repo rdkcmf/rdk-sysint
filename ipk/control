@@ -1,0 +1,11 @@
+Package: sysint
+Version: 1.99+git0+e945a4a504_c14a8c2809-r0.0
+Description: Sysint application
+ Sysint application.
+Section: console/utils
+Priority: optional
+Maintainer: CPE SI Yocto Team <CCP_CPESI-YOCTO@cable.comcast.com>
+License: CLOSED
+Architecture: mips32el
+OE: sysint
+Source: git://gerrit.teamccp.com:29418/rdk/components/generic/sysint/generic;module=.;protocol=ssh;branch=master git://gerrit.teamccp.com:29418/rdk/components/generic/sysint/devices/pace/pace_xi3;module=.;protocol=ssh;branch=master;destsuffix=git/device;name=sysintdevice

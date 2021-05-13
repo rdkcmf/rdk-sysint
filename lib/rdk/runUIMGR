@@ -1,0 +1,32 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+. /etc/include.properties
+. /etc/device.properties
+
+if [ ! -d /dev/shm ]; then mkdir /dev/shm; fi
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+insmod lib/modules/fusion.ko
+cd /mnt/nfs/env
+echo "`/bin/timestamp` -------UI Manager is coming up -----"
+if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+     if [ -f /SetEnv.sh ]; then
+          . /SetEnv.sh
+     fi
+fi
+
+/dump /version.txt
+if [ ! -x /mnt/nfs/env/uimgr_main ]; then echo "Missing binary uimgr_main..!"; exit 0; fi
+./uimgr_main
+touch $RAMDISK_PATH/.uiMngrFlag
+
+

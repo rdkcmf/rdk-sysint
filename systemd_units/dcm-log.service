@@ -1,0 +1,25 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=DCM Log Service
+
+After=local-fs.target nvram.service previous-log-backup.service network-online.target systemd-timesyncd.service dump-log.service tr69hostif.service
+Requires=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/dcm.properties
+ExecStartPre=/bin/sh -c '/bin/touch /opt/logs/dcmscript.log'
+ExecStartPre=/bin/sh -c 'echo "Not triggered $(date)" > /opt/loguploadstatus.txt'
+ExecStart=/bin/sh -c '/lib/rdk/StartDCM.sh &'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

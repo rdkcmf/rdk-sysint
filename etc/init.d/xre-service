@@ -1,0 +1,160 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          xre-service
+# Required-Start:
+# Required-Stop:
+# Should-Start:      start-upnp-service
+# Default-Start:     3
+# Default-Stop:
+# Short-Description:
+### END INIT INFO
+. /lib/rdk/init-functions
+
+# Defaults can be overridden in this file
+INIT_SCRIPT_DEFAULTS_FILE="/etc/include.properties"
+
+# Load alternate configuration if exists
+if [ -f $INIT_SCRIPT_DEFAULTS_FILE ]; then
+    . $INIT_SCRIPT_DEFAULTS_FILE
+fi
+
+# Defaults
+INIT_SCRIPT_NAME="XRE-SERVICE"                     # full path to the executable
+INIT_SCRIPT_EXECUTABLE=""                          # options to pass to the executable
+INIT_SCRIPT_OPTIONS=""                             # a decriptive name
+INIT_SCRIPT_HOMEDIR="/"                            # place where to cd before running
+INIT_SCRIPT_PIDFILE=""                             # pid file name
+INIT_SCRIPT_LOGFILE="applications.log"             # log file name
+INIT_SLEEPTIME=""                                  # how long to wait for startup and shutdown
+
+. /etc/device.properties
+if [ -f /lib/rdk/xre_soc.sh ]; then
+    . /lib/rdk/xre_soc.sh
+fi
+
+export PATH=$PATH:/usr/sbin:/sbin
+
+start_function() {
+    pre_start "$INIT_SCRIPT_LOGFILE" ">>"
+
+    # Clean up
+    rm -rf ${LOG_PATH}/.XREisUp
+    if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+        if [ -f /opt/gzenabled ]; then
+            val=`cat /opt/gzenabled`
+            if [ $val -eq 1 ]; then
+                echo "starting Receiver soon GLI requirement"
+                touch /tmp/.xre-startup
+            else
+                sh $RDK_PATH/pWait.sh &
+            fi
+        else
+            sh $RDK_PATH/pWait.sh &
+        fi
+    else
+        touch /tmp/.xre-startup
+    fi
+    mode=""
+
+    # Override niceness of this script and its children (includes runXRE and Receiver)
+    # File should contain a single integer in the expected nice range
+    if [ "$BUILD_TYPE" != "prod" ]; then
+        if [ -f /opt/xre.niceness ]; then
+            niceValue=`cat /opt/xre.niceness`
+            renice -n $niceValue -p $$
+        fi
+    fi
+
+    # Copy playready certificates
+    local prc_src='/usr/share/playready'
+    local prc_tgt='/opt/drm/playready'
+    mkdir -p $prc_tgt
+    cp -f $prc_src/*.dat $prc_tgt/
+    cp -f $prc_src/*.crypt $prc_tgt/
+
+    # Start script runXRE
+    if [ "$ENABLE_MULTI_USER" == "true" ]; then
+        if [ "$BUILD_TYPE" == "prod" ]; then
+             if [ ! -f /tmp/.xre-restart ]; then
+                  sh $RDK_PATH/prepareChrootEnv.sh
+             else
+                  rm -rf /tmp/.xre-restart
+             fi
+             chroot $PERSISTENT_PATH/restricted su - restricteduser -c $RDK_PATH/runXRE &
+        else
+            if [ -f /opt/disable_chrootXREJail ]; then
+                if [ -f $RDK_PATH/restoreRootEnv.sh ]; then
+                    sh $RDK_PATH/restoreRootEnv.sh
+                fi
+
+                if [ "$DEVICE_TYPE" = "rmfstreamer" ]; then
+                     if [ "$configMode" != "HEADLESS_GW" ]; then
+                         sh $RDK_PATH/runXRE &
+                     fi
+                else
+                     $RDK_PATH/runXRE $BUILD_TYPE $mode >> /opt/logs/runXRE_log.txt &
+                fi
+            else
+                if [ ! -f /tmp/.xre-restart ]; then
+                    sh $RDK_PATH/prepareChrootEnv.sh
+                else
+                    rm -rf /tmp/.xre-restart
+                fi
+                chroot $PERSISTENT_PATH/restricted su - restricteduser -c $RDK_PATH/runXRE &
+            fi
+        fi
+    else
+        #if [ -f $RDK_PATH/restoreRootEnv.sh ]; then
+        #    sh $RDK_PATH/restoreRootEnv.sh
+        #fi
+
+        if [ "$DEVICE_TYPE" = "rmfstreamer" ]; then
+            if [ "$configMode" != "HEADLESS_GW" ]; then
+                sh $RDK_PATH/runXRE &
+            fi
+        else
+            $RDK_PATH/runXRE $BUILD_TYPE $mode >> /opt/logs/runXRE_log.txt &
+        fi
+    fi
+    touch ${LOG_PATH}/.XREisUp
+
+    post_start $?
+}
+
+stop_function() {
+    pre_stop
+    sh /lib/rdk/processPID.sh /lib/rdk/runXRE | xargs kill -9
+    killall -9 Receiver
+    if [ "$LIGHTSLEEP_ENABLE" = "true" ] ;then
+        sh /lib/rdk/processPID.sh /var/logs/pipe_receiver | xargs kill -9
+    fi
+    post_stop 0
+}
+
+case "$1" in
+  start)
+    start_function
+    ;;
+  stop)
+    stop_function
+    ;;
+  restart)
+    touch /tmp/.xre-restart
+    $0 stop && $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac
+

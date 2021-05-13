@@ -1,0 +1,45 @@
+#!/bin/sh
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+# remove /opt/persistent/lsaEnable since isLSAenabled will check for presence of file
+if [ -f /opt/persistent/lsaEnable ]; then
+  rm /opt/persistent/lsaEnable
+fi
+
+. /etc/include.properties
+
+isLSAEnabled=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.LSA.Enable  2>&1 > /dev/null`
+
+if [ "$isLSAEnabled" = "" ]; then
+  isLSAEnabled=`tr181 RFC_ENABLE_LSA  2>&1 > /dev/null`
+fi
+
+isLSAEnabled=`echo $isLSAEnabled | tr '[:upper:]' '[:lower:]'`
+if [ "$isLSAEnabled" = "true" ]; then
+  echo "RBI LSA-M: LSA Enabled" >> $LOG_PATH/ocapri_log.txt
+
+# use following rbiDaemon launch if using rbiDaemon.cfg configuration
+#  nohup rbiDaemon -C $PERSISTENT_PATH/rbiDaemon.cfg &> $LOG_PATH/rbiDaemon.log &
+# else use following call to use RFC configruation
+
+  prUrl=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.LSA.PlacementReqUrl  2>&1 > /dev/null`
+  if [ "$prUrl" = "" ]; then
+    prUrl=`tr181 RFC_DATA_LSA_130placementRequestURL  2>&1 > /dev/null`
+  fi
+
+  psnUrl=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.LSA.PSNUrl  2>&1 > /dev/null`
+  if [ "$psnUrl" = "" ]; then
+    psnUrl=`tr181 RFC_DATA_LSA_130placementStatusNotificationURL  2>&1 > /dev/null`
+  fi
+
+  nohup rbiDaemon  $prUrl $psnUrl >> $LOG_PATH/rbiDaemon.log &
+else
+  echo "RBI LSA-M: LSA Disabled" >> $LOG_PATH/ocapri_log.txt
+fi
