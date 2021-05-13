@@ -31,11 +31,15 @@ else
   RT_PROTOCOL_VERSION="1"
 fi
 
-# DELIA-50370 (temporary fix)
-DISABLE_RTV2="true"
-#DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
+# DELIA-50370 (temporary fix until DELIA-50048 is released)
+if [ -d "/proc/brcm" ]; then
+  DISABLE_RTV2="true"
+else
+  DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
+fi
 
 if [ $DISABLE_RTV2 = "true" ]; then
+  echo "Forcing RT_RPOTOCOL_VERSION 1"
   RT_PROTOCOL_VERSION="1"
 fi
 
