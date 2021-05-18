@@ -39,7 +39,7 @@
       "partnerProductName" : "SkyQ",
       "unlockable-feature:vidipath" : "true"
    },
-   "sky-it" : {
+   "sky-italia" : {
       "ntpHost" : "devicetime1.sky.com",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
