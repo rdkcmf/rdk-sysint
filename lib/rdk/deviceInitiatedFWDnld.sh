@@ -405,7 +405,7 @@ EnableOCSP="/tmp/.EnableOCSPCA"
 #Cert ops STB Red State recovery RDK-30717
 stateRedSprtFile="/lib/rdk/stateRedRecovery.sh"
 stateRedFlag="/tmp/stateRedEnabled"
-stateredRecoveryURL="https://recovery.xconfds.coast.xcal.tv/xconf/swu/stb"
+
 STATE_RED_LOG_FILE=$LOG_PATH/"swupdate.log"
 stateRedlog ()
 {
@@ -1488,6 +1488,10 @@ postFlash () {
                  if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
                       Trigger_RebootPendingNotify &
                  fi
+                 if [ $redflagset -eq 1 ]; then
+                      stateRedlog "state red firmware updated rebooting"
+                      unsetStateRed
+                 fi
                  echo "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
                  sleep $REBOOT_PENDING_DELAY
                  sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box after Firmware Image Upgrade..."
@@ -1569,8 +1573,7 @@ getServURL()
                 return
             fi
         fi
-
-        CLOUD_URL=$stateredRecoveryURL
+        CLOUD_URL=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.XconfRecoveryUrl 2>&1 > /dev/null`
         echo $CLOUD_URL
         return
     fi
