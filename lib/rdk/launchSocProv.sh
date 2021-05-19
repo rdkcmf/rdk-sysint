@@ -36,12 +36,7 @@ else
   RT_PROTOCOL_VERSION="1"
 fi
 
-# DELIA-50370 (temporary fix until DELIA-50048 is released)
-if [ -d "/proc/brcm" ]; then
-  DISABLE_RTV2="true"
-else
-  DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
-fi
+DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
 
 if [ -z $RT_PROTOCOL_LOCK ] || [ ! $RT_PROTOCOL_LOCK = "true" ]; then
   if [ $DISABLE_RTV2 = "true" ]; then
@@ -260,6 +255,31 @@ provision_v1() {
 } #v1
 
 provision_v2() {
+  isThunderReachable() {
+    THUNDER_IS_REACHABLE=0
+    THUNDER_SECURITY_ENABLED=$(curl -s http://127.0.0.1:9998/Service/Controller/Configuration/Controller | grep -c Security)
+    if [ $THUNDER_SECURITY_ENABLED = "1" ]; then
+      token=$(/usr/bin/WPEFrameworkSecurityUtility | grep token | cut -f4 -d "\"")
+      curl -s -H "Content-Type: application/json"  -H "Authorization: Bearer $token"  -X POST -d '{"jsonrpc":"2.0","id":"3","method": "Controller.1.activate", "params":{"callsign":"org.rdk.AuthService"}}' http://127.0.0.1:9998/jsonrpc > /dev/null 2>&1
+      status=$(curl -s -H "Content-Type: application/json"  -H "Authorization: Bearer $token" -X POST -d '{"jsonrpc":"2.0","id":"3","method": "org.rdk.AuthService.1.getActivationStatus"}' http://127.0.0.1:9998/jsonrpc | cut -f12 -d "\"")
+    else
+      curl -s -H "Content-Type: application/json" -X POST -d '{"jsonrpc":"2.0","id":"3","method": "Controller.1.activate", "params":{"callsign":"org.rdk.AuthService"}}' http://127.0.0.1:9998/jsonrpc > /dev/null 2>&1
+      status=$(curl -s -H "Content-Type: application/json" -X POST -d '{"jsonrpc":"2.0","id":"3","method": "org.rdk.AuthService.1.getActivationStatus"}' http://127.0.0.1:9998/jsonrpc | cut -f12 -d "\"")
+    fi
+    if [ ! -z "$status" ]; then
+      THUNDER_IS_REACHABLE=1
+    fi
+    return $THUNDER_IS_REACHABLE
+  }
+
+  isAlreadyRunning() {
+    ALREADY_RUNNING=0
+    local CNT=("$(/bin/sh -c "ps aux | grep -ic '$1 '")")
+    if [ $(($CNT + 0)) -gt 4 ]; then
+      ALREADY_RUNNING=1
+    fi
+  }
+
   BINFILE="socprovisioning"
   if [ "$1" = "socprovisioning-crypto" ]; then
     BINFILE=$1
@@ -301,6 +321,9 @@ provision_v2() {
     if [ $i = "--status" ]; then
       RUN_MARKER=true
     fi
+    if [ $i = "--refresh" ]; then
+      RUN_MARKER=true
+    fi
   done
 
   # Recreating the missing drm storage dirs
@@ -330,33 +353,81 @@ provision_v2() {
   if [ -f $REFRESH_TIME_FILE ]; then
     RT_MD5SUM_CALC="$(md5sum $REFRESH_TIME_FILE | awk '{print $1}')"
     read -r RT_MD5SUM_STOR <"$REFRESH_TIME_FILE.md5"
-    if [ "$RT_MD5SUM_CALC" = "$RT_MD5SUM_STOR" ]; then
-      read -r REFRESH_TIME <$REFRESH_TIME_FILE
-    else
-        echo "Hash sum error of $REFRESH_TIME_FILE. Corrupted file removed. Resetting the backoff interval to 0"
+    if [ ! "$RT_MD5SUM_CALC" = "$RT_MD5SUM_STOR" ]; then
+        echo "Hash sum error of $REFRESH_TIME_FILE. Corrupted file removed. The backoff time will be counted as 0"
         rm $REFRESH_TIME_FILE
         if [ -f "$REFRESH_TIME_FILE.md5" ]; then
           rm "$REFRESH_TIME_FILE.md5"
         fi
-        REFRESH_TIME=0
     fi
+  fi
+
+  timeWait=1
+
+  isThunderReachable # THunder reachability check
+  NB_THUNDER_WAIT=15
+  while [ $THUNDER_IS_REACHABLE -eq 0 ] && [ $NB_THUNDER_WAIT -gt 0 ]; do
+    if [ ! -f /etc/os-release ]; then
+      echo "THUNDER is unreachable, waiting $timeWait more sec..." >>$SOCPROVSTARTLOG
+    else
+      echo "THUNDER is unreachable, waiting $timeWait more sec..."
+    fi
+    sleep $timeWait
+
+    if [ $timeWait -lt 60 ]; then
+      timeWait=$((timeWait + 1))
+    fi
+    if [ $NB_THUNDER_WAIT -gt 0 ]; then
+      NB_THUNDER_WAIT=$((NB_THUNDER_WAIT - 1))
+    fi
+    isThunderReachable
+    echo $NB_THUNDER_WAIT
+  done
+  if [ $THUNDER_IS_REACHABLE -eq 0 ]; then
+    echo "Thunder is NOT REACHABLE. Exiting..."
+    exit 1
+  fi
+  printf "Thunder is REACHABLE with "
+  if [ $THUNDER_SECURITY_ENABLED = "1" ]; then
+    printf "SECURITY ENABLED"
   else
-    REFRESH_TIME=0
+    printf "SECURITY DISABLED"
+  fi
+  echo ""
+
+  isAlreadyRunning $BINFILE # Wait for another instance to terminate first
+  timeWait=5
+  NB_INSTANCE_WAIT=120
+  TOT_TIME_WAIT=$(printf %d "$(($NB_INSTANCE_WAIT * $timeWait))")
+  while [ $ALREADY_RUNNING -eq 1 ] && [ $NB_INSTANCE_WAIT -gt 0 ]; do
+    if [ ! -f /etc/os-release ]; then
+      echo "Another $BINFILE is running, waiting $timeWait more sec..." >>$SOCPROVSTARTLOG
+    else
+      echo "Another $BINFILE is running, waiting $timeWait more sec..."
+    fi
+    sleep $timeWait
+
+    if [ $timeWait -lt 60 ]; then
+      timeThunderWait=$((timeThunderWait + 1))
+    fi
+    if [ $NB_INSTANCE_WAIT -gt 0 ]; then
+      NB_INSTANCE_WAIT=$((NB_INSTANCE_WAIT - 1))
+    fi
+    isAlreadyRunning $BINFILE
+    echo $NB_INSTANCE_WAIT
+  done
+  if [ $ALREADY_RUNNING -eq 1 ]; then
+    echo "It looks like another $BINFILE instance is still running after $TOT_TIME_WAIT wait cycles. Is it stuck? Exiting"
+    exit 1
   fi
 
-  # During scheduled run, only launch socprovisioning app
-  # if current time > scheduled provision check time
-  TIME_REMAINING=$(($REFRESH_TIME - $(date +%s)))
-  if [ $TIME_REMAINING -le 0 ]; then
-    RUN_MARKER=true
-  fi
-
-  if [ ! "$(ls -A ${DRM_DIRS[2]})" ] && [ ! "$(ls -A ${DRM_DIRS[3]})" ]; then
-      echo "Both ${DRM_DIRS[2]} and ${DRM_DIRS[3]} are empty. Device will be provisioned now"
-      RUN_MARKER=true
-  fi
-
+  printf "Current conditions:"
+  printf " BOOTUP flag is ";  [ ! -z "$BOOTUP" ] && printf "present" || printf "not set"
+  printf "; REPROVISION is ";  [ ! -z "$REPROVISION" ] && echo -n $REPROVISION || printf "not set"
+  printf "; RUN_MARKER is ";  [ ! -z "$RUN_MARKER" ] && echo -n $RUN_MARKER || printf "not set"
+  echo ""
   if [ "$RUN_MARKER" = "true" ] || [ "$REPROVISION" = "true" ] || [ ! -z "$BOOTUP" ]; then
+    echo "Launching $BINFILE"
     if [ ! -f /etc/os-release ]; then
       # Checking the dependency module before startup
       nice sh $RDK_PATH/iarm-dependency-checker "socprovisioning"
@@ -370,14 +441,13 @@ provision_v2() {
       fi
     else
       if [ ! -f /etc/os-release ]; then
-        echo "Have no socprovisioning binary installed" >>$SOCPROVSTARTLOG
+        echo "$BINFILE not found" >>$SOCPROVSTARTLOG
       else
-        echo "Have no socprovisioning binary installed"
+        echo "$BINFILE not found"
       fi
     fi
-    echo "$(date +%s)" >$BOOTUP_MARKER
   else
-    echo "Not launching $BINFILE. Next launch in $TIME_REMAINING sec ($((TIME_REMAINING / 3600)) hours)"
+      echo "Not launching $BINFILE. No suitable conditions."
   fi
 } #v2
 
