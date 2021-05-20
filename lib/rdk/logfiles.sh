@@ -274,6 +274,13 @@ if [ "$SOC" = "AMLOGIC" ];then
 	Dolbyms12Logsbackup="dolby_ms12.log.*"
 fi
 
+if [ "$SOC" = "RTK" ];then
+        realtekDmesgKernelLog="dmesg-ramoops-0.log"
+        realtekConsoleKernelLog="console-ramoops-0.log"
+        realtekDmesgKernelLogBackup="dmesg-ramoops-0.log.*"
+        realtekConsoleKernelLogBackup="console-ramoops-0.log.*"
+fi
+
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
         factoryCommsLog="factoryComms.log"
         factoryCommsLogsbackup="factoryComms.log.*"
@@ -567,6 +574,11 @@ backup()
         if [ -f $source/$Dolbyms12Log ] ; then $operation $source/$Dolbyms12Log $destn; fi
     fi
 
+    if [ "$SOC" = "RTK" ];then
+        if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
+        if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi 
+    fi
+
     if [ "$MEDIARITE" == "true" ];then
 	if [ -f $source$MediaRiteLog ] ; then $operation $source$MediaRiteLog $destn; fi
     fi
@@ -789,6 +801,10 @@ backupAppBackupLogFiles()
 	moveFiles $opern $source $TvServerLogsBackup $destn
 	moveFiles $opern $source $PqserverLogsBackup $destn
         moveFiles $opern $source $Dolbyms12LogsBackup $destn
+     fi
+     if [ "$SOC" = "RTK" ];then
+        moveFiles $opern $source $realtekDmesgKernelLogBackup $destn
+        moveFiles $opern $source $realtekConsoleKernelLogBackup $destn
      fi
 
      if [ "$MEDIARITE" == "true" ];then
@@ -1017,6 +1033,11 @@ backupSystemLogFiles()
 	if [ -f $source$AudioServerLog ] ; then $operation $source$AudioServerLog $destn; fi
 	if [ -f $source$TvServerLog ] ; then $operation $source$TvServerLog $destn; fi
      fi
+     if [ "$SOC" = "RTK" ];then
+        if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
+        if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi
+     fi
+
 
      if [ "$MEDIARITE" == "true" ];then
 	if [ -f $source$MediaRiteLog ] ; then $operation $source$MediaRiteLog $destn; fi

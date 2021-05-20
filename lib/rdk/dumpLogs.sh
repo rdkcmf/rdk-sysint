@@ -364,6 +364,17 @@ if [ "$DEVICE_NAME" = "PLATCO" ]; then
       logunit "-u factorycomms" ${log_prefix}/factoryComms.log
 fi
 
+## Dumping  more kernel crash information for Realtek devices
+if [ "$SOC" = "RTK" ];then
+    if [ -f "/sys/fs/pstore/dmesg-ramoops-0" ] && [ ! -f "${log_prefix}/dmesg-ramoops-0.log" ]; then
+	for pstorefile in /sys/fs/pstore/*
+	do
+		filename=$(basename "${pstorefile}")
+	        cp $pstorefile ${log_prefix}/${filename}.log
+	done
+    fi
+fi
+
 if [ "$MEDIARITE" = "true" ];then
       logunit "-u mediarite" ${log_prefix}/mediarite.log
 fi

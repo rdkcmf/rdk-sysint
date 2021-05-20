@@ -397,6 +397,11 @@ if [ "$SOC" = "AMLOGIC" ];then
         logRotateFramework $Dolbyms12Log $logRotateAmlGenericCount $logRotateDolbyms12Size
 fi
 
+if [ "$SOC" = "RTK" ];then
+        logRotateFramework $realtekDmesgKernelLog $logRotateGenericCount $logRotateGenericSize
+        logRotateFramework $realtekConsoleKernelLog $logRotateGenericCount $logRotateGenericSize
+fi
+
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
         logRotateFramework $factoryCommsLog $logRotateGenericCount $logRotateGenericSize
 fi
