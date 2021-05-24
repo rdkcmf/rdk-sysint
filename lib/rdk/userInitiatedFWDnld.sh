@@ -448,6 +448,9 @@ imageDownloadToLocalServer ()
     UPGRADE_LOCATION=$1
     log "UPGRADE_LOCATION = $UPGRADE_LOCATION"
 
+    #Enforce https
+    UPGRADE_LOCATION=`echo $UPGRADE_LOCATION | sed "s/http:/https:/g"`
+
     UPGRADE_FILE=$2
     log "UPGRADE_FILE = $UPGRADE_FILE"
 

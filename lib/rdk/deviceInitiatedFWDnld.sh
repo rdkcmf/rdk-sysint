@@ -193,9 +193,6 @@ peripheral_upgrade_status=1
 ## stores timezone value
 zoneValue=""
 
-## Disable Forced HTTPS
-DisableForcedHttps=false
-
 #$ TLS values and timeouts
 CURL_TLS_TIMEOUT=30
 TLS="--tlsv1.2"
@@ -401,16 +398,6 @@ fi
 if [ -f $CURL_PROGRESS ]; then
     rm $CURL_PROGRESS
 fi
-
-if [ `pidof tr69hostif` ];then
-    DisableForcedHttps=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.EnableHttpCDL.Enable 2>&1 > /dev/null`
-else
-    . /lib/rdk/getRFC.sh ENABLE_HTTPCDL
-    if [ ! -z "$RFC_ENABLE_ENABLE_HTTPCDL" ]; then
-        DisableForcedHttps=$RFC_ENABLE_ENABLE_HTTPCDL
-    fi
-fi
-echo "`Timestamp` RFC value for enabling HTTP download is : $DisableForcedHttps"
 
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
@@ -1875,15 +1862,11 @@ processJsonResponse()
 
     cloudFWFile=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
     cloudFWLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
+    cloudFWLocation=`echo $cloudFWLocation | sed "s/http:/https:/g"`
     echo "$cloudFWLocation" > /tmp/.xconfssrdownloadurl
     ipv4cloudFWLocation=$cloudFWLocation
     ipv6cloudFWLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
-    if [ "$DisableForcedHttps" != "true" ] ; then
-        ipv6cloudFWLocation=`echo $ipv6cloudFWLocation | sed "s/http:/https:/g"`
-        cloudFWLocation=`echo $cloudFWLocation | sed "s/http:/https:/g"`
-    else
-        echo "`Timestamp` Ignore forcing to https URL"
-    fi
+    ipv6cloudFWLocation=`echo $ipv6cloudFWLocation | sed "s/http:/https:/g"`
     cloudFWVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
     DelayDownloadXconf=`grep delayDownload $OUTPUT | cut -d \| -f2`
     cloudProto=`grep firmwareDownloadProtocol $OUTPUT | cut -d \| -f2`          # Get download protocol to be used
@@ -2317,11 +2300,7 @@ sendJsonRequestToCloud()
     ## find the build type - VBN or PROD BUILD
     ## Cloud URL http://$XRE_HOST/firmware/$BUILD/parker/stb/rng210n/version.json
     CLOUD_URL=$(getServURL)
-    if [ "$DisableForcedHttps" != "true" ] ; then
-        CLOUD_URL=`echo $CLOUD_URL | sed "s/http:/https:/g"`
-    else
-        echo "`Timestamp` Ignore forcing to https URL"
-    fi
+    CLOUD_URL=`echo $CLOUD_URL | sed "s/http:/https:/g"`
     if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ] ; then
         CURL_OPTION="-gw"
     fi
