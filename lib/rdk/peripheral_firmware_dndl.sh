@@ -30,37 +30,35 @@ if [ -f /lib/rdk/t2Shared_api.sh ]; then
     source /lib/rdk/t2Shared_api.sh
 fi
 
-if [ -z $LOG_PATH ]; then
-    LOG_PATH="/opt/logs/"
-fi
-
-#input file to get the peripheral image versions
-peripheral_json_file="$RAMDISK_PATH/rc-proxy-params.json"
-CURL_TLS_TIMEOUT=30
-#notifications to be send to Control Manager only atleast one download is successful
-send_iarm_event=false
-#holds the firmwares that are successfully downloaded
-iarmevent_firmware_filenames=""
-
-CURRENT_PERIPHERAL_VERSION="/tmp/current_peripheral_versions.txt"
-DOWNLOADED_PERIPHERAL_VERSION="/tmp/downloaded_peripheral_versions.txt"
-HTTP_CODE="/tmp/peripheral_curl_httpcode"
-
-MAX_RETRIES=3
-CB_MAX_RETRIES=1
-DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_peridl"
-CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_peridl"
-
-DAC15_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Sysint.DAC15CDLUrl 2>&1)
-if [ -z "$DAC15_URL" ]; then
-    DAC15_URL="dac15cdlserver.ae.ccp.xcal.tv" 
-fi
-
 if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 else
     IARM_EVENT_BINARY_LOCATION=/usr/bin
 fi
+
+#Set logs folder
+if [ -z $LOG_PATH ]; then
+    LOG_PATH="/opt/logs/"
+fi
+
+#Define variable for the peripheral image upgrade
+peripheral_json_file="$RAMDISK_PATH/rc-proxy-params.json"
+CURL_TLS_TIMEOUT=30
+CURRENT_PERIPHERAL_VERSION="/tmp/current_peripheral_versions.txt"
+DOWNLOADED_PERIPHERAL_VERSION="/tmp/downloaded_peripheral_versions.txt"
+HTTP_CODE="/tmp/peripheral_curl_httpcode"
+mTlsXConfDownload="false"
+
+#notifications to be send to Control Manager only atleast one download is successful
+#holds the firmwares that are successfully downloaded
+send_iarm_event=false
+iarmevent_firmware_filenames=""
+
+#Retry Logic setting for Codebig/Direct connection
+MAX_RETRIES=3
+CB_MAX_RETRIES=1
+DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_peridl"
+CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_peridl"
 
 IsDirectBlocked()
 {
@@ -146,6 +144,11 @@ sendNotification()
 #created the signed URL for codebig communication
 getCodebigSignedURL()
 {
+    DAC15_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Sysint.DAC15CDLUrl 2>&1)
+    if [ -z "$DAC15_URL" ]; then
+        DAC15_URL="dac15cdlserver.ae.ccp.xcal.tv" 
+    fi
+
     CURL_PARAMETER=""
     domainName=`echo $URL | awk -F/ '{print $3}'`
     CBURL=`echo $URL | sed -e "s|.*$domainName||g"`
@@ -184,6 +187,15 @@ sendTLSRequestForImageDownload()
     EnableOCSPStapling="/tmp/.EnableOCSPStapling"
     EnableOCSP="/tmp/.EnableOCSPCA"
 
+    # MTLS flag to use secure endpoints
+    if [ "$DEVICE_TYPE" = "hybrid" ] || [ "$DEVICE_TYPE" = "mediaclient" ]; then
+        mTlsXConfDownload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsXConfDownload.Enable 2>&1 > /dev/null)
+        if [ "$FORCE_MTLS" == "true" ]; then
+            echo "MTLS method enabled"
+            mTlsXConfDownload="true"
+        fi
+    fi
+
     if [ "$UseCodebig" -eq 1 ]; then
        getCodebigSignedURL
        if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
@@ -192,23 +204,44 @@ sendTLSRequestForImageDownload()
            cmd="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' $CURL_PARAMETER -fgLo $DIFW_PATH/$firmware_version.tgz \"$cbSignedURL\""
         fi
     else
-        if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
-            cmd="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLo $DIFW_PATH/$firmware_version.tgz \"$URL\""
+        #RDK-32180: Use mTLS for Xconf/SSR Interaction for BLE Remote Control Firmware Upgrade
+        if [ "$mTlsXConfDownload" == "true" ]; then
+            echo "Peripheral Upgrade requires Mutual Authentication"
+            if [ -d /etc/ssl/certs ]; then
+                if [ ! -f /usr/bin/GetConfigFile ];then
+                    echo "Error: GetConfigFile Not Found"
+                    exit 127
+                fi
+                ID="/tmp/uydrgopwxyem"
+                GetConfigFile $ID
+            fi
+            CERT=" --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem"
+            cmd="curl $TLS$CERT --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLo $DIFW_PATH/$firmware_version.tgz \"$URL\""
         else
             cmd="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLo $DIFW_PATH/$firmware_version.tgz \"$URL\""
         fi
+
+        if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
+            cmd="$cmd  --cert-status"
+        fi    
     fi
     echo "Download URL: $cmd"
+
     eval $cmd > $HTTP_CODE
     TLSRet=$?
-
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
             echo "HTTPS $TLS failed to connect to SSR server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
         ;;
     esac
-
     echo "Curl download return code : $TLSRet"
+
+    if [ -f "$ID" ];then
+        rm -rf $ID
+    else
+        echo "MTLS method not enabled"
+    fi
+
     if [ "$TLSRet" = "7" ]; then
          t2CountNotify "swdl_failed_7"
     fi
