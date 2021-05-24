@@ -301,6 +301,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 	logRotateFramework $thermalControlLog $thermalControlLogRotateCount $thermalControlLogRotateSize
         logRotateFramework $xwrebootInfoLog $logRotateGenericCount $xwrebootInfoLogRotateSize
         logRotateFramework $coreDumpLog $logRotateGenericCount $logRotateGenericSize
+        logRotateFramework $xw3systeminfo $logRotateGenericCount $xw3systeminfoSize
 else
 	logRotateFramework $receiverLog $receiverLogRotatCount $receiverLogRotatSize
 	logRotateFramework $ttsLog $ttsLogRotatCount $ttsLogRotatSize
