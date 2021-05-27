@@ -12,6 +12,9 @@ set -x
 
 . /lib/rdk/RebootCondition.sh
 
+. /etc/include.properties
+. /etc/device.properties
+
 REBOOT_WAIT="/tmp/AR/.waitingreboot"
 
 ## File containing common firmware download state variables
@@ -19,7 +22,12 @@ STATUS_FILE="/opt/fwdnldstatus.txt"
 
 reboot_device_success=0
 AutoReboot=false
-AutoReboot=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AutoReboot.Enable 2>&1 > /dev/null)
+
+#if maintaince Mgr is enabled ,don't update "AutoReboot" based on tr181 param
+if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
+then 
+    AutoReboot=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AutoReboot.Enable 2>&1 > /dev/null)
+fi
 
 while [ $reboot_device_success -eq 0 ]; do
     if [ "$AutoReboot" == "true" ];then
@@ -101,6 +109,7 @@ while [ $reboot_device_success -eq 0 ]; do
         fi
     else
         #this means AutoRebootEnable = false.
+        echo "$(timestamp) [Auto Reboot] AutoRebootEnable is set to false - not triggering reboot" >> "$AR_LOG_FILE" 
         if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
         then
             Removecron
