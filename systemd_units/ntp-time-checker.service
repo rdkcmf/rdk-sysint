@@ -14,7 +14,7 @@ Requires=systemd-timesyncd.service
 
 [Service]
 Type=forking
-ExecStart=/bin/sh -c "/lib/rdk/ntp-time-checker.sh &"
+ExecStart=/bin/busybox sh -c "/lib/rdk/ntp-time-checker.sh &"
 
 
 [Install]

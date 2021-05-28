@@ -83,11 +83,11 @@ if [ ! -f /etc/os-release ];then
             #Restart dropbear
             echo "Restarting dropbear.service" >> $LOG_FILE
             killall dropbear
-            sh /lib/rdk/startSSH.sh &
+            /bin/busybox sh /lib/rdk/startSSH.sh &
 
             # Update ESTB IP Bound FireWall
             echo "Renewing firewal rules bound to ESTB IP " >> $LOG_FILE
-            sh /lib/rdk/iptables_init "Refresh"
+            /bin/busybox sh /lib/rdk/iptables_init "Refresh"
             scenario=2
         fi
     else

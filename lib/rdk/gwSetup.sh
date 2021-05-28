@@ -171,7 +171,7 @@ if [ "$gwIPv6Prefix" == "" ] || [ "$gwIPv6Prefix" == "null" ]; then
     fi
     #exGwIp=`route -n | awk '/default/ { print $3 }'| grep 169.254`
     if [ "$exGwIp" = "$gatewayIP" ]; then
-        sh /lib/rdk/iptables_init 'Refresh_v4_ssh' &
+        /bin/busybox sh /lib/rdk/iptables_init 'Refresh_v4_ssh' &
         echo "`/bin/timestamp` $exGwIp is already set as route " >> $logsFile
         echo " `/bin/timestamp` ***************************END******************************" >> $logsFile
 	touch /tmp/moca_ip_acquired
@@ -197,7 +197,7 @@ if [ "$gwIPv6Prefix" == "" ] || [ "$gwIPv6Prefix" == "null" ]; then
             route add default gw $gatewayIP dev $gwIf  metric $gwPrior
             echo "`/bin/timestamp` new gateway ip for this device type $deviceType  " >> $logsFile
         fi
-        sh /lib/rdk/iptables_init 'Refresh_v4_ssh' &
+        /bin/busybox sh /lib/rdk/iptables_init 'Refresh_v4_ssh' &
     else
         touch $ipv4File
         route add default gw $gatewayIP dev $gwIf  metric $gwPrior

@@ -807,7 +807,7 @@ do
                     exit 0
                 fi      
                 echo " `/bin/timestamp` Executing $RDK_PATH/uploadSTBLogs.sh." >> $LOG_PATH/dcmscript.log
-                nice -n 19 sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 0 1 $upload_protocol $upload_httplink &
+                nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 0 1 $upload_protocol $upload_httplink &
                 echo 0 > $DCMFLAG
                 exit 1
             fi
@@ -862,11 +862,11 @@ do
                 if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
                     # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
                     echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
-                    nice -n 19 sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
+                    nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
                 elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
                     # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
                     echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
-                    nice  -n 19 sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+                    nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
                 else 
                     echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
                 fi
@@ -876,12 +876,12 @@ do
                     echo " `/bin/timestamp` 'UploadSchedule:cron' is not present or null " >> $LOG_PATH/dcmscript.log
                     echo " `/bin/timestamp` Uploading logs as DCM response is either null or not present" >> $LOG_PATH/dcmscript.log
                     rm $LOG_PATH/dcm_upload
-                    nice  -n 19 sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+                    nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
                     echo 0 > $DCMFLAG
                 else
                     cron_update=1 
                     echo " `/bin/timestamp` 'UploadSchedule:cron' is present setting cron jobs " >> $LOG_PATH/dcmscript.log
-                    sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$cron nice -n 19 /bin/sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
+                    sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$cron nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
                 fi
 
                 #Get the cornjob value

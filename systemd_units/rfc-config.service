@@ -18,7 +18,7 @@ Type=oneshot
 SyslogIdentifier=rfc-config
 EnvironmentFile=/etc/rfc.properties
 ExecStartPre=/bin/sh -c '/bin/touch /opt/logs/rfcscript.log'
-ExecStart=/bin/sh -c '/lib/rdk/RFCbase.sh &'
+ExecStart=/bin/busybox sh -c '/lib/rdk/RFCbase.sh &'
 RemainAfterExit=yes
 
 [Install]
