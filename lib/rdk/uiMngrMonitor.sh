@@ -14,6 +14,10 @@
 . $RDK_PATH/commonUtils.sh
 . $RDK_PATH/interfaceCalls.sh
 
+if [ -f /lib/rdk/getSecureDumpStatus.sh ]; then
+     . /lib/rdk/getSecureDumpStatus.sh
+fi
+
 if [ ! -f $RAMDISK_PATH/.uiMngrFlag ] || [ -f /tmp/.standby ]; then
      exit 0
 fi
