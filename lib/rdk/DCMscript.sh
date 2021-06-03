@@ -182,11 +182,15 @@ checkXpkiMtlsBasedLogUpload()
 }
 checkXpkiMtlsBasedLogUpload
 
-LOG_CONFIG_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.XconfUrl 2>&1 > /dev/null)
+if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
+    echo "`/bin/timestamp` opt override is present. Ignore settings from Bootstrap config" >> $LOG_PATH/dcmscript.log
+else
+    LOG_CONFIG_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.XconfUrl 2>&1 > /dev/null)
 
-if [ "$LOG_CONFIG_URL" ]; then
-    URL="$LOG_CONFIG_URL/loguploader/getSettings"
-    echo "`/bin/timestamp` Setting URL to $URL from Bootstrap config LOG_CONFIG_URL:$LOG_CONFIG_URL" >> $LOG_PATH/dcmscript.log
+    if [ "$LOG_CONFIG_URL" ]; then
+        URL="$LOG_CONFIG_URL/loguploader/getSettings"
+        echo "`/bin/timestamp` Setting URL to $URL from Bootstrap config LOG_CONFIG_URL:$LOG_CONFIG_URL" >> $LOG_PATH/dcmscript.log
+    fi
 fi
 
  echo "`/bin/timestamp` URL: $URL" >> $LOG_PATH/dcmscript.log
