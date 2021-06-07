@@ -1,3 +1,5 @@
+
+
 LOG_SERVER=logs.xcal.tv
 DCM_LOG_SERVER=stblogger.ccp.xcal.tv
 DCM_LOG_SERVER_URL=https://ccpxcb-dt-a001-q-1.dt.ccp.cable.comcast.com:8080/loguploader/getSettings
