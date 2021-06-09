@@ -45,6 +45,7 @@ if [ -f /etc/systemd/timesyncd.conf ];then
            # Update the timesyncd configuration with URL
            cp /etc/systemd/timesyncd.conf /tmp/timesyncd.conf
            sed -i "s/^NTP=$defaultHostName/NTP=$hostName $defaultHostName/" /tmp/timesyncd.conf
+           echo "ConnectionRetrySec=5" >> /tmp/timesyncd.conf
            cat /tmp/timesyncd.conf > /etc/systemd/timesyncd.conf
            rm -rf /tmp/timesyncd.conf
            # Restart the service to reflect the new conf
