@@ -27,6 +27,19 @@ config)
 	then
 		exit 1
 	fi
+
+	firstbyte=`echo $ip | cut -d "." -f1`
+	secondbyte=`echo $ip | cut -d "." -f2`
+	thirdbyte=`echo $ip | cut -d "." -f3`
+	fourthbyte=`echo $ip | cut -d "." -f4` 
+	
+	if [ "x$thirdbyte" = "x85" ];then
+		ip="$firstbyte.$secondbyte.100.$fourthbyte"
+	fi
+	if [ "x$thirdbyte" = "x1" ];then
+		ip="$firstbyte.$secondbyte.100.$fourthbyte"
+	fi
+
 	# remember $ip for $interface, to use on restart
 	if [ ! -f /etc/os-release ]; then
 		if [ "x$IP" != x -a -w "$IP.$interface" ]
