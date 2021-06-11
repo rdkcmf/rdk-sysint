@@ -187,7 +187,9 @@ if [ -d "${SD_CARD_MOUNT_PATH}/netflix" ]; then rm -rf "${SD_CARD_MOUNT_PATH}/ne
 if [ -d /opt/lib/bluetooth ]; then rm -rf /opt/lib/bluetooth; fi
 
 # remove all apps data only if path is non empty and exits
-if [ -d "$SD_CARD_APP_MOUNT_PATH" ]; then rm -rf $SD_CARD_APP_MOUNT_PATH/*; fi
+if [ -d "$SD_CARD_APP_MOUNT_PATH" ]; then
+    find "$SD_CARD_APP_MOUNT_PATH" -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
+fi
 if [ -d "$HDD_APP_MOUNT_PATH" ]; then rm -rf $HDD_APP_MOUNT_PATH/*; fi
 
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
