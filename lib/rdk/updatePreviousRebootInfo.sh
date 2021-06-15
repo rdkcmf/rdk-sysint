@@ -347,9 +347,9 @@ else
             otherReason=`grep "PreviousOtherReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousOtherReason:' '{print $2}' | sed 's/^ *//'`
 
             echo "Checking Kernel Panic and Hard Power scenarios..."
-            # Use current time for kernel crash and hard power reset
-            rebootTime=`date -u`            
             if [ "x$rebootInitiatedBy" == "x" ];then
+                # Use current time for kernel crash and hard power reset
+                rebootTime=`date -u`            
                 # Check for Kernel Panic Reboot
                 oopsDumpCheck
                 kernel_crash=$?
