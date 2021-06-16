@@ -121,7 +121,7 @@ fi
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
 
-echo "`/bin/timestamp` Starting execution of DCMscript.sh" >> $LOG_PATH/dcmscript.log
+echo "`/bin/timestamp` Starting execution of DCMscript_maintaince.sh" >> $LOG_PATH/dcmscript.log
 
 ## Trigger Telemetry run for previous boot log files 
 echo "Telemetry run for previous boot log files" >> $LOG_PATH/dcmscript.log
@@ -645,7 +645,7 @@ sendHttpRequestToServer()
         fi
 
         if [ "$http_code" = "000" ]; then
-            if [ "$DEVICE_TYPE" = "mediaclient"]; then
+            if [ "$DEVICE_TYPE" = "mediaclient" ]; then
                 echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failed: httpcode:$http_code, attempting Codebig" >> $LOG_PATH/dcmscript.log
                 IsCodeBigBlocked
                 skipcodebig=$?
@@ -962,6 +962,7 @@ do
     done
     sleep 15
 done
+
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
 then
    if [ "$maintenance_error_flag" -eq 1 ]
@@ -971,5 +972,6 @@ then
         eventSender "MaintenanceMGR" $MAINT_DCM_COMPLETE
         #post start time event after COMPLETE event
         StartTime_eventSender "MaintenanceMGR" $IARM_BUS_DCM_NEW_START_TIME_EVENT $start_time
+
    fi
 fi
