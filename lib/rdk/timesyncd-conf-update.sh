@@ -60,6 +60,7 @@ if [ -f /etc/systemd/timesyncd.conf ];then
            rm -rf /tmp/timesyncd.conf
            # Restart the service to reflect the new conf
            echo "`date`: Restarting the service: systemd-timesyncd.service ..!"
+           /bin/systemctl reset-failed systemd-timesyncd.service
            /bin/systemctl restart systemd-timesyncd.service
       else
            echo "Hostnames are same ($hostName, $defaultHostName)"
