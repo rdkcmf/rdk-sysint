@@ -23,7 +23,7 @@
    
 # persistent data cleanup
 if [ -d /opt/persistent ]; then
-       rm -rf /opt/persistent/*
+    find /opt/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
      if [ -f /lib/rdk/ubi-volume-cleanup.sh ];then

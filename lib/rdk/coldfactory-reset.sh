@@ -34,7 +34,7 @@ fi
    
 # persistent data cleanup	
 if [ -d /opt/persistent ]; then
-    rm -rf /opt/persistent/*
+    find /opt/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
 if [ -d /tmp/mnt/diska3/persistent/dvr ];then
     rm -rf /tmp/mnt/diska3/persistent/dvr 

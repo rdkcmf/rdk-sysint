@@ -107,8 +107,12 @@ fi
 
 echo "Factory Reset:Starting file cleanUp"
 # persistent data cleanup
-if [ -d /opt/persistent ]; then rm -rf /opt/persistent/* ; fi
-if [ -d /tmp/mnt/diska3/persistent ];then rm -rf /tmp/mnt/diska3/persistent/*; fi
+if [ -d /opt/persistent ]; then
+    find /opt/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
+fi
+if [ -d /tmp/mnt/diska3/persistent ]; then
+    find /tmp/mnt/diska3/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
+fi
 if [ -f /tmp/mnt/diska3/OCAP_LSV ];then rm -rf /tmp/mnt/diska3/OCAP_LSV;fi
 
 # whitebox data cleanup
@@ -197,9 +201,7 @@ if [ -d "${SD_CARD_MOUNT_PATH}/netflix" ]; then rm -rf "${SD_CARD_MOUNT_PATH}/ne
 if [ -d /opt/lib/bluetooth ]; then rm -rf /opt/lib/bluetooth; fi
 
 # remove all apps data only if path is non empty and exits
-if [ -d "$SD_CARD_APP_MOUNT_PATH" ]; then
-    find "$SD_CARD_APP_MOUNT_PATH" -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
-fi
+if [ -d "$SD_CARD_APP_MOUNT_PATH" ]; then rm -rf $SD_CARD_APP_MOUNT_PATH/*; fi
 if [ -d "$HDD_APP_MOUNT_PATH" ]; then rm -rf $HDD_APP_MOUNT_PATH/*; fi
 
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
