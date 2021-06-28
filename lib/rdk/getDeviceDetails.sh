@@ -30,7 +30,7 @@ lockDir=/tmp/.getDeviceDetails.lock
 lockPidFile=/tmp/.getDeviceDetails.lock/.lockPidFile
 deviceDetailsCache=/tmp/.deviceDetails.cache
 
-# to enable logging: uncomment out echo and comment out colon : 
+# to enable logging: uncomment out echo and comment out colon :
 logMsg()
 {
 	#echo "$(cat /proc/uptime | awk '{print $1}'): $0: $$: $(ps -o comm= $PPID): $PPID :: $1" >> $logFile
@@ -102,7 +102,7 @@ getEcmIp()
        [ "$logEnabled" == "true" ] && echo "getDeviceDetails:`uptime | cut -f1 -d ','`, Got ecmIp : $ecmIp"
   else
        ecmIp=""
-  fi	 
+  fi
 }
 
 getEcmMac()
@@ -118,7 +118,7 @@ getEcmMac()
           EcmMac=""
       else
           [ "$logEnabled" == "true" ] && echo "getDeviceDetails:`uptime | cut -f1 -d ','`, Got EcmMac : $EcmMac"
-      fi  
+      fi
   fi
 }
 
@@ -161,7 +161,7 @@ getLocalTime()
 {
    timeValue=`date`
    echo "$timeValue"
-}       
+}
 
 getTimeZone()
 {
@@ -185,7 +185,7 @@ getFWVersion()
    fi
 }
 getDACInitTimestamp()
-{ 
+{
    if [ "$DEVICE_TYPE" != "mediaclient" ]; then
        if [ -f /opt/mpeos_hrv_init_log.txt ]; then
            head -n 1 /opt/mpeos_hrv_init_log.txt | cut -d',' -f1
@@ -219,6 +219,11 @@ getModelNum()
    echo $MODEL_NUM
 }
 
+getFriendlyId()
+{
+   echo $FRIENDLY_ID
+}
+
 getModel()
 {
    model=""
@@ -241,7 +246,7 @@ getModel()
       fi
 
    fi
-}  
+}
 
 getDeviceSerialNumber()
 {
@@ -280,7 +285,7 @@ getRF4CEMac()
     if [ `echo $rf4ce_mac | egrep "^([0-9A-F]{2}:){7}[0-9A-F]{2}$"` ]
     then
         echo "$rf4ce_mac"
-    fi   
+    fi
 }
 
 
@@ -298,6 +303,7 @@ executeServiceRequest()
 		executeServiceRequest "wifi_mac"
 		executeServiceRequest "eth_mac"
 		executeServiceRequest "model_number"
+		executeServiceRequest "friendly_id"
 		executeServiceRequest "build_type"
 		executeServiceRequest "imageVersion"
                 executeServiceRequest "bluetooth_mac"
@@ -307,7 +313,7 @@ executeServiceRequest()
 			executeServiceRequest "ecm_mac"
 			executeServiceRequest "model"
 		fi
-                
+
                 while true
                 do
                     if [ "$DEVICE_TYPE" != "mediaclient" ]; then
@@ -325,8 +331,8 @@ executeServiceRequest()
                             [ "$serialNumber" == "" ] && executeServiceRequest "serial_number"
                             [ "$CableCardVersion" == "" ] && executeServiceRequest "cableCardVersion"
                         fi
-		    fi
-		    
+                    fi
+
                     if [ "$RF4CEMac" == "" ]; then
                         executeServiceRequest "rf4ce_mac"
                     fi
@@ -334,9 +340,9 @@ executeServiceRequest()
                     if [ "$IPAddress" == "" ] && [ "$WIFI_SUPPORT" == "true" ]; then
                         executeServiceRequest "boxIP"
                     fi
-                    
+
                     [ -f /tmp/moca_ip_acquired ] && logMsg "/tmp/moca_ip_acquired = true" || logMsg "/tmp/moca_ip_acquired = false"
-                    
+
                     # Mediaclient devices with SLAAC will not have this flag
                     # Also refresh moca ip for IPV6 mode
                     if [ -f /tmp/moca_ip_acquired ] && [ "$MocaIp" == "" ]; then
@@ -410,6 +416,10 @@ executeServiceRequest()
 		modelNum=`getModelNum`
 		echo "$modelNum" > /tmp/.model_number
                 ;;
+      "friendly_id")
+		friendlyId=`getFriendlyId`
+		echo "$friendlyId" > /tmp/.friendly_id
+                ;;
       "imageVersion")
 		FWVersion=`getFWVersion`
   		echo "$FWVersion" > /tmp/.imageVersion
@@ -425,11 +435,11 @@ executeServiceRequest()
       "DACInitTimestamp")
 		DACInitTimestamp=`getDACInitTimestamp`
 	        echo "$DACInitTimestamp" > /tmp/.DACInitTimestamp
-                ;; 
+                ;;
       "serial_number")
 		getDeviceSerialNumber
 	        echo "$serialNumber" > /tmp/.serial_number
-                ;; 
+                ;;
       "bluetooth_mac")
                 BluetoothMac=`getBluetoothMac`
                 echo "$BluetoothMac" > /tmp/.bluetooth_mac
@@ -439,13 +449,13 @@ executeServiceRequest()
                 echo "$RF4CEMac" > /tmp/.rf4ce_mac
                 ;;
       "top_labels")
-  		echo 
+                echo
                 ;;
       "mid_labels")
-  		echo 
+                echo
                 ;;
       "low_labels")
-  		echo 
+                echo
                 ;;
       *)
 		logMsg "Error: wrong parameter=\"$parameter\"! No actions. Exit."
@@ -453,7 +463,7 @@ executeServiceRequest()
    esac
 
    if [ "$1" != "all" ] && [ "$1" != "" ]; then
-        [ ! -f "$deviceDetailsCache" ] && executeServiceRequestOutput || sed -i 's/'"$1"'=.*/'"$1"'='`cat /tmp/.$1`'/' "$deviceDetailsCache"
+        [ ! -f "$deviceDetailsCache" ] && executeServiceRequestOutput || sed -i 's/'"$1"'=.*/'"$1"'='"$(cat /tmp/."$1")"'/' "$deviceDetailsCache"
         unlock
    fi
 }
@@ -463,19 +473,19 @@ executeServiceRequestOutput()
 	logMsg "output"
 
 	if [ "$DEVICE_TYPE" != "mediaclient" ]; then
-		printf "estb_mac=%s\necm_mac=%s\nmoca_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel=%s\nmodel_number=%s\nbuild_type=%s\nimageVersion=%s\necm_ip=%s\nestb_ip=%s\nmoca_ip=%s\ncableCardVersion=%s\nDACInitTimestamp=%s\nserial_number=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
-			"$MacAddress" "$EcmMac" "$MocaMac" "$WiFiMac" "$EtherMac" "$model" "$modelNum" "$buildType" "$FWVersion" "$ecmIp" "$IPAddress" "$MocaIp" "$CableCardVersion" "$DACInitTimestamp" "$serialNumber" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
+		printf "estb_mac=%s\necm_mac=%s\nmoca_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel=%s\nmodel_number=%s\nfriendly_id=%s\nbuild_type=%s\nimageVersion=%s\necm_ip=%s\nestb_ip=%s\nmoca_ip=%s\ncableCardVersion=%s\nDACInitTimestamp=%s\nserial_number=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
+			"$MacAddress" "$EcmMac" "$MocaMac" "$WiFiMac" "$EtherMac" "$model" "$modelNum" "$friendlyId" "$buildType" "$FWVersion" "$ecmIp" "$IPAddress" "$MocaIp" "$CableCardVersion" "$DACInitTimestamp" "$serialNumber" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
         elif [ "$WIFI_SUPPORT" == "true" ]; then
                 if [ "$RF4CE_CAPABLE" == "true" ]; then
-                        printf "estb_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nbuild_type=%s\nimageVersion=%s\nboxIP=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
-                                "$MacAddress" "$WiFiMac" "$EtherMac" "$modelNum" "$buildType" "$FWVersion" "$IPAddress" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
+                        printf "estb_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nfriendly_id=%s\nbuild_type=%s\nimageVersion=%s\nboxIP=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
+                                "$MacAddress" "$WiFiMac" "$EtherMac" "$modelNum" "$friendlyId" "$buildType" "$FWVersion" "$IPAddress" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
                 else
-                        printf "estb_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nbuild_type=%s\nimageVersion=%s\nboxIP=%s\nbluetooth_mac=%s\n" \
-                                "$MacAddress" "$WiFiMac" "$EtherMac" "$modelNum" "$buildType" "$FWVersion" "$IPAddress" "$BluetoothMac" | sort > $deviceDetailsCache
+                        printf "estb_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nfriendly_id=%s\nbuild_type=%s\nimageVersion=%s\nboxIP=%s\nbluetooth_mac=%s\n" \
+                                "$MacAddress" "$WiFiMac" "$EtherMac" "$modelNum" "$friendlyId" "$buildType" "$FWVersion" "$IPAddress" "$BluetoothMac" | sort > $deviceDetailsCache
                 fi
 	else
-		printf "estb_mac=%s\nmoca_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nbuild_type=%s\nimageVersion=%s\nmoca_ip=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
-			"$MacAddress" "$MocaMac" "$WiFiMac" "$EtherMac" "$modelNum" "$buildType" "$FWVersion" "$MocaIp" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
+		printf "estb_mac=%s\nmoca_mac=%s\nwifi_mac=%s\neth_mac=%s\nmodel_number=%s\nfriendly_id=%s\nbuild_type=%s\nimageVersion=%s\nmoca_ip=%s\nbluetooth_mac=%s\nrf4ce_mac=%s\n" \
+			"$MacAddress" "$MocaMac" "$WiFiMac" "$EtherMac" "$modelNum" "$friendlyId" "$buildType" "$FWVersion" "$MocaIp" "$BluetoothMac" "$RF4CEMac" | sort > $deviceDetailsCache
 	fi
 }
 
@@ -487,7 +497,7 @@ updateMissingParameters()
             do
                 if [ "$param" != "" ]; then
                     file=/tmp/.$param
-                    [ -f $file ] && [ "`cat $file`" != "" ] && sed -i 's/'$param=.*'/'$param=`cat $file`'/' "$deviceDetailsCache"
+                    [ -f $file ] && [ "`cat $file`" != "" ] && sed -i 's/'$param=.*'/'$param="$(cat $file)"'/' "$deviceDetailsCache"
                     [ ! -f $file ] || [ "`cat $file`" == "" ] && executeServiceRequest $param
                 fi
             done
@@ -537,7 +547,7 @@ if [ "$command" != "" ]; then
      if [ "$command" == "refresh" ]; then
          [ "$parameter" == "" ] && parameter="all"
          executeServiceRequest "$parameter"
-         if [ "$parameter" != "all" ]; then 
+         if [ "$parameter" != "all" ]; then
             file=/tmp/."$parameter"
             if [ -f "$file" ] && [ -f "$deviceDetailsCache" ] ; then
                value=$(cat "$file")
@@ -545,11 +555,11 @@ if [ "$command" != "" ]; then
          fi
      elif [ "$command" == "read" ]; then
          [ "$parameter" == "" ] && parameter="all"
-         if [ "$parameter" != "all" ] && [ "$parameter" != "" ]; then 
+         if [ "$parameter" != "all" ] && [ "$parameter" != "" ]; then
             file=/tmp/."$parameter"
             [ ! -f "$file" ] || [ "`cat $file`" == "" ] && executeServiceRequest "$parameter"
             [ -f "$deviceDetailsCache" ] && value=`cat $deviceDetailsCache | grep $parameter | cut -d "=" -f2`
-            [ -f "$deviceDetailsCache" ] && [ "$value" == "" ] && sed -i 's/'$parameter=.*'/'$parameter=`cat $file`'/' $deviceDetailsCache
+            [ -f "$deviceDetailsCache" ] && [ "$value" == "" ] && sed -i 's/'$parameter=.*'/'$parameter="$(cat $file)"'/' $deviceDetailsCache
 
             [ -f "$file" ] && cat $file
          else
