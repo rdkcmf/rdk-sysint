@@ -109,6 +109,7 @@ MAINT_FWDOWNLOAD_ERROR=9
 MAINT_FWDOWNLOAD_ABORTED=10
 MAINT_CRITICAL_UPDATE=11
 MAINT_REBOOT_REQUIRED=12
+MAINT_FWDOWNLOAD_INPROGRESS=15
 
 isCriticalUpdate=false # setting default value as false
 
@@ -326,7 +327,7 @@ if [ -f /tmp/DIFD.pid ]; then
         echo "Exiting without triggering device initiated firmware download."
         if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
         then
-           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
         fi
         exit 0
     fi
@@ -2446,6 +2447,9 @@ do
 
     retryCount=$((retryCount + 1))
 done
+
+#clear file lock before posting event if not cleared previously
+rm -f /tmp/DIFD.pid 
 
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
   then

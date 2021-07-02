@@ -26,6 +26,20 @@
 . $RDK_PATH/utils.sh 
 . $RDK_PATH/logfiles.sh
 
+
+IARM_EVENT_BINARY_LOCATION=/usr/bin
+if [ ! -f /etc/os-release ]; then
+    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
+fi
+
+eventSender()
+{
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
+    then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    fi
+}
+
 # exit if an instance is already running
 if [ ! -f /etc/os-release ];then
     if [ ! -f /tmp/.log-upload.pid ];then
@@ -34,6 +48,11 @@ if [ ! -f /etc/os-release ];then
     else
         pid=`cat /tmp/.log-upload.pid`
         if [ -d /proc/$pid ];then
+           if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+           then
+                MAINT_LOGUPLOAD_INPROGRESS=16
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
+           fi
             exit 0
         fi
     fi
@@ -51,18 +70,6 @@ if [ $# -ne 6 ]; then
      echo "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink>"
 fi
 
-IARM_EVENT_BINARY_LOCATION=/usr/bin
-if [ ! -f /etc/os-release ]; then
-    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
-fi
-
-eventSender()
-{
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
-    then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
-    fi
-}
 
 # assign the input arguments
 TFTP_SERVER=$1
@@ -900,6 +907,9 @@ else
        fi
     fi
 fi 
+
+if [ ! -f /etc/os-release ];then pidCleanup;fi
+
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
     then
         if [ "$maintenance_error_flag" -eq 1 ]
@@ -911,5 +921,4 @@ if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
             eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
         fi
 fi
-if [ ! -f /etc/os-release ];then pidCleanup;fi
 

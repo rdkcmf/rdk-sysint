@@ -60,6 +60,12 @@ T2_ENABLE=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.Ena
 # exit if an instance is already running
 pid_file="/tmp/.dcm-utility.pid"
 if [ -f $pid_file ] && [ -d /proc/`cat $pid_file` ]; then
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+         MAINT_DCM_INPROGRESS=13
+         eventSender "MaintenanceMGR" $MAINT_DCM_INPROGRESS
+    fi
+     echo "DCMscript_maintaince : in progress. New instance not allowed " >> $LOG_PATH/dcmscript.log
    exit 0
 fi
 echo $$ > $pid_file
