@@ -88,6 +88,7 @@ cloudProto="http"
 REBOOT_PENDING_DELAY=3
 isMmgbleNotifyEnabled=$(tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ManageableNotification.Enable 2>&1 > /dev/null)
 DAC15_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Sysint.DAC15CDLUrl 2>&1)
+WEBPACDL_TR181_NAME="Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable"
 if [ -z "$DAC15_URL" ]; then
     DAC15_URL="dac15cdlserver.ae.ccp.xcal.tv"
 fi
@@ -790,6 +791,22 @@ ProcessImageUpgradeRequest()
     return $ret
 }
 
+IsWebpacdlEnabledForProd()
+{
+    #For PROD images, RFC(Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable) should be TRUE
+    if [ -f /usr/bin/tr181 ]; then
+        WebPACDL=`/usr/bin/tr181 -g $WEBPACDL_TR181_NAME 2>&1 > /dev/null`
+    else
+        log "tr181 BIN is not available at this time, setting WebPACDL to Default value(False)."
+        WebPACDL=false
+    fi
+    log "WebPACDL=$WebPACDL"
+    Build_type=`echo $ImageName | grep -i "_PROD_" | wc -l`
+    if [ "$Build_type" -ne 0 ] && [ "$WebPACDL" != "true" ]; then
+        log "Exiting!!! Either Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable is FALSE or RFC sync not completed yet."
+        exit 1
+    fi
+}
 
 ### main app
 estbIp=`getIPAddress`
@@ -798,9 +815,9 @@ estbIp=`getIPAddress`
 
 if [ $# -lt $FOUR_CMDLINE_PARAMS ]; then
      log "Error: minimum $FOUR_CMDLINE_PARAMS params needed, so Exiting !!!"
-     log "USAGE: <Path to userInitiatedFWDnld.sh file> <protocol> <ImageServer_URL> <Image_Name> <Codebig_Flag>(To enable set 1, To disable set 0)"
-     log "Example (For Non-Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 0"
-     log "Example (For Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 1"
+     log "USAGE: <Path to userInitiatedFWDnld.sh file> <protocol> <ImageServer_URL> <Image_Name> <Codebig_Flag> <Defer_Reboot>(To enable set 1, To disable set 0)"
+     log "Example (For Non-Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 0 0"
+     log "Example (For Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 1 1"
 exit 1
 fi
 
@@ -819,7 +836,7 @@ else
     ImageName=$3
     ImagePath=$2
     Protocol=$1
-    DEFER_REBOOT=""
+    DEFER_REBOOT=$5
 
     if [ "$DEFER_REBOOT" != "1" ]; then
         DEFER_REBOOT=0;
@@ -833,6 +850,8 @@ else
 	log "Image download already in progress, exiting!"
 	exit 1
     elif [ ! -z "$ImageName" ] && [ ! -z "$ImagePath" ]; then
+        log "Check for webPA CDL RFC value"
+        IsWebpacdlEnabledForProd
         log "Found download details, triggering download..."
         touch $RCDL_FLAG
         dnldVersion=`echo $ImageName | sed  's/-signed.bin//g' | sed  's/.bin//g'`
