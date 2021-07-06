@@ -1390,6 +1390,7 @@ isDelayFWDownloadActive ()
 
             if [ $triggerType -ne 5 ]; then
                getNewCronTime $DelayDownloadXconf
+               echo "`Timestamp` Scheduling Cron for deviceInitiatedFWDnld.sh as a part of DelayDownload."
                echo "`Timestamp` Delay Cron Job Time : $NewCronHr Hrs. $NewCronMin Mins."
                sh /lib/rdk/cronjobs_update.sh "add" "deviceInitiatedFWDnld.sh" "$NewCronMin $NewCronHr * * * /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 5 >> /opt/logs/swupdate.log 2>&1"
             fi
@@ -1398,6 +1399,12 @@ isDelayFWDownloadActive ()
                echo "`Timestamp` Exit for this Trigger Type : $triggerType"
                updateUpgradeFlag remove
                rm -f $FILENAME $HTTP_CODE
+               # we gracefully exit from this script
+               # so that MM wont hung and send the event as error
+               if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue"  ];then
+                   echo "`Timestamp` Sending event to Maintenance Plugin with Error before exit"
+                   eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+               fi
                exit 0
             fi
         fi
