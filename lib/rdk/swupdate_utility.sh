@@ -29,22 +29,42 @@
 . /etc/include.properties
 . /etc/device.properties
 
+IARM_EVENT_BINARY_LOCATION=/usr/bin
+if [ ! -f /etc/os-release ]; then
+    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
+fi
+
+eventSender()
+{
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
+    then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    fi
+}
+
+#this is to avoid posting events and state changes when deviceInitiatedFWDnld.sh is already in progress.
+if [ -f /tmp/DIFD.pid ]; then
+    pid=`cat /tmp/DIFD.pid`
+    if [ -d /proc/$pid ]; then
+        echo "device initiated firmware download is already in progress.."
+        echo "So Exiting without triggering device initiated firmware download."
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+           MAINT_FWDOWNLOAD_INPROGRESS=15   
+           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+        fi
+        #file lock /tmp/DIFD.pid will be cleared once first instance of deviceInitiatedFWDnld.sh is complete
+        exit 0
+    fi
+fi
+
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 #sending the IARM event initially to set the firmware upgrade state to Uninitialized
 FW_STATE_UNINITIALIZED=0
 MIB_STATUS_FILE="/opt/fwdnldstatus.txt"
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
-if [ ! -f /etc/os-release ]; then
-    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
-else
-    IARM_EVENT_BINARY_LOCATION=/usr/bin
-fi
 
-if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ]; then
-    $IARM_EVENT_BINARY_LOCATION/IARM_event_sender "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
-else
-    echo "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
-fi
+eventSender "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
 
 if [ -f /opt/curl_progress ]; then
     rm /opt/curl_progress
