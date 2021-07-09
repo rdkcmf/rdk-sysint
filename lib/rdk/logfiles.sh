@@ -460,6 +460,9 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 
         libledgerLog="libledger.log"
         libledgerLogsBackup="libledger.log.*"
+        
+        xw3systeminfoLog="xw3_last_system_info.log"
+        xw3systeminfoLogsBackup="xw3_last_system_info.log.*"
 fi
 
 if [ "$HDD_ENABLED" = "false" ]; then
@@ -666,6 +669,7 @@ backupAppBackupLogFiles()
 	moveFiles $opern $source $thermalControlLogsBackup $destn
         moveFiles $opern $source $xwrebootInfoLogsBackup $destn
         moveFiles $opern $source $libledgerLogsBackup $destn
+        moveFiles $opern $source $xw3systeminfoLogsBackup $destn
      else
      	moveFiles $opern $source $mocaStatusLogsBackup $destn
         moveFiles $opern $source $mocaDriverLogsBackup $destn
@@ -1059,6 +1063,7 @@ backupSystemLogFiles()
 	if [ -f $source/$thermalControlLog ] ; then $operation $source/$thermalControlLog $destn; fi
         if [ -f $source/$xwrebootInfoLog ] ; then $operation $source/$xwrebootInfoLog $destn; fi
         if [ -f $source/$libledgerLog ] ; then $operation $source/$libledgerLog $destn; fi
+        if [ -f $source/$xw3systeminfoLog ] ; then $operation $source/$xw3systeminfoLog $destn; fi
      fi
     if [ "$WIFI_SUPPORT" == "true" ];then
         if [ -f $source/$wpaSupplicantLog ] ; then $operation $source/$wpaSupplicantLog $destn; fi
