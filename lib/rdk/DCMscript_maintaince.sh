@@ -733,23 +733,10 @@ calculate_start_time()
     DEF_TIME_OFFSET=-14400
       
     time_in_sec=$((cron_hr*60*60 + cron_min*60))
-
-    #calculate the timezone and add the offset to the time.
-
-    #get local time offset
-    if [ -f "$TZ_FILE" ]
-    then
-        TZ=$(cat "$TZ_FILE")
-        #grab offset from UTC
-        tz_offset="$(TZ="$TZ" date +"%z" | sed 's/^+0*//' | sed 's/^-0*/-/')"
-        tz_offset_hr=$((tz_offset / 100))
-        tz_offset_min=$((tz_offset % 100))
-        time_offset=$((tz_offset_hr*60*60 + tz_offset_min*60))
-    else
-        # we dont have the TZ file
-        time_offset="$DEF_TIME_OFFSET"
-    fi
-
+   
+    #no time offset calculation required - as received hr and min from XCONF is in UTC format
+    time_offset=0 
+ 
     start_time_in_sec=$((time_in_sec-time_offset))
 
     #To avoid cron to be set beyond 24 hr clock limit
