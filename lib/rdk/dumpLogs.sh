@@ -81,7 +81,7 @@ ceclogname="${log_prefix}/cec_log.txt"
 mountdaemonlist=(nvram prepare-nvram common-attach opt-attach disk-check)
 mountlogname="${log_prefix}/mount_log.txt"
 if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
-  skycomponentslist=(sky*)
+  skycomponentslist=(sky* dobby)
   skycomponentslogname="${log_prefix}/sky-messages.log"
 fi
 subttxrendapplist=(subttxrend-app)
