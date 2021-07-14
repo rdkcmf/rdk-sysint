@@ -70,7 +70,7 @@ if [ "x$BIND_ENABLED" = "xtrue" -a "x$RFC_BIND_ENABLED" = "xtrue" ]; then
 	cat /tmp/named.conf.options >/etc/bind/named.conf.options
 	if [ -f /usr/sbin/named -o -f /media/apps/bind-dl/usr/sbin/named ];then
 		pkill -HUP named
-		systemctl stop dnsmasq.service
+		systemctl stop dnsmasq.service 2> /dev/null
 		systemctl restart named.service
 		echo "`/bin/timestamp` Bind Support is enabled, named is used for  DNS Resolutions." >> $LOG_FILE
                 t2CountNotify "SYST_INFO_DNSNamed"
