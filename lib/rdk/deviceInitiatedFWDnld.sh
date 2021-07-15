@@ -1481,7 +1481,17 @@ imageDownloadToLocalServer ()
     return $ret
 }
 
+
+updateSecurityStage () {
+	if [ "$DEVICE_NAME" = "PLATCO" ] && [ ! -f $STAGE2LOCKFILE ]; then
+		# set the "deviceStage" to right stage (stage2)
+		curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -X PUT http://127.0.0.1:9998/Service/Controller/Activate/org.rdk.FactoryProtect.1
+		curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.FactoryProtect.1.setManufacturerData", "params":{ "key":"deviceStage", "value":"stage2" }}' http://127.0.0.1:9998/jsonrpc
+		touch $STAGE2LOCKFILE
+	fi
+}
 postFlash () {
+    updateSecurityStage
     updateFWDownloadStatus "$cloudProto" "Success" "$cloudImmediateRebootFlag" "" "$dnldVersion" "$cloudFWFile" "$runtime" "Validation complete" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
     eventManager $ImageDwldEvent $IMAGE_FWDNLD_FLASH_COMPLETE
