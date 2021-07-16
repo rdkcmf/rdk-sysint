@@ -38,9 +38,11 @@ else
   DISABLE_RTV2=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.SocProvisioning.disableCredentialsPrefetchCaching 2>&1`
 fi
 
-if [ $DISABLE_RTV2 = "true" ]; then
-  echo "Forcing RT_RPOTOCOL_VERSION 1"
-  RT_PROTOCOL_VERSION="1"
+if [ -z $RT_PROTOCOL_LOCK ] || [ ! $RT_PROTOCOL_LOCK = "true" ]; then
+  if [ $DISABLE_RTV2 = "true" ]; then
+    echo "Forcing RT_PROTOCOL_VERSION 1"
+    RT_PROTOCOL_VERSION="1"
+  fi
 fi
 
 if [ -f /SetEnv.sh ]; then
