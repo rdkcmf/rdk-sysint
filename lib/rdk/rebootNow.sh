@@ -52,7 +52,7 @@ LOG_FILE=/opt/logs/messages.txt
 REBOOTINFO_LOGFILE=/opt/logs/rebootInfo.log
 
 # Define Reasons for APP_TRIGGERED, OPS_TRIGGERED and MAINTENANCE_TRIGGERED cases 
-APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset WarehouseService HrvInitWHReset HrvColdInitReset HtmlDiagnostics InstallTDK StartTDK TR69Agent)
+APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset WarehouseService HrvInitWHReset HrvColdInitReset HtmlDiagnostics InstallTDK StartTDK TR69Agent SystemServices)
 OPS_TRIGGERED_REASONS=(ScheduledReboot RebootSTB.sh FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning)
 MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
@@ -187,6 +187,9 @@ fi
 # Assign rebootreason from source category.
 if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$source"* ]];then
     rebootReason="APP_TRIGGERED"
+    if [ $customReason == "MAINTENANCE_REBOOT" ];then
+         rebootReason="MAINTENANCE_REBOOT"
+    fi
 elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$source"* ]];then
     rebootReason="OPS_TRIGGERED"
 elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$source"* ]];then
