@@ -67,6 +67,11 @@ uimgrdaemonlist=(iarmbusd irmgr dsmgr sysmgr diskmgr pwrmgr mfrmgr)
 uimgrlogname="${log_prefix}/uimgr_log.txt"
 trmdaemonlist=(trm-srv wsproxy)
 trmlogname="${log_prefix}/trm.log"
+#For RPI-Hybrid devices
+if [ "$BOX_TYPE" = "pi" ]; then
+    daemonarr=(${daemonarr} netsrvmgr)
+    daemonlogarr=(${daemonlogarr} ${log_prefix}/netsrvmgr.log)
+fi
 fi
 
 hwselflogname="${log_prefix}/hwselftest.log"
