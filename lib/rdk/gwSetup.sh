@@ -48,6 +48,77 @@ echo " `/bin/timestamp` Gateway IPv6 Prefix = $5" >> $logsFile
 echo " `/bin/timestamp` Gateway v6 = $6" >> $logsFile
 echo " `/bin/timestamp` DeviceType = $7" >> $logsFile
 
+#input validation to check all arguments passed to the script are valid
+ipv4_check()
+{
+  if [ -z `echo "$@" | awk '/^([0-9]{1,3}[.]){3}([0-9]{1,3})$/'` ]; then
+  #regex to allow only numbers having dot as separator & avoid other symbols,characters
+    v4_val=0
+    break
+  else
+    v4_val=1
+  fi
+  return "$v4_val"
+}
+
+ipv6_check()
+{
+  if  [ -z `echo "$@" | awk '/^([0-9a-fA-F]{0,4}:){1,7}([0-9a-fA-F]){0,4}$/'` ]; then
+  #regex to allow only mentioned alphanumeric values, 0-4 hex digits and a colon that matches 1-7 times & avoids unnecessary symbols,characters
+    v6_val=0
+    break
+  else
+    v6_val=1
+  fi
+  return "$v6_val"
+}
+
+ipv4_check $1
+if [ "$v4_val" == "0" ]; then
+   echo "Invalid Ipv4 address"
+   exit 0
+fi
+
+dns_s1=`echo "$2" | cut -f1 -d ";" | awk '{print $2}'`
+#cuts the first delimiter ';' and prints the value before 1st delimiter
+dns_s2=`echo "$2" | cut -f2 -d ";" | awk '{print $2}'`
+#cuts the second delimiter ';' and prints the value before 2nd delimiter
+
+ipv4_check $dns_s1
+ipv6_check $dns_s1
+if [[ "$v4_val" == "0" && "$v6_val" == "0" ]]; then
+   echo "Invalid DNS server address"
+   exit 0
+fi
+
+ipv4_check $dns_s2
+ipv6_check $dns_s2
+if [[ "$v4_val" == "0" && "$v6_val" == "0" ]]; then
+   echo "Invalid DNS server address"
+   exit 0
+fi
+
+interface1=`grep "MOCA_INTERFACE=" /etc/device.properties | cut -f2 -d=`
+interface2=`grep "WIFI_INTERFACE=" /etc/device.properties | cut -f2 -d=`
+if [[ "$interface1" != "$3" && "$interface2" != "$3" ]]; then
+  echo "Interface mismatch"
+  exit 0
+fi
+
+
+if [ -f "/tmp/ipv6prefix" ]; then
+    if [ `cat "/tmp/ipv6prefix"` != "$5" ]; then
+        echo "Ipv6 prefix mismatch"
+        exit 0
+    fi
+fi
+
+ipv6_check $6
+if [ "$v6_val" == "0" ]; then
+   echo "Invalid Ipv6 address"
+   exit 0
+fi
+
 gatewayIP=$1
 dns=$2
 gwIf=$3
