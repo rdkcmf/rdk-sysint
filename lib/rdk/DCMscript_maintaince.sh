@@ -772,8 +772,8 @@ calculate_start_time()
     echo min:$start_time_min >> $OPT_START_TIME_FILE
     echo sec:$start_time_sec >> $OPT_START_TIME_FILE
 
-    calc_epoc=$(date "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
-    curr_epoc=$(date "+%s")
+    calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
+    curr_epoc=$(date -u "+%s")
     sec=$((calc_epoc-curr_epoc))
     if [ $sec -le 0 ]
     then

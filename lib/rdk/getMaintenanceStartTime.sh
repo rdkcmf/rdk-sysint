@@ -59,8 +59,8 @@ if [ -f "$OPT_START_TIME_FILE" ]; then
  
     if [ $start_time_hr  -le 24 ] && [ $start_time_min -le 60 ] && [ $start_time_sec -le 60 ] 
     then 
-        calc_epoc=$(date "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
-        curr_epoc=$(date "+%s")
+        calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
+        curr_epoc=$(date -u "+%s")
         sec=$((calc_epoc-curr_epoc))
         if [ $sec -le 0 ]
         then
