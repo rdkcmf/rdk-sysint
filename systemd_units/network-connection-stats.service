@@ -18,8 +18,8 @@
 ##############################################################################
 
 [Unit]
-Description=Xi connection status service
+Description=Network connection status and wifi recovery service
 
 [Service]
-ExecStart=/lib/rdk/xiConnectionStatus.sh
+ExecStart=/lib/rdk/networkConnectionRecovery.sh
 KillMode=process

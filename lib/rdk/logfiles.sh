@@ -335,8 +335,8 @@ else
      tr69AgentSoapLogsBackup="tr69agent_SoapDebug.log.*"
      parodusLog="parodus.log"
      parodusLogsBackup="parodus.log.*"
-     xiConnectionStatusLog="xiConnectionStats.txt"
-     xiConnectionStatusLogsBackup="xiConnectionStats.txt.*"
+     ConnectionStatusLog="ConnectionStats.txt"
+     ConnectionStatusLogsBackup="ConnectionStats.txt.*"
      cpuprocanalyzerLog="cpuprocanalyzer.log"
      cpuprocanalyzerLogsBackup="cpuprocanalyzer.log.*"
      namedLog="named.log"
@@ -625,7 +625,7 @@ backupAppBackupLogFiles()
          moveFiles $opern $source $tr69AgentHttpLogsBackup $destn
          moveFiles $opern $source $tr69AgentSoapLogsBackup $destn
          moveFiles $opern $source $parodusLogsBackup $destn
-         moveFiles $opern $source $xiConnectionStatusLogsBackup $destn
+         moveFiles $opern $source $ConnectionStatusLogsBackup $destn
          moveFiles $opern $source $cpuprocanalyzerLogsBackup $destn
          moveFiles $opern $source $namedLogsBackup $destn
          moveFiles $opern $source $dnsqueryLogsBackup $destn
@@ -992,7 +992,7 @@ backupSystemLogFiles()
 	  if [ -f $source/$tr69AgentSoapLog ] ; then $operation $source/$tr69AgentSoapLog $destn; fi
       if [ -f $source/$parodusLog ] ; then $operation $source/$parodusLog $destn; fi
       if [ -f $source/$cpuprocanalyzerLog ] ; then $operation $source/$cpuprocanalyzerLog $destn; fi
-      if [ -f $source/$xiConnectionStatusLog ] ; then $operation $source/$xiConnectionStatusLog $destn; fi
+      if [ -f $source/$ConnectionStatusLog ] ; then $operation $source/$ConnectionStatusLog $destn; fi
       if [ -f $source/$namedLog ] ; then $operation $source/$namedLog $destn; fi
       if [ -f $source/$dnsqueryLog ] ; then $operation $source/$dnsqueryLog $destn; fi
      fi

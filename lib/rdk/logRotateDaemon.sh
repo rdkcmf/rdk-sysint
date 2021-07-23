@@ -248,7 +248,7 @@ else
      logRotateFramework $tr69AgentLog $tr69AgentHttpLogRotateCount $tr69AgentHttpLogRotateSize
      logRotateFramework $tr69AgentHttpLog $tr69AgentHttpLogRotateCount $tr69AgentHttpLogRotateSize
      logRotateFramework $tr69AgentSoapLog $tr69AgentSoapLogRotateCount $tr69AgentSoapLogRotateSize
-     logRotateFramework $xiConnectionStatusLog $logRotateGenericCount $logRotateGenericSize
+     logRotateFramework $ConnectionStatusLog $logRotateGenericCount $logRotateGenericSize
      logRotateFramework $parodusLog $logRotateGenericCount $parodusLogRotateSize
      logRotateFramework $cpuprocanalyzerLog $cpuprocanalyzerLogRotateCount $cpuprocanalyzerLogRotateSize
      logRotateFramework $namedLog $namedLogRotateCount $namedLogRotateSize

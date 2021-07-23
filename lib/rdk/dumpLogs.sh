@@ -54,8 +54,12 @@ fi
 if [ "${DEVICE_TYPE}" = "mediaclient" ]; then
 ocapdaemonlist=(rmfstreamer)
 ocaplogname="${log_prefix}/rmfstr_log.txt"
-daemonarr=(${genericdaemonlist} tr69agent netsrvmgr systemd-timesyncd xi-connection-stats wifi-telemetry virtual-wifi-iface)
-daemonlogarr=(${genericdaemonloglist} ${log_prefix}/tr69agent.log ${log_prefix}/netsrvmgr.log ${log_prefix}/ntp.log ${log_prefix}/xiConnectionStats.txt ${log_prefix}/wifi_telemetry.log ${log_prefix}/dhcp-wifi.log)
+if [ "$WIFI_SUPPORT" = "true" ] ; then
+  daemonarr=(${genericdaemonlist} tr69agent netsrvmgr systemd-timesyncd network-connection-stats wifi-telemetry virtual-wifi-iface)
+else
+  daemonarr=(${genericdaemonlist} tr69agent netsrvmgr systemd-timesyncd eth-connection-stats wifi-telemetry virtual-wifi-iface)
+fi
+daemonlogarr=(${genericdaemonloglist} ${log_prefix}/tr69agent.log ${log_prefix}/netsrvmgr.log ${log_prefix}/ntp.log ${log_prefix}/ConnectionStats.txt ${log_prefix}/wifi_telemetry.log ${log_prefix}/dhcp-wifi.log)
 uimgrdaemonlist=(iarmbusd irmgr dsmgr sysmgr diskmgr pwrmgr mfrmgr tr69bus deepsleepmgr)
 uimgrlogname="${log_prefix}/uimgr_log.txt"
 else

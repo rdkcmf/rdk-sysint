@@ -18,13 +18,13 @@
 ##############################################################################
 
 [Unit]
-Description=Xi connection status timer
+Description=Network connection status and wifi recovery timer
 
 [Timer]
 OnBootSec=120s
-OnUnitActiveSec=3min5s
-Unit=xi-connection-stats.service
+OnUnitActiveSec=60s
+AccuracySec=10ms
+Unit=network-connection-stats.service
 
 [Install]
 WantedBy=multi-user.target
-
