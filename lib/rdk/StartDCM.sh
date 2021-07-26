@@ -36,15 +36,23 @@ if [ "$BUILD_TYPE" = "dev" ]; then
 elif [ "$BUILD_TYPE" = "cqa" ]; then
     DCM_LOG_SERVER_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmLogServerCQAUrl  2>&1)
 else
-    DCM_LOG_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmLogUrl 2>&1)
-    DCM_LOG_SERVER_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmLogServerPRODUrl 2>&1)
-    LOG_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.LogServerUrl 2>&1)
-    DCM_SCP_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmScpServerUrl 2>&1)
+    if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
+        echo "Build type is $BUILD_TYPE and has overriden /opt/dcm.properties . Configurable service end-points for RDK connections will not be used !!!"
+    else
+        DCM_LOG_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmLogUrl 2>&1)
+        DCM_LOG_SERVER_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmLogServerPRODUrl 2>&1)
+        LOG_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.LogServerUrl 2>&1)
+        DCM_SCP_SERVER=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcmScpServerUrl 2>&1)
+    fi
 fi
 
 if [[ -z $DCM_LOG_SERVER || -z $DCM_LOG_SERVER_URL || -z $LOG_SERVER || -z $DCM_SCP_SERVER ]]; then
     echo "DCM params read using RFC/tr181 is empty..!!!"
-    . /etc/dcm.properties
+    if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
+        . /opt/dcm.properties
+    else
+        . /etc/dcm.properties
+    fi
 fi
 
 if [ -f "$RDK_PATH/DCMscript.sh" ]

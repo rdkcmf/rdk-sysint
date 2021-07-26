@@ -243,7 +243,6 @@ upload_httplink_url=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.
 if [ ! -z "$upload_httplink_url" ]; then
     upload_httplink=${upload_httplink_url}/cgi-bin/S3.cgi
 else
-    . /etc/dcm.properties
     upload_httplink=$HTTP_UPLOAD_LINK
 fi
 
