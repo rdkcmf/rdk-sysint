@@ -225,6 +225,7 @@ PING=/bin/ping
 RESOLV_FILE=/etc/resolv.dnsmasq
 GATEWAYIP_FILE="/tmp/.GatewayIP_dfltroute"
 ROUTE_FLAG="/tmp/route_available"
+ROUTE_FLAG_MAX_CHECK=5
 AF_INET="IPV4"
 AF_INET6="IPV6"
 
@@ -2047,10 +2048,20 @@ createJsonString () {
 CheckIPRoute()
 {
     ipconf=0
+    IPRouteCheck_count=0
     echo "`Timestamp` CheckIPRoute Waiting for Route Config $ROUTE_FLAG file"
     while [ ! -f $ROUTE_FLAG ]
     do
         sleep 15
+        let "IPRouteCheck_count+=1"
+        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+            if [ $IPRouteCheck_count == $ROUTE_FLAG_MAX_CHECK ]
+            then
+                echo " Maintenance cannot wait in a indefinit loop - So exiting !!"
+                break;
+            fi
+        fi
     done
 
     if [ -f $ROUTE_FLAG ]; then

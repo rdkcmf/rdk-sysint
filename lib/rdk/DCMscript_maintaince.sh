@@ -873,6 +873,11 @@ do
             if [ $count -ge $RETRY_COUNT ]; then
                 echo " `/bin/timestamp` $RETRY_COUNT tries failed. Giving up..." >> $LOG_PATH/dcmscript.log
                 rm -rf $FILENAME $HTTP_CODE
+                # all the retries faild and giving up .. before exit post an ERROR to MaintenanceMgr Plugin
+                if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+                then
+                       eventSender "MaintenanceMGR" $MAINT_DCM_ERROR          
+                fi
                 if [ -f $PREVIOUS_CRON_FILE ]; then
                     cron=`cat $PREVIOUS_CRON_FILE | grep cron | cut -d ":" -f2`
                     sleep_time=`cat $PREVIOUS_CRON_FILE | grep sleep_time | cut -d ":" -f2`
