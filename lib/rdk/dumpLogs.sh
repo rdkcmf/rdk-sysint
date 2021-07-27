@@ -95,6 +95,10 @@ cecdaemonlist=(cecdaemon cecdevmgr)
 ceclogname="${log_prefix}/cec_log.txt"
 mountdaemonlist=(nvram prepare-nvram common-attach opt-attach disk-check)
 mountlogname="${log_prefix}/mount_log.txt"
+if [ "$SOC" = "RTK" ];then
+  rtkservicelist=(hdmiservice)
+  rtkservicelogname="${log_prefix}/rtk_service.log"
+fi
 if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
   skycomponentslist=(sky* dobby)
   skycomponentslogname="${log_prefix}/sky-messages.log"
@@ -402,6 +406,16 @@ if [ "$SOC" = "RTK" ];then
 	        cp $pstorefile ${log_prefix}/${filename}.log
 	done
     fi
+
+    rtkunits=""
+    for ((rtkunit=${#rtkservicelist[@]}; rtkunit >= 0; rtkunit--)); do
+         if [ "x${rtkservicelist[$rtkunit]}" == "x" ];then
+              continue
+         fi
+         preunit=$rtkunits
+         rtkunits="$preunit -u ${rtkservicelist[$rtkunit]} "
+    done
+    logunit "$rtkunits" $rtkservicelogname
 fi
 
 if [ "$MEDIARITE" = "true" ];then

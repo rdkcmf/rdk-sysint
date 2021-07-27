@@ -281,6 +281,8 @@ if [ "$SOC" = "RTK" ];then
         realtekConsoleKernelLog="console-ramoops-0.log"
         realtekDmesgKernelLogBackup="dmesg-ramoops-0.log.*"
         realtekConsoleKernelLogBackup="console-ramoops-0.log.*"
+        realtekServiceLog="rtk_service.log"
+        realtekServiceLogBackup="rtk_service.log.*"
 fi
 
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
@@ -579,6 +581,7 @@ backup()
     if [ "$SOC" = "RTK" ];then
         if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
         if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi 
+        if [ -f $source$realtekServiceLog ] ; then $operation $source$realtekServiceLog $destn; fi
     fi
 
     if [ "$MEDIARITE" == "true" ];then
@@ -809,6 +812,7 @@ backupAppBackupLogFiles()
      if [ "$SOC" = "RTK" ];then
         moveFiles $opern $source $realtekDmesgKernelLogBackup $destn
         moveFiles $opern $source $realtekConsoleKernelLogBackup $destn
+        moveFiles $opern $source $realtekServiceLogBackup $destn
      fi
 
      if [ "$MEDIARITE" == "true" ];then
@@ -1042,6 +1046,7 @@ backupSystemLogFiles()
      if [ "$SOC" = "RTK" ];then
         if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
         if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi
+        if [ -f $source$realtekServiceKernelLog ] ; then $operation $source$realtekServiceLog $destn; fi
      fi
 
 

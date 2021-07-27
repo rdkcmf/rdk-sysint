@@ -402,6 +402,7 @@ fi
 if [ "$SOC" = "RTK" ];then
         logRotateFramework $realtekDmesgKernelLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $realtekConsoleKernelLog $logRotateGenericCount $logRotateGenericSize
+        logRotateFramework $realtekServiceLog $logRotateGenericCount $logRotateGenericSize
 fi
 
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
