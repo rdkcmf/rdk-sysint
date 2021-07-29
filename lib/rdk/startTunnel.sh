@@ -52,7 +52,9 @@ case $oper in
              ;;
            stop)
              cat /var/tmp/rssh.pid |xargs kill -9
+             cat /tmp/stunnel.pid |xargs kill -9
              rm /var/tmp/rssh.pid
+             rm /tmp/stunnel.pid
              exit 1
              ;;
            *)
