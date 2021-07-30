@@ -156,6 +156,16 @@ if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
     trap 'interrupt_download' 15
 fi
 
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    ##File to save pid
+    CURL_PID_FILE="/tmp/.curl.pid"
+    FWDNLD_PID_FILE="/tmp/.fwdnld.pid"
+    echo "$$" > $FWDNLD_PID_FILE
+    trap 'interrupt_download_onabort' SIGABRT
+fi
+
+
+
 ## PDRI image filename
 pdriFwVerInfo=""
 
@@ -834,7 +844,7 @@ sendTLSCodebigRequest()
         else
             echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
+        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]  || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
               result= eval $CURL_CMD &> $CURL_PROGRESS &
               echo "$!" > $CURL_PID_FILE
               CurlPid=`cat $CURL_PID_FILE`
@@ -1017,7 +1027,7 @@ sendTLSRequest()
         else
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
+        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
               result= eval $CURL_CMD &> $CURL_PROGRESS &
               echo "$!" > $CURL_PID_FILE
               CurlPid=`cat $CURL_PID_FILE`
@@ -1129,7 +1139,7 @@ httpCodebigDownload () {
 
     if [ "$http_code" != "200" ]; then
         rm -rf $DIFW_PATH/$UPGRADE_FILE
-    fi                     
+    fi 
 
     return $ret
 }
@@ -1306,6 +1316,27 @@ interrupt_download()
      exit
 }
 
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+interrupt_download_onabort()
+{
+     echo "Download is interrupted due to the maintenance abort"
+     if [ -f $CURL_PID_FILE ]; then
+        kill -9 $CurlPid
+        rm -rf "$CURL_PID_FILE"
+     fi
+
+     rm -rf "$FWDNLD_PID_FILE"
+     rm -rf  /tmp/DIFD.pid
+
+    eventSender "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
+
+    sh /lib/rdk/maintenanceTrapEventNotifier.sh 2 &
+
+    trap - SIGABRT
+
+     exit
+}
+fi
 getNewCronTime ()
 {
    now=$(date +"%T")
@@ -2487,7 +2518,14 @@ do
 done
 
 #clear file lock before posting event if not cleared previously
-rm -f /tmp/DIFD.pid 
+rm -f /tmp/DIFD.pid
+
+
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    trap - SIGABRT
+fi
+
+
 
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
   then

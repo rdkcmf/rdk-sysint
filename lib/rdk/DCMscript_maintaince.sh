@@ -760,6 +760,24 @@ sendHttpRequestToServer()
     return $resp
 }
 
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+interrupt_DCM_onabort()
+{
+     echo "DCM is interrupted due to the maintenance abort" >> $LOG_PATH/dcmscript.log
+
+     pid_file="/tmp/.dcm-utility.pid"
+     if [ -f $pid_file ]; then
+        rm -rf $pid_file
+     fi
+
+     sh /lib/rdk/maintenanceTrapEventNotifier.sh 0 &
+
+    trap - SIGABRT
+
+    exit
+}
+fi
+
 calculate_start_time()
 {
     cron_hr=$1
@@ -883,6 +901,10 @@ done
 #---------------------------------
 #        Main App
 #---------------------------------
+
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    trap 'interrupt_DCM_onabort' SIGABRT
+fi
 
 MAINT_DCM_COMPLETE=0
 MAINT_DCM_ERROR=1
@@ -1018,6 +1040,11 @@ do
     done
     sleep 15
 done
+
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    trap - SIGABRT
+fi
+
 
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
 then

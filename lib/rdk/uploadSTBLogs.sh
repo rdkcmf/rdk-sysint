@@ -483,6 +483,26 @@ DoCodebigSSR()
     sendTLSSSRCodebigRequest $POST_URL $1
 }
 
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+interrupt_logupload_onabort()
+{
+     echo "LogUpload is interrupted due to the maintenance abort" >> $LOG_PATH/dcmscript.log
+
+     if [ ! -f /etc/os-release ];then pidCleanup;fi
+
+     #kill the sleep PID
+     if [ -v sleep_pid ]; then
+        kill "$sleep_pid"
+     fi
+
+     sh /lib/rdk/maintenanceTrapEventNotifier.sh 3 &
+
+     trap - SIGABRT
+
+     exit
+}
+fi
+
 HttpLogUpload()
 {
     result=1
@@ -791,7 +811,16 @@ uploadLogOnReboot()
          fi
     fi
     uploadLog "Sleeping for seven minutes"
-    sleep 330
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        #run sleep in a background job
+        sleep 330 &
+        # store and remember the sleep's PID
+        sleep_pid="$!"
+        # wait here for the sleep to complete
+        wait
+    else
+        sleep 330
+    fi
     uploadLog "Done sleeping"
     # Special processing - Permanently backup logs on box delete the logs older than 
     # 3 days to take care of old filename
@@ -852,6 +881,10 @@ uploadLogOnReboot()
     fi
 }
 
+
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    trap 'interrupt_logupload_onabort' SIGABRT
+fi
 
 if [ -d $DCM_LOG_PATH ]; then
      rm -rf $DCM_LOG_PATH/
@@ -918,6 +951,11 @@ else
 fi 
 
 if [ ! -f /etc/os-release ];then pidCleanup;fi
+
+if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    trap - SIGABRT
+fi
+
 
 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
     then
