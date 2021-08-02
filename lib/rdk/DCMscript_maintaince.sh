@@ -98,6 +98,12 @@ if [ -z $PERSISTENT_PATH ]; then
     PERSISTENT_PATH="/tmp"
 fi
 zoneValue=""
+if [ "$DEVICE_NAME" = "PLATCO" ]; then
+    timeZoneDSTPath="/opt/persistent/timeZoneDST"
+    timeZoneOffsetMap="/etc/timeZone_offset_map"
+    timeZone=""
+    timeZoneOffset=""
+fi
 
 export PATH=$PATH:/usr/bin:/bin:/usr/local/bin:/sbin:/usr/local/lighttpd/sbin:/usr/local/sbin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
@@ -327,12 +333,33 @@ IsCodeBigBlocked()
 getTimeZone()
 {
   echo "Retrieving the timezone value"
-  JSONPATH=/opt
-  if [ "$CPU_ARCH" == "x86" ]; then JSONPATH=/tmp; fi
-  counter=1
-  echo "Reading Timezone value from $JSONPATH/output.json file..."
-  while [ ! "$zoneValue" ]
-  do
+  if [ "$DEVICE_NAME" = "PLATCO" ]; then
+    zoneValue=""
+    timeZoneOffset=""
+    timeZone=`cat $timeZoneDSTPath | grep -v 'null'`
+    if [ -z "$timeZone" ];then
+      echo "`/bin/timestamp` /opt/persistent/timeZoneDST is empty, default timezone America/New_York applied" >> $LOG_PATH/dcmscript.log
+      timeZone="America/New_York"
+    else
+      echo "`/bin/timestamp` Device TimeZone: $timeZone" >> $LOG_PATH/dcmscript.log
+    fi
+    if [ -f $timeZoneOffsetMap ];then
+      zoneValue=`cat $timeZoneOffsetMap | grep $timeZone | cut -d ":" -f2 | sed 's/[\",]/ /g'`
+      timeZoneOffset=`cat $timeZoneOffsetMap | grep $timeZone | cut -d ":" -f3 | sed 's/[\",]/ /g'`
+    fi
+    if [ -z "$zoneValue" ] || [ -z "$timeZoneOffset" ]; then
+      echo "`/bin/timestamp` Given TimeZone not supported by XConf - default timezone US/Eastern with offset 0 is applied" >> $LOG_PATH/dcmscript.log
+      zoneValue="US/Eastern"
+      timeZoneOffset="0"
+    fi
+    echo "`/bin/timestamp` TimeZone Information after mapping : zoneValue = $zoneValue, timeZoneOffset = $timeZoneOffset" >> $LOG_PATH/dcmscript.log
+  else
+    JSONPATH=/opt
+    if [ "$CPU_ARCH" == "x86" ]; then JSONPATH=/tmp; fi
+    counter=1
+    echo "Reading Timezone value from $JSONPATH/output.json file..."
+    while [ ! "$zoneValue" ]
+    do
       echo "timezone retry:$counter"
       if [ -f $JSONPATH/output.json ] && [ -s $JSONPATH/output.json ];then
           grep timezone $JSONPATH/output.json | cut -d ":" -f2 | sed 's/[\",]/ /g' > /tmp/.timeZone.txt
@@ -352,9 +379,9 @@ getTimeZone()
       fi
       counter=`expr $counter + 1`
       sleep 6
-  done
+    done
 
-  if [ ! "$zoneValue" ]; then
+    if [ ! "$zoneValue" ]; then
       echo "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
       if [ -f $TIMEZONEDST ] && [ -s $TIMEZONEDST ];then
           zoneValue=`cat $TIMEZONEDST | grep -v 'null'`
@@ -362,10 +389,10 @@ getTimeZone()
       else
           echo "$TIMEZONEDST file not found, Timezone data source is missing "
       fi
-  else
+    else
       echo "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
+    fi
   fi
-
   echo "$zoneValue"
 }
 
@@ -728,16 +755,35 @@ calculate_start_time()
 {
     cron_hr=$1
     cron_min=$2
-     
-    TZ_FILE="/opt/persistent/timeZoneDST"
-    DEF_TIME_OFFSET=-14400
-      
-    time_in_sec=$((cron_hr*60*60 + cron_min*60))
+
+if [ "$DEVICE_NAME" = "PLATCO" ]; then
+
+   start_time_hr=$((cron_hr+timeZoneOffset))
+
+   start_time_min=$cron_min
+
+   start_time_sec=0
+
+
+   if [ $start_time_hr  -gt 24 ];
+   then
+        start_time_hr=$((start_time_hr-24))
+   fi
+
+   if [ $start_time_hr  -le 0 ];
+   then
+      start_time_hr=$((start_time_hr+24))
+   fi
    
+   echo "`/bin/timestamp` cron_hr: $cron_hr, cron_min: $cron_min , timeZoneOffset: $timeZoneOffset , start_time_hr: $start_time_hr, start_time_min: $start_time_min " >> $LOG_PATH/dcmscript.log
+else
+
+    time_in_sec=$((cron_hr*60*60 + cron_min*60))
+
     #no time offset calculation required - as received hr and min from XCONF is in UTC format
-    time_offset=0 
- 
-    start_time_in_sec=$((time_in_sec-time_offset))
+    time_offset=0
+
+    start_time_in_sec=$((time_in_sec+time_offset))
 
     #To avoid cron to be set beyond 24 hr clock limit
     if [ "$start_time_in_sec" -ge 86400 ]
@@ -754,8 +800,9 @@ calculate_start_time()
     start_time_min=$((start_time%60))
     start_time=$((start_time/60))
     start_time_hr=$((start_time%60))
+fi
 
-    echo hours:$start_time_hr > $OPT_START_TIME_FILE 
+    echo hours:$start_time_hr > $OPT_START_TIME_FILE
     echo min:$start_time_min >> $OPT_START_TIME_FILE
     echo sec:$start_time_sec >> $OPT_START_TIME_FILE
 
