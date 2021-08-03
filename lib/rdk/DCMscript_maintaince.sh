@@ -125,6 +125,11 @@ if [ $# -ne 5 ]
 then
     echo "`/bin/timestamp` Argument does not match" >> $LOG_PATH/dcmscript.log
     echo 0 > $DCMFLAG
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+    then
+        MAINT_DCM_ERROR=1
+        eventSender "MaintenanceMGR" $MAINT_DCM_ERROR
+    fi
     exit 1
 fi
 
@@ -187,8 +192,12 @@ if [ "x$T2_ENABLE" == "xtrue" ]; then
     if [ "$dcaCheck" != "0" ]; then
         sh /lib/rdk/cronjobs_update.sh "remove" "dca_utility.sh"
     fi
-    
-    exit 0
+
+    if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
+    then
+       exit 0
+    fi
+
 fi
 
 ###########################################################################################
