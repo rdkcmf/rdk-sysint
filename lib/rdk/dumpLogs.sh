@@ -44,11 +44,11 @@ fi
 touch /tmp/.dumpinprogress
 
 if [ "$DOBBY_ENABLED" == "true" ]; then
-genericdaemonlist="gstreamer-cleanup mfrlibapp vodclientapp authservice socprovisioning socprovisioning-crypto xre-receiver xupnp xcal-device card-provision-check btmgr dibbler storagemgrmain fog audiocapturemgr parodus tr69hostif stunnel rfc-config dnsmasq update-device-details btrLeAppMgr ping-telemetry nlmon zram cgrpmemory cgrpmemorytest wpeframework apps-rdm dropbear vitalprocess-info appmanager iptables log-rdk-start xdial moca-status moca-driver moca cpuprocanalyzer rbus logrotatei systimemgr dobby telemetry2_0 bluetooth residentapp ermgr"
-genericdaemonloglist="${log_prefix}/gst-cleanup.log ${log_prefix}/mfrlib_log.txt  ${log_prefix}/vodclient_log.txt ${log_prefix}/authservice.log ${log_prefix}/socprov.log ${log_prefix}/socprov-crypto.log ${log_prefix}/receiver.log ${log_prefix}/xdiscovery.log  ${log_prefix}/xdevice.log ${log_prefix}/card-provision-check.log ${log_prefix}/btmgrlog.txt ${log_prefix}/dibbler.log ${log_prefix}/storagemgr.log ${log_prefix}/fog.log ${log_prefix}/audiocapturemgr.log ${log_prefix}/parodus.log ${log_prefix}/tr69hostif.log ${log_prefix}/stunnel.log ${log_prefix}/rfcscript.log ${log_prefix}/dnsmasq.log ${log_prefix}/device_details.log ${log_prefix}/btrLeAppMgr.log ${log_prefix}/ping_telemetry.log ${log_prefix}/nlmon.log ${log_prefix}/applications.log ${log_prefix}/cgrpmemory.log ${log_prefix}/cgrmemorytest.log ${log_prefix}/wpeframework.log ${log_prefix}/rdm_status.log ${log_prefix}/dropbear.log ${log_prefix}/top_log.txt ${log_prefix}/appmanager.log ${log_prefix}/iptables.log ${log_prefix}/rdk_milestones.log ${log_prefix}/xdial.log ${log_prefix}/mocaStatus.log ${log_prefix}/moca-driver.log ${log_prefix}/mocaService.log ${log_prefix}/cpuprocanalyzer.log ${log_prefix}/rtrouted.log ${log_prefix}/logrotate.log ${log_prefix}/systimemgr.log ${log_prefix}/dobby.log ${log_prefix}/telemetry2_0.txt.0 ${log_prefix}/bluez.log ${log_prefix}/residentapp.log ${log_prefix}/wpeframework.log"
+genericdaemonlist="gstreamer-cleanup mfrlibapp vodclientapp authservice socprovisioning socprovisioning-crypto xre-receiver xupnp xcal-device card-provision-check btmgr dibbler storagemgrmain fog audiocapturemgr parodus tr69hostif stunnel rfc-config dnsmasq update-device-details btrLeAppMgr ping-telemetry nlmon zram cgrpmemory cgrpmemorytest apps-rdm dropbear vitalprocess-info appmanager iptables log-rdk-start xdial moca-status moca-driver moca cpuprocanalyzer rbus logrotatei systimemgr dobby telemetry2_0 bluetooth residentapp"
+genericdaemonloglist="${log_prefix}/gst-cleanup.log ${log_prefix}/mfrlib_log.txt  ${log_prefix}/vodclient_log.txt ${log_prefix}/authservice.log ${log_prefix}/socprov.log ${log_prefix}/socprov-crypto.log ${log_prefix}/receiver.log ${log_prefix}/xdiscovery.log  ${log_prefix}/xdevice.log ${log_prefix}/card-provision-check.log ${log_prefix}/btmgrlog.txt ${log_prefix}/dibbler.log ${log_prefix}/storagemgr.log ${log_prefix}/fog.log ${log_prefix}/audiocapturemgr.log ${log_prefix}/parodus.log ${log_prefix}/tr69hostif.log ${log_prefix}/stunnel.log ${log_prefix}/rfcscript.log ${log_prefix}/dnsmasq.log ${log_prefix}/device_details.log ${log_prefix}/btrLeAppMgr.log ${log_prefix}/ping_telemetry.log ${log_prefix}/nlmon.log ${log_prefix}/applications.log ${log_prefix}/cgrpmemory.log ${log_prefix}/cgrmemorytest.log ${log_prefix}/rdm_status.log ${log_prefix}/dropbear.log ${log_prefix}/top_log.txt ${log_prefix}/appmanager.log ${log_prefix}/iptables.log ${log_prefix}/rdk_milestones.log ${log_prefix}/xdial.log ${log_prefix}/mocaStatus.log ${log_prefix}/moca-driver.log ${log_prefix}/mocaService.log ${log_prefix}/cpuprocanalyzer.log ${log_prefix}/rtrouted.log ${log_prefix}/logrotate.log ${log_prefix}/systimemgr.log ${log_prefix}/dobby.log ${log_prefix}/telemetry2_0.txt.0 ${log_prefix}/bluez.log ${log_prefix}/residentapp.log"
 else
-genericdaemonlist="gstreamer-cleanup mfrlibapp vodclientapp authservice socprovisioning socprovisioning-crypto xre-receiver xupnp xcal-device card-provision-check btmgr dibbler storagemgrmain fog audiocapturemgr parodus tr69hostif stunnel rfc-config dnsmasq update-device-details btrLeAppMgr ping-telemetry nlmon zram cgrpmemory cgrpmemorytest wpeframework apps-rdm dropbear vitalprocess-info appmanager iptables log-rdk-start xdial moca-status moca-driver moca cpuprocanalyzer rbus logrotatei systimemgr telemetry2_0 bluetooth residentapp ermgr"
-genericdaemonloglist="${log_prefix}/gst-cleanup.log ${log_prefix}/mfrlib_log.txt  ${log_prefix}/vodclient_log.txt ${log_prefix}/authservice.log ${log_prefix}/socprov.log ${log_prefix}/socprov-crypto.log ${log_prefix}/receiver.log ${log_prefix}/xdiscovery.log  ${log_prefix}/xdevice.log ${log_prefix}/card-provision-check.log ${log_prefix}/btmgrlog.txt ${log_prefix}/dibbler.log ${log_prefix}/storagemgr.log ${log_prefix}/fog.log ${log_prefix}/audiocapturemgr.log ${log_prefix}/parodus.log ${log_prefix}/tr69hostif.log ${log_prefix}/stunnel.log ${log_prefix}/rfcscript.log ${log_prefix}/dnsmasq.log ${log_prefix}/device_details.log ${log_prefix}/btrLeAppMgr.log ${log_prefix}/ping_telemetry.log ${log_prefix}/nlmon.log ${log_prefix}/applications.log ${log_prefix}/cgrpmemory.log ${log_prefix}/cgrmemorytest.log ${log_prefix}/wpeframework.log ${log_prefix}/rdm_status.log ${log_prefix}/dropbear.log ${log_prefix}/top_log.txt ${log_prefix}/appmanager.log ${log_prefix}/iptables.log ${log_prefix}/rdk_milestones.log ${log_prefix}/xdial.log ${log_prefix}/mocaStatus.log ${log_prefix}/moca-driver.log ${log_prefix}/mocaService.log ${log_prefix}/cpuprocanalyzer.log ${log_prefix}/rtrouted.log ${log_prefix}/logrotate.log ${log_prefix}/systimemgr.log ${log_prefix}/telemetry2_0.txt.0 ${log_prefix}/bluez.log ${log_prefix}/residentapp.log ${log_prefix}/wpeframework.log"
+genericdaemonlist="gstreamer-cleanup mfrlibapp vodclientapp authservice socprovisioning socprovisioning-crypto xre-receiver xupnp xcal-device card-provision-check btmgr dibbler storagemgrmain fog audiocapturemgr parodus tr69hostif stunnel rfc-config dnsmasq update-device-details btrLeAppMgr ping-telemetry nlmon zram cgrpmemory cgrpmemorytest apps-rdm dropbear vitalprocess-info appmanager iptables log-rdk-start xdial moca-status moca-driver moca cpuprocanalyzer rbus logrotatei systimemgr telemetry2_0 bluetooth residentapp"
+genericdaemonloglist="${log_prefix}/gst-cleanup.log ${log_prefix}/mfrlib_log.txt  ${log_prefix}/vodclient_log.txt ${log_prefix}/authservice.log ${log_prefix}/socprov.log ${log_prefix}/socprov-crypto.log ${log_prefix}/receiver.log ${log_prefix}/xdiscovery.log  ${log_prefix}/xdevice.log ${log_prefix}/card-provision-check.log ${log_prefix}/btmgrlog.txt ${log_prefix}/dibbler.log ${log_prefix}/storagemgr.log ${log_prefix}/fog.log ${log_prefix}/audiocapturemgr.log ${log_prefix}/parodus.log ${log_prefix}/tr69hostif.log ${log_prefix}/stunnel.log ${log_prefix}/rfcscript.log ${log_prefix}/dnsmasq.log ${log_prefix}/device_details.log ${log_prefix}/btrLeAppMgr.log ${log_prefix}/ping_telemetry.log ${log_prefix}/nlmon.log ${log_prefix}/applications.log ${log_prefix}/cgrpmemory.log ${log_prefix}/cgrmemorytest.log ${log_prefix}/rdm_status.log ${log_prefix}/dropbear.log ${log_prefix}/top_log.txt ${log_prefix}/appmanager.log ${log_prefix}/iptables.log ${log_prefix}/rdk_milestones.log ${log_prefix}/xdial.log ${log_prefix}/mocaStatus.log ${log_prefix}/moca-driver.log ${log_prefix}/mocaService.log ${log_prefix}/cpuprocanalyzer.log ${log_prefix}/rtrouted.log ${log_prefix}/logrotate.log ${log_prefix}/systimemgr.log ${log_prefix}/telemetry2_0.txt.0 ${log_prefix}/bluez.log ${log_prefix}/residentapp.log"
 fi
 
 if [ "${DEVICE_TYPE}" = "mediaclient" ]; then
@@ -91,6 +91,10 @@ if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; the
 fi
 subttxrendapplist=(subttxrend-app)
 subttxrendappname="${log_prefix}/subttxrend-app.log"
+
+wpeframeworklist=(wpeframework ermgr)
+wpeframeworklogname="${log_prefix}/wpeframework.log"
+
 
 if [ ! -f /tmp/.dump_application_log ]; then
 	/bin/nice -n 19 /bin/dmesg -c > ${log_prefix}/startup_stdout_log.txt
@@ -317,6 +321,22 @@ for ((subttxrendunit=${#subttxrendapplist[@]}; subttxrendunit >= 0; subttxrendun
         subttxrendunits="$preunit -u ${subttxrendapplist[$subttxrendunit]} "
 done
 logunit "$subttxrendunits" $subttxrendappname
+
+###### wpeframework logging
+wpeframeworklist=(wpeframework ermgr)
+wpeframeworklogname="${log_prefix}/wpeframework.log"
+
+wpeframeworkunits=""
+for ((wpeframeworkunit=${#wpeframeworklist[@]}; wpeframeworkunit >= 0; wpeframeworkunit--)); do
+        if [ "x${wpeframeworklist[$wpeframeworkunit]}" == "x" ];then
+           continue
+        fi
+        preunit=$wpeframeworkunits
+        wpeframeworkunits="$preunit -u ${wpeframeworklist[$wpeframeworkunit]} "
+done
+logunit "$wpeframeworkunits" $wpeframeworklogname
+
+
 
 for ((i=${#daemonarr[@]}; i >= 0; i--)); do
         if [ "x${daemonarr[$i]}" == "x" ];then
