@@ -83,7 +83,13 @@ if [ "$HDD_ENABLED" = "false" ]; then
 	BAK2="bak2_"
 	BAK3="bak3_"
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
-        find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+        if [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
+            #For Xione Realtek SOC device
+            find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -iname "*.bin*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+        else
+            #For other media-client devices
+            find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+        fi
     elif [ ! `ls $PREV_LOG_PATH/$sysLogBAK1` ]; then
         # box reboot within 8 minutes after reboot
         backupAndRecoverLogs "$LOG_PATH/" "$PREV_LOG_PATH/" mv "" $BAK1
