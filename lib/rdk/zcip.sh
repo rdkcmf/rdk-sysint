@@ -36,6 +36,13 @@ else
 fi
 
 
+ipres=$(/sbin/ipaddr -4 show dev wlan0 | grep "169.254")
+
+if [ "x$ipres" != "x" ]; then
+	echo "Zero Config Ip Address already assigned"
+	exit 0
+fi
+
 if [ ! -f /opt/ip.$interface ]; then
         zcip -f -q -v ${interface} $ZCIP_SCRIPT_PATH/zcip.script
 else
