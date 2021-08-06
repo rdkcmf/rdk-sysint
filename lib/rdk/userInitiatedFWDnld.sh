@@ -594,6 +594,10 @@ imageDownloadToLocalServer ()
                updateFWDnldStatus "$cloudProto" "Failure" "ECM trigger failed" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
             fi
             rm -f $RCDL_FLAG
+        else
+            updateFWDnldStatus "$cloudProto" "Success" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Validation complete"
+            eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
+            echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
         fi
     fi
     return $ret
