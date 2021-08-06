@@ -408,6 +408,9 @@ else
             else
                 if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
                     rebootReason="APP_TRIGGERED"
+                    if [ $customReason == "MAINTENANCE_REBOOT" ];then
+                         rebootReason="MAINTENANCE_REBOOT"
+                    fi
                 elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
                     rebootReason="OPS_TRIGGERED"
                 elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
