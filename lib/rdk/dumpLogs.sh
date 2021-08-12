@@ -61,8 +61,8 @@ uimgrlogname="${log_prefix}/uimgr_log.txt"
 else
 ocapdaemonlist=(rmfstreamer runpod runsnmp sdvagent)
 ocaplogname="${log_prefix}/ocapri_log.txt"
-daemonarr=(trm-srv wsproxy ${genericdaemonlist} snmpd ecmlogger network-statistics udhcp discover-xi-client syssnmpagent)
-daemonlogarr=(${log_prefix}/trm.log ${log_prefix}/trm.log ${genericdaemonloglist}  ${log_prefix}/snmpd.log ${log_prefix}/messages-ecm.txt ${log_prefix}/upstream_stats.log ${log_prefix}/applications.log ${log_prefix}/discoverV4Client.log ${log_prefix}/mocalog.txt)
+daemonarr=(${genericdaemonlist} snmpd ecmlogger network-statistics udhcp discover-xi-client syssnmpagent)
+daemonlogarr=(${genericdaemonloglist}  ${log_prefix}/snmpd.log ${log_prefix}/messages-ecm.txt ${log_prefix}/upstream_stats.log ${log_prefix}/applications.log ${log_prefix}/discoverV4Client.log ${log_prefix}/mocalog.txt)
 uimgrdaemonlist=(iarmbusd irmgr dsmgr sysmgr diskmgr pwrmgr mfrmgr)
 uimgrlogname="${log_prefix}/uimgr_log.txt"
 trmdaemonlist=(trm-srv wsproxy)
@@ -89,12 +89,6 @@ if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; the
   skycomponentslist=(sky* dobby)
   skycomponentslogname="${log_prefix}/sky-messages.log"
 fi
-subttxrendapplist=(subttxrend-app)
-subttxrendappname="${log_prefix}/subttxrend-app.log"
-
-wpeframeworklist=(wpeframework ermgr)
-wpeframeworklogname="${log_prefix}/wpeframework.log"
-
 
 if [ ! -f /tmp/.dump_application_log ]; then
 	/bin/nice -n 19 /bin/dmesg -c > ${log_prefix}/startup_stdout_log.txt
