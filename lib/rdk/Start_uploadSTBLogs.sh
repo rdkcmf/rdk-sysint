@@ -46,6 +46,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
 #---------------------------------------------------------------------------------------------
 # Variables
 #---------------------------------------------------------------------------------------------
+mTlsLogUpload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsLogUpload.Enable 2>&1 > /dev/null)
 useXpkiMtlsLogupload=false
 
 reboot_flag=0  # same as dcm log service
