@@ -278,6 +278,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
         logRotateFramework $wifiLog $logRotateGenericCount $wifiLogRotateSize
         logRotateFramework $netsrvLog $logRotateGenericCount $netsrvmgrLogRotateSize
         logRotateFramework $dropbearLog $logRotateGenericCount $logRotateGenericSize
+        logRotateFramework $rebootReasonLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $dcmLog $dcmLogRotateCount $dcmLogRotateSize
         logRotateFramework $applnLog $applnLogRotateCount $applnLogRotateSize
         logRotateFramework $diskStatusLog $diskStatusLogRotateCount $diskStatusLogRotateSize
@@ -350,6 +351,7 @@ else
         logRotateFramework $residentAppLog $logRotateResidentAppCount $logRotateGenericSize
         logRotateFramework $servicenumberLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $dropbearLog $logRotateGenericCount $logRotateGenericSize
+	logRotateFramework $rebootReasonLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $appmanagerLog $appmanagerLogRotateCount $appmanagerLogRotateSize
         logRotateFramework $xdialLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $bluetoothLog $bluetoothLogRotateCount $bluetoothLogRotateSize

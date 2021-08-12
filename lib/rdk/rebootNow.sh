@@ -29,27 +29,12 @@ if [ -f /lib/rdk/t2Shared_api.sh ]; then
     source /lib/rdk/t2Shared_api.sh
 fi
 
-# exit if an instance is already running
-pid_file="/tmp/.rebootNow.pid"
-
-if [ -f $pid_file ]
-then
-    pid=`cat $pid_file`
-    if [ -d /proc/$pid ]
-    then
-        echo "`/bin/timestamp` An instance of "$0" with pid $pid is already running.."
-        echo "`/bin/timestamp` Exiting script"
-        exit 0
-    fi
-fi
-
-echo $$ > $pid_file
-
 # Save reboot details in /opt/secure/reboot folder.
 REBOOT_INFO_DIR="/opt/secure/reboot"
 REBOOT_INFO_FILE="/opt/secure/reboot/reboot.info"
-LOG_FILE=/opt/logs/messages.txt
-REBOOTINFO_LOGFILE=/opt/logs/rebootInfo.log
+LOG_FILE="/opt/logs/messages.txt"
+REBOOTINFO_LOGFILE="/opt/logs/rebootInfo.log"
+REBOOT_REASON_LOGFILE="/opt/logs/rebootreason.log"
 
 # Define Reasons for APP_TRIGGERED, OPS_TRIGGERED and MAINTENANCE_TRIGGERED cases 
 APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset WarehouseService HrvInitWHReset HrvColdInitReset HtmlDiagnostics InstallTDK StartTDK TR69Agent SystemServices)
@@ -58,6 +43,27 @@ MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
 touch $REBOOTINFO_LOGFILE
 process=`cat /proc/$PPID/cmdline`
+
+rebootLog() {
+    timestamp=`date +%Y-%b-%d_%H-%M-%S`
+    echo "$0: $timestamp $*" >> $REBOOT_REASON_LOGFILE
+}
+
+# exit if an instance is already running
+pid_file="/tmp/.rebootNow.pid"
+
+if [ -f $pid_file ]
+then
+    pid=`cat $pid_file`
+    if [ -d /proc/$pid ]
+    then
+        rebootLog "An instance of "$0" with pid $pid is already running.."
+        rebootLog "Exiting script"
+        exit 0
+    fi
+fi
+
+echo $$ > $pid_file
 
 syncLog()
 {
@@ -72,14 +78,13 @@ syncLog()
          done
          cd $cWD
     else
-         echo "Sync Not needed, Same log folder"
+         rebootLog "Sync Not needed, Same log folder"
     fi
 }
 
 # Save the reboot info with all the fields
 setPreviousRebootInfo()
-{
-    
+{    
     timestamp=$1
     source=$2
     reason=$3
@@ -92,9 +97,9 @@ setPreviousRebootInfo()
     echo "\"customReason\":\"$custom\"," >> $REBOOT_INFO_FILE
     echo "\"otherReason\":\"$other\"" >> $REBOOT_INFO_FILE
     echo "}" >> $REBOOT_INFO_FILE
-}
 
-timeStamp=`/bin/timestamp`
+    rebootLog "Updated Reboot Reason information in $REBOOT_INFO_FILE"
+}
 
 customReason="Unknown"
 otherReason="Unknown"
@@ -149,31 +154,29 @@ else
              otherReason=$OPTARG
              ;;
         \?)
-             echo "$timeStamp Invalid option: -$OPTARG" >> $LOG_FILE
+             rebootLog "Invalid option: -$OPTARG"
              ;;
       esac
     done
 fi
 
 # Log reboot information to rebootInfo.log file
+rebootTime=`date -u`
+
 if [ "$otherReason" == "Unknown" ]; then
-    echo "$timeStamp RebootReason: $rebootReason" >> $REBOOTINFO_LOGFILE
+    echo "RebootReason: $rebootReason" >> $REBOOTINFO_LOGFILE
 else
-    echo "$timeStamp RebootReason: $rebootReason $otherReason" >> $REBOOTINFO_LOGFILE
+    echo "RebootReason: $rebootReason $otherReason" >> $REBOOTINFO_LOGFILE
 fi
 echo "RebootInitiatedBy: $source" >> $REBOOTINFO_LOGFILE
-echo "RebootTime: `date -u`" >> $REBOOTINFO_LOGFILE
+echo "RebootTime: $rebootTime" >> $REBOOTINFO_LOGFILE
 echo "CustomReason: $customReason" >> $REBOOTINFO_LOGFILE
 echo "OtherReason: $otherReason" >> $REBOOTINFO_LOGFILE
 
 # Create /opt/secure/reboot/ folder before reboot/shutdown.
-echo "`/bin/timestamp` Saving Reboot Details in $REBOOT_INFO_FILE..."
-
 if [ ! -d $REBOOT_INFO_DIR ]; then
     mkdir $REBOOT_INFO_DIR
 fi
-
-rebootTime=`date -u`
 
 # Added check for Hal_SYS_reboot source
 multipleSource=`grep -E HAL_SYS_Reboot $REBOOTINFO_LOGFILE`
@@ -219,7 +222,7 @@ if [ -f /etc/rdm/rdm-manifest.xml ];then
      PREV_CDLFILE=$(cat /tmp/currently_running_image_name)
      if [[ ${CDLFILE} != *"${PREV_CDLFILE}"* ]]; then
         if [ -d /media/apps ];then
-             echo "Removing the RDM Apps content from Secondary Storage before Reboot (After IMage Upgrade)"
+             rebootLog "Removing the RDM Apps content from Secondary Storage before Reboot (After IMage Upgrade)"
              cd /media/apps
              if [ $? -eq 0 ];then
                   for i in `ls -d */`
@@ -234,7 +237,7 @@ if [ -f /etc/rdm/rdm-manifest.xml ];then
 fi
 
 # Kill the Parodus Process; So that it can close the WebSocket Connection with Server.
-echo "Properly shutdown parodus by sending SIGUSR1 kill signal"
+rebootLog "Properly shutdown parodus by sending SIGUSR1 kill signal"
 killall -s SIGUSR1 parodus
 
 sleep 5
@@ -251,12 +254,12 @@ if [ "$DEVICE_NAME" = "XI6" ];then
     # Get eMMC Health report
     if [ -f /lib/rdk/emmc_health_diag.sh ]; then
         sh /lib/rdk/emmc_health_diag.sh "reboot"
-        echo "Updated eMMC Health report" >> $LOG_FILE
+        rebootLog "Updated eMMC Health report"
     fi
 
     # See if we need to Upgrade the eMMC FW
     if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
-        echo "Upgrade eMMC FW if required" >> $LOG_FILE
+        rebootLog "Upgrade eMMC FW if required"
         sh /lib/rdk/eMMC_Upgrade.sh
     fi
 fi
@@ -271,7 +274,7 @@ fi
 
 #If bluetooth is enabled, gracefully shutdown the bluetooth related services
 if [ "$BLUETOOTH_ENABLED" = "true" ];then
-    echo "Shutting down the bluetooth services gracefully"
+    rebootLog "Shutting down the bluetooth services gracefully"
     /bin/systemctl --quiet is-active btrLeAppMgr && /bin/systemctl stop btrLeAppMgr
     /bin/systemctl --quiet is-active btmgr && /bin/systemctl stop btmgr
     /bin/systemctl --quiet is-active bluetooth && /bin/systemctl stop bluetooth
@@ -289,15 +292,15 @@ if [ -f /lib/rdk/dumpLogs.sh ];then
     fi
 fi
 
-echo "`/bin/timestamp` Start the sync"
+rebootLog "Start the sync"
 sync
-echo "`/bin/timestamp` End of the sync"
+rebootLog "End of the sync"
 
 reboot
 
 #Force reboot when reboot fails
 if [ $? -eq 1 ] && [ -f /tmp/systemd_freeze_reboot_on ];then
-    echo "`/bin/timestamp` Force Reboot After First Reboot Attempt Failure" >> $LOG_FILE
+    rebootLog "Force Reboot After First Reboot Attempt Failure"
     reboot -f
 fi
 

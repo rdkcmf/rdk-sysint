@@ -188,6 +188,8 @@ audiocapturemgrLogs="audiocapturemgr.log"
 nlmonLog="nlmon.log"
 nlmonLogsBackup="nlmon.log.*"
 appsRdmLog="rdm_status.log"
+rebootReasonLog="rebootreason.log"
+rebootReasonLogsBackup="rebootreason.log.*"
 dropbearLog="dropbear.log"
 dropbearLogsBackup="dropbear.log.*"
 xdialLog="xdial.log"
@@ -748,6 +750,8 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $wpeframeworkLogsBackup $destn
         moveFiles $opern $source $residentAppLogsBackup $destn
         moveFiles $opern $source $servicenumberLogsBackup $destn
+    	moveFiles $opern $source $rebootreasonLog $destn
+     	moveFiles $opern $source $rebootreasonLogsBackup $destn
     	moveFiles $opern $source $dropbearLog $destn
      	moveFiles $opern $source $dropbearLogsBackup $destn
         moveFiles $opern $source $appmanagerLogsBackup $destn
@@ -1019,6 +1023,8 @@ backupSystemLogFiles()
      if [ -f $source/$xiRecoveryLog ] ; then $operation $source/$xiRecoveryLog $destn; fi
      if [ -f $source/$fogLog ] ; then $operation $source/$fogLog $destn; fi
      if [ -f $source/$hddStatusLog ] ; then $operation $source/$hddStatusLog $destn; fi
+     if [ -f $source/$rebootReasonLog ] ; then $operation $source/$rebootReasonLog $destn; fi
+     if [ -f $source/$rebootReasonLogsBackup ] ; then $operation $source/$rebootReasonLogsBackup $destn; fi
      if [ -f $source/$dropbearLog ] ; then $operation $source/$dropbearLog $destn; fi
      if [ -f $source/$dropbearLogsBackup ] ; then $operation $source/$dropbearLogsBackup $destn; fi
 
