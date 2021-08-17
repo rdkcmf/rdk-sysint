@@ -793,18 +793,23 @@ ProcessImageUpgradeRequest()
 
 IsWebpacdlEnabledForProd()
 {
-    #For PROD images, RFC(Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable) should be TRUE
-    if [ -f /usr/bin/tr181 ]; then
-        WebPACDL=`/usr/bin/tr181 -g $WEBPACDL_TR181_NAME 2>&1 > /dev/null`
+    if [ "$Protocol" = "usb" ]; then
+        log "USB S/W upgrade, skipping check for webPA CDL RFC value"
     else
-        log "tr181 BIN is not available at this time, setting WebPACDL to Default value(False)."
-        WebPACDL=false
-    fi
-    log "WebPACDL=$WebPACDL"
-    Build_type=`echo $ImageName | grep -i "_PROD_" | wc -l`
-    if [ "$Build_type" -ne 0 ] && [ "$WebPACDL" != "true" ]; then
-        log "Exiting!!! Either Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable is FALSE or RFC sync not completed yet."
-        exit 1
+        #For PROD images, RFC(Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable) should be TRUE
+        log "Check for webPA CDL RFC value"
+        if [ -f /usr/bin/tr181 ]; then
+            WebPACDL=`/usr/bin/tr181 -g $WEBPACDL_TR181_NAME 2>&1 > /dev/null`
+        else
+            log "tr181 BIN is not available at this time, setting WebPACDL to Default value(False)."
+            WebPACDL=false
+        fi
+        log "WebPACDL=$WebPACDL"
+        Build_type=`echo $ImageName | grep -i "_PROD_" | wc -l`
+        if [ "$Build_type" -ne 0 ] && [ "$WebPACDL" != "true" ]; then
+            log "Exiting!!! Either Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable is FALSE or RFC sync not completed yet."
+            exit 1
+        fi
     fi
 }
 
@@ -850,7 +855,6 @@ else
 	log "Image download already in progress, exiting!"
 	exit 1
     elif [ ! -z "$ImageName" ] && [ ! -z "$ImagePath" ]; then
-        log "Check for webPA CDL RFC value"
         IsWebpacdlEnabledForProd
         log "Found download details, triggering download..."
         touch $RCDL_FLAG
