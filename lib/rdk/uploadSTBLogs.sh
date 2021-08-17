@@ -456,7 +456,7 @@ sendTLSSSRRequest()
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
     fi
-    echo "Log Upload: Connect with $msg_tls_source URL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g'`" >> $LOG_PATH/dcmscript.log
+    echo "Log Upload: Connect with $msg_tls_source URL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<hidden key> -w#g'`" >> $LOG_PATH/dcmscript.log
     eval $CURL_CMD > $HTTP_CODE
     TLSRet=$?
 
