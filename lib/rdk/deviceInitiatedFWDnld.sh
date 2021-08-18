@@ -57,6 +57,10 @@ if [ -f $RDK_PATH/peripheral_firmware_dndl.sh ]; then
     . $RDK_PATH/peripheral_firmware_dndl.sh
 fi
 
+if [ -f $RDK_PATH/bundleUtils.sh ]; then
+    . $RDK_PATH/bundleUtils.sh
+fi
+
 # initialize partnerId
 if [ -f $RDK_PATH/getPartnerId.sh ]; then
     . $RDK_PATH/getPartnerId.sh
@@ -1946,6 +1950,7 @@ processJsonResponse()
     cloudProto=`grep firmwareDownloadProtocol $OUTPUT | cut -d \| -f2`          # Get download protocol to be used
     cloudImmediateRebootFlag=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    # immediate reboot flag
     peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "|" -f2 | tr '\n' ','`    # peripheral firmwares
+    dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
 
     echo "`Timestamp` cloudFWFile: $cloudFWFile"
     echo "`Timestamp` cloudFWLocation: $cloudFWLocation"
@@ -1955,6 +1960,15 @@ processJsonResponse()
     echo "`Timestamp` cloudProto: $cloudProto"
     echo "`Timestamp` cloudImmediateRebootFlag: $cloudImmediateRebootFlag"
     echo "`Timestamp` peripheralFirmwares: $peripheralFirmwares"
+    echo "`Timestamp` dlCertBundle: $dlCertBundle"
+
+    # Check if xconf returned any bundles to update
+    # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
+    if [ -n "$dlCertBundle" ]; then
+	 echo "`Timestamp` Calling /etc/rdm/rdmBundleMgr.sh to process bundle update"
+	 (sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$cloudFWLocation" >> $LOG_PATH/rdm_status.log 2>&1) &
+	 echo "`Timestamp` /etc/rdm/rdmBundleMgr.sh started in background"
+    fi
 
     cloudfile_model=`echo $cloudFWFile | cut -d '_' -f1`
     if [[ "$cloudfile_model" != *"$MODEL_NUM"* ]]; then
@@ -2071,12 +2085,15 @@ createJsonString () {
     else
         ACTIVATE_FLAG='&activationInProgress=true'
     fi
-
+    
+    #Get already Installed Bundle list
+    instBundles=$(getInstalledBundleList)
+     
     #Included additionalFwVerInfo and partnerId
     if [ "$(getModel)" = "RPI" ]; then
     JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
     else
-    JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
+    JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
     fi
 
     isInStateRed
