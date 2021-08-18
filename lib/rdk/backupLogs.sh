@@ -21,37 +21,45 @@
 . /etc/include.properties
 . /etc/device.properties
 
-if [ ! "$LOG_PATH" ];then LOG_PATH="/opt/logs"; fi
+PREV_LOG_PATH="$LOG_PATH/PreviousLogs"
+PREV_LOG_BACKUP_PATH="$LOG_PATH/PreviousLogs_backup"
+
+backupLog() {
+    timestamp=`/bin/timestamp`
+    echo "$timestamp $0: $*"
+}
+
 # create log workspace if not there
 if [ ! -d "$LOG_PATH" ];then 
-     rm -rf $LOG_PATH
-     mkdir -p "$LOG_PATH"
+    rm -rf $LOG_PATH
+    mkdir -p "$LOG_PATH"
 fi
+
 # create intermediate log workspace if not there
-if [ ! -d $LOG_PATH/PreviousLogs ];then
-     rm -rf $LOG_PATH/PreviousLogs
-     mkdir -p $LOG_PATH/PreviousLogs
+if [ ! -d $PREV_LOG_PATH ];then
+    rm -rf $PREV_LOG_PATH
+    mkdir -p $PREV_LOG_PATH
 fi
+
 # create log backup workspace if not there
-if [ ! -d $LOG_PATH/PreviousLogs_backup ];then
-     rm  -rf $LOG_PATH/PreviousLogs_backup
-     mkdir -p $LOG_PATH/PreviousLogs_backup
+if [ ! -d $PREV_LOG_BACKUP_PATH ];then
+    rm  -rf $PREV_LOG_BACKUP_PATH
+    mkdir -p $PREV_LOG_BACKUP_PATH
 else
-     rm  -rf $LOG_PATH/PreviousLogs_backup/*
+    rm  -rf $PREV_LOG_BACKUP_PATH/*
 fi
 
 if [ $APP_PERSISTENT_PATH ];then 
-     PERSISTENT_PATH=$APP_PERSISTENT_PATH
+    PERSISTENT_PATH=$APP_PERSISTENT_PATH
 else
     PERSISTENT_PATH=/opt/persistent
 fi
-touch $PERSISTENT_PATH/logFileBackup
 
-PREV_LOG_PATH="$LOG_PATH/PreviousLogs"
+touch $PERSISTENT_PATH/logFileBackup
 
 # disk size check for recovery if /opt size > 90%
 if [ -f /etc/os-release ] && [ -f /lib/rdk/disk_threshold_check.sh ];then
-     sh /lib/rdk/disk_threshold_check.sh 0
+    sh /lib/rdk/disk_threshold_check.sh 0
 fi
 
 backupAndRecoverLogs()
@@ -68,9 +76,9 @@ backupAndRecoverLogs()
     done
 }
 
-last_bootfile=`find /opt/logs/PreviousLogs/ -name last_reboot`
+last_bootfile=`find $PREV_LOG_PATH -name last_reboot`
 if [ -f "$last_bootfile" ];then
-     rm -rf $last_bootfile
+    rm -rf $last_bootfile
 fi
 
 sysLog="messages.txt"
@@ -79,9 +87,9 @@ sysLogBAK2="bak2_messages.txt"
 sysLogBAK3="bak3_messages.txt"
 
 if [ "$HDD_ENABLED" = "false" ]; then
-	BAK1="bak1_"
-	BAK2="bak2_"
-	BAK3="bak3_"
+    BAK1="bak1_"
+    BAK2="bak2_"
+    BAK3="bak3_"
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
         if [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
             #For Xione Realtek SOC device
@@ -106,11 +114,13 @@ if [ "$HDD_ENABLED" = "false" ]; then
         backupAndRecoverLogs "$PREV_LOG_PATH/" "$PREV_LOG_PATH/" mv "$BAK3" "$BAK2"
         backupAndRecoverLogs "$LOG_PATH/" "$PREV_LOG_PATH/" mv "" "$BAK3"
     fi
+
     if [ -f /etc/os-release ];then
-           /bin/touch /opt/logs/PreviousLogs/last_reboot
+           /bin/touch $PREV_LOG_PATH/last_reboot
     else
-           touch /opt/logs/PreviousLogs/last_reboot
+           touch $PREV_LOG_PATH/last_reboot
     fi
+
     # logs cleanup after backup
     rm -rf $LOG_PATH/*.*
     find $LOG_PATH -name "*-*-*-*-*M-" -exec rm -rf {} \;
@@ -118,34 +128,35 @@ else
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
        find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
        if [ -f /etc/os-release ];then
-           /bin/touch /opt/logs/PreviousLogs/last_reboot
+           /bin/touch $PREV_LOG_PATH/last_reboot
        else
-           touch /opt/logs/PreviousLogs/last_reboot
+           touch $PREV_LOG_PATH/last_reboot
        fi
     else
-       find /opt/logs/PreviousLogs/ -name last_reboot | xargs rm >/dev/null
+       find $PREV_LOG_PATH -name last_reboot | xargs rm >/dev/null
        timestamp=`date "+%m-%d-%y-%I-%M-%S%p"`
-       LogFilePathPerm="$LOG_PATH/PreviousLogs/logbackup-$timestamp"
+       LogFilePathPerm="$PREV_LOG_PATH/logbackup-$timestamp"
        mkdir -p $LogFilePathPerm
-
        find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \)  -exec mv '{}' $LogFilePathPerm \;
        if [ -f /etc/os-release ];then
-            /bin/touch "$LogFilePathPerm"/last_reboot 
+           /bin/touch "$LogFilePathPerm"/last_reboot 
        else
-            touch $LogFilePathPerm/last_reboot
+           touch $LogFilePathPerm/last_reboot
        fi
-   fi
+    fi
 fi
+
 if [ -f /tmp/disk_cleanup.log ];then
-        mv /tmp/disk_cleanup.log /opt/logs/
+    mv /tmp/disk_cleanup.log $LOG_PATH
 fi
+
 if [ -f /tmp/mount_log.txt ];then
-        mv /tmp/mount_log.txt /opt/logs/
+    mv /tmp/mount_log.txt $LOG_PATH
 fi
+
 
 cp /version.txt $LOG_PATH
 
 if [ -f /etc/os-release ];then
     /bin/systemd-notify --ready --status="Logs Backup Done..!"
 fi
-

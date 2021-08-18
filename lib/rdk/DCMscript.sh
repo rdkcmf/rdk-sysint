@@ -76,6 +76,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
 TELEMETRY_PATH="/opt/.telemetry"
 SORTED_PATTERN_CONF_FILE="$TELEMETRY_PATH/dca_temp_file.conf"
 DCMFLAG="/tmp/.DCMSettingsFlag"
+DCM_LOG_FILE="$LOG_PATH/dcmscript.log"
 
 #setting TLS value only for Yocto builds
 TLS=""
@@ -87,9 +88,15 @@ TLSRet=""
 HTTPS_URL=""
 cron_update=0
 reboot_flag=$4
+
+dcmLog() {
+    timestamp=`/bin/timestamp`
+    echo "$timestamp $0: $*" >> $DCM_LOG_FILE
+}
+
 if [ $# -ne 5 ]
 then
-    echo "`/bin/timestamp` Argument does not match" >> $LOG_PATH/dcmscript.log
+    dcmLog "Argument does not match"
     echo 0 > $DCMFLAG
     exit 1
 fi
@@ -99,10 +106,10 @@ fi
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
 
-echo "`/bin/timestamp` Starting execution of DCMscript.sh" >> $LOG_PATH/dcmscript.log
+dcmLog "Starting execution of DCMscript.sh"
 
 ## Trigger Telemetry run for previous boot log files 
-echo "Telemetry run for previous boot log files" >> $LOG_PATH/dcmscript.log
+dcmLog "Telemetry run for previous boot log files"
 TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 
 ###########################################################################################
@@ -164,24 +171,24 @@ checkXpkiMtlsBasedLogUpload()
     else
         useXpkiMtlsLogupload="false"
     fi
-    echo "`/bin/timestamp` xpki based mtls support = $useXpkiMtlsLogupload" >> $LOG_PATH/dcmscript.log
+    dcmLog "xpki based mtls support = $useXpkiMtlsLogupload"
 }
 checkXpkiMtlsBasedLogUpload
 
 if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
-    echo "`/bin/timestamp` opt override is present. Ignore settings from Bootstrap config" >> $LOG_PATH/dcmscript.log
+    dcmLog "opt override is present. Ignore settings from Bootstrap config"
 else
     LOG_CONFIG_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.XconfUrl 2>&1 > /dev/null)
 
     if [ "$LOG_CONFIG_URL" ]; then
         URL="$LOG_CONFIG_URL/loguploader/getSettings"
-        echo "`/bin/timestamp` Setting URL to $URL from Bootstrap config LOG_CONFIG_URL:$LOG_CONFIG_URL" >> $LOG_PATH/dcmscript.log
+        dcmLog "Setting URL to $URL from Bootstrap config LOG_CONFIG_URL:$LOG_CONFIG_URL"
     fi
 fi
 
- echo "`/bin/timestamp` URL: $URL" >> $LOG_PATH/dcmscript.log
- echo "`/bin/timestamp` REBOOT_FLAG: $reboot_flag" >> $LOG_PATH/dcmscript.log
- echo "`/bin/timestamp` CHECK_ON_REBOOT: $checkon_reboot" >> $LOG_PATH/dcmscript.log
+dcmLog "URL: $URL"
+dcmLog "REBOOT_FLAG: $reboot_flag"
+dcmLog "CHECK_ON_REBOOT: $checkon_reboot"
 
 
 if [ -f "/tmp/DCMSettings.conf" ]
@@ -226,7 +233,7 @@ fi
 #check if we have bootstrap parameter
 bootstrap_upload_httplink=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.SsrUrl 2>&1 > /dev/null)
 if [ ! -z "$bootstrap_upload_httplink" ]; then
-    echo "Overriding the upload url with bootstrap url" >> $LOG_PATH/dcmscript.log
+    dcmLog "Overriding the upload url with bootstrap url"
     upload_httplink="$bootstrap_upload_httplink/cgi-bin/S3.cgi"
 fi
 
@@ -254,10 +261,10 @@ IsDirectBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
         remtime=$((($DIRECT_BLOCK_TIME/3600) - ($modtime/3600)))
         if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
-            echo "`/bin/timestamp` DCM: Last direct failed blocking is still valid for $remtime hrs, preventing direct" >> $LOG_PATH/dcmscript.log
+            dcmLog "Last direct failed blocking is still valid for $remtime hrs, preventing direct"
             directret=1
         else
-            echo "`/bin/timestamp` DCM: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct" >> $LOG_PATH/dcmscript.log
+            dcmLog "Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
             rm -f $DIRECT_BLOCK_FILENAME
         fi
     fi
@@ -271,10 +278,10 @@ IsCodeBigBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $CB_BLOCK_FILENAME)))
         cbremtime=$((($CB_BLOCK_TIME/60) - ($modtime/60)))
         if [ "$modtime" -le "$CB_BLOCK_TIME" ]; then
-            echo "`/bin/timestamp` DCM: Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig" >> $LOG_PATH/dcmscript.log
+            dcmLog "Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig"
             codebigret=1
         else
-            echo "`/bin/timestamp` DCM: Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig" >> $LOG_PATH/dcmscript.log
+            dcmLog "Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig"
             rm -f $CB_BLOCK_FILENAME
         fi
     fi
@@ -283,14 +290,14 @@ IsCodeBigBlocked()
 
 getTimeZone()
 {
-  echo "Retrieving the timezone value"
+  dcmLog "Retrieving the timezone value"
   JSONPATH=/opt
   if [ "$CPU_ARCH" == "x86" ]; then JSONPATH=/tmp; fi
   counter=1
-  echo "Reading Timezone value from $JSONPATH/output.json file..."
+  dcmLog "Reading Timezone value from $JSONPATH/output.json file..."
   while [ ! "$zoneValue" ]
   do
-      echo "timezone retry:$counter"
+      dcmLog "timezone retry:$counter"
       if [ -f $JSONPATH/output.json ] && [ -s $JSONPATH/output.json ];then
           grep timezone $JSONPATH/output.json | cut -d ":" -f2 | sed 's/[\",]/ /g' > /tmp/.timeZone.txt
       fi
@@ -304,7 +311,7 @@ getTimeZone()
       done < /tmp/.timeZone.txt
 
       if [ $counter -eq 10 ];then
-          echo "Timezone retry count reached the limit . Timezone data source is missing"
+          dcmLog "Timezone retry count reached the limit . Timezone data source is missing"
           break;
       fi
       counter=`expr $counter + 1`
@@ -312,15 +319,15 @@ getTimeZone()
   done
 
   if [ ! "$zoneValue" ]; then
-      echo "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
+      dcmLog "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
       if [ -f $TIMEZONEDST ] && [ -s $TIMEZONEDST ];then
           zoneValue=`cat $TIMEZONEDST | grep -v 'null'`
-          echo "Got timezone using $TIMEZONEDST successfully, value:$zoneValue"
+          dcmLog "Got timezone using $TIMEZONEDST successfully, value:$zoneValue"
       else
-          echo "$TIMEZONEDST file not found, Timezone data source is missing "
+          dcmLog "$TIMEZONEDST file not found, Timezone data source is missing "
       fi
   else
-      echo "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
+      dcmLog "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
   fi
 
   echo "$zoneValue"
@@ -401,7 +408,7 @@ processJsonResponse()
                 cron_Check=`echo "$line" | grep 'urn:settings:CheckSchedule:cron' | grep -c '\-1'`
                 if [ $cron_Check -ne 0 ];then
                    # correct bad cron rules (-1) from the DCM server
-                   echo "Corrected bad cron rule from DCM server: $line" >> $LOG_PATH/dcmscript.log
+                   dcmLog "Corrected bad cron rule from DCM server: $line"
                    line=`echo "$line" | sed 's/\-1/0/g'`
                 fi 
                 echo "$line" | sed 's/":/=/g' | sed 's/"//g' >> $OUTFILE 		
@@ -410,7 +417,7 @@ processJsonResponse()
         
         rm -rf $FILENAME #Delete the /opt/DCMresponse.txt
     else
-        echo "$FILENAME not found." >> $LOG_PATH/dcmscript.log
+        dcmLog "$FILENAME not found."
         return 1
     fi
 }
@@ -418,43 +425,43 @@ processJsonResponse()
 sendTLSDCMCodebigRequest()
 {
     CB_SIGNED_REQUEST=$1
-    echo "Attempting $TLS connection to Codebig DCM server">> $LOG_PATH/dcmscript.log
+    dcmLog "Attempting $TLS connection to Codebig DCM server"
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="curl $TLS -w '%{http_code}\n' --cert-status --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" \"$CB_SIGNED_REQUEST\""
     else
         CURL_CMD="curl $TLS -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" \"$CB_SIGNED_REQUEST\""
     fi
-    echo "`/bin/timestamp` CURL_CMD: $CURL_CMD" >> $LOG_PATH/dcmscript.log
+    dcmLog "CURL_CMD: $CURL_CMD"
     eval $CURL_CMD > $HTTP_CODE
     TLSRet=$?
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            echo "HTTPS $TLS failed to connect to Codebig DCM server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+            dcmLog "HTTPS $TLS failed to connect to Codebig DCM server with curl error code $TLSRet"
             ;;
     esac
-    echo "Curl return code : $TLSRet" >> $LOG_PATH/dcmscript.log
+    dcmLog "Curl return code : $TLSRet"
 }
 
 sendTLSDCMRequest()
 {
     TLSRet=1
-    echo "Attempting $TLS connection to DCM server"  >> $LOG_PATH/dcmscript.log
+    dcmLog "Attempting $TLS connection to DCM server"
     if [ "$FORCE_MTLS" == "true" ]; then
-        echo "MTLS preferred for DCM Request" >> $LOG_PATH/dcmscript.log
+        dcmLog "MTLS preferred for DCM Request"
         mTlsLogUpload="true"
     fi
 
     if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
         if [ "$useXpkiMtlsLogupload" == "true" ]; then
             msg_tls_source="mTLS certificate from xPKI"
-            echo "Connect with $msg_tls_source"
+            dcmLog "Connect with $msg_tls_source"
             CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         elif [ -f /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem ] && [ "$MODEL_NUM" == "SX022AN" ]; then
             msg_tls_source="mTLS certificate from RDK-CA"
-            echo "Connect with $msg_tls_source"
+            dcmLog "Connect with $msg_tls_source"
             if [ ! -f /usr/bin/GetConfigFile ]; then
-                echo "Error: GetConfigFile Not Found"
+                dcmLog "Error: GetConfigFile Not Found"
                 exit 127
             fi
             ID="/tmp/uydrgopwxyem"
@@ -462,14 +469,14 @@ sendTLSDCMRequest()
                 GetConfigFile $ID
             fi
             if [ ! -f "$ID" ]; then
-                echo "Error: Getconfig file failed"
+                dcmLog "Error: Getconfig file failed"
             fi
             CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         elif [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
             msg_tls_source="mTLS using static xpki certificate"
-            echo "Connect with $msg_tls_source"
+            dcmLog "Connect with $msg_tls_source"
             if [ ! -f /usr/bin/GetConfigFile ]; then
-                echo "Error: GetConfigFile Not Found"
+                dcmLog "Error: GetConfigFile Not Found"
                 exit 127
             fi
             ID="/tmp/.cfgStaticxpki"
@@ -477,29 +484,29 @@ sendTLSDCMRequest()
                 GetConfigFile $ID
             fi
             if [ ! -f "$ID" ]; then
-                echo "Error: Getconfig file failed"
+                dcmLog "Error: Getconfig file failed"
             fi
             CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         fi
     else
         msg_tls_source="TLS"
-        echo "Connect with $msg_tls_source, no mtls support"
+        dcmLog "Connect with $msg_tls_source, no mtls support"
         CURL_CMD="curl $TLS -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
     fi
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
     fi
-    echo "`/bin/timestamp` $msg_tls_source CURL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<hidden key> -w#g'`" >> $LOG_PATH/dcmscript.log
+    dcmLog "$msg_tls_source CURL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<hidden key> -w#g'`"
     eval $CURL_CMD > $HTTP_CODE
     TLSRet=$?
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            echo "HTTPS with $msg_tls_source for $TLS failed to connect to XCONF server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+            dcmLog "HTTPS with $msg_tls_source for $TLS failed to connect to XCONF server with curl error code $TLSRet"
             ;;
 
     esac
-    echo "Curl return code with $msg_tls_source : $TLSRet" >> $LOG_PATH/dcmscript.log
+    dcmLog "Curl return code with $msg_tls_source : $TLSRet"
 }
 
 DoCodebig()
@@ -508,9 +515,9 @@ DoCodebig()
     eval $SIGN_CMD > /tmp/.signedRequest
     if [ -s /tmp/.signedRequest ]
     then
-        echo "GetServiceUrl success"
+        dcmLog "GetServiceUrl success"
     else
-        echo "GetServiceUrl failed"
+        dcmLog "GetServiceUrl failed"
         exit 1
     fi
     CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
@@ -544,7 +551,7 @@ sendHttpRequestToServer()
     cbretries=0
 
     if [ $UseCodebig -eq 1 ]; then
-        echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig is enabled UseCodebig:$UseCodebig" >> $LOG_PATH/dcmscript.log
+        dcmLog "sendHttpRequestToServer: Codebig is enabled UseCodebig:$UseCodebig"
         if [ "$DEVICE_TYPE" = "mediaclient" ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
@@ -552,12 +559,12 @@ sendHttpRequestToServer()
             if [ $skipcodebig -eq 0 ]; then
                 while [ $cbretries -le $CB_MAX_UPLOAD_ATTEMPTS ]
                 do
-                    echo "`/bin/timestamp`:sendHttpRequestToServer: Attempting Codebig DCM connection" >> $LOG_PATH/dcmscript.log
+                    dcmLog "sendHttpRequestToServer: Attempting Codebig DCM connection"
                     DoCodebig
                     ret=$TLSRet
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                     if [ "$http_code" = "200" ]; then
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection success return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Codebig DCM connection success return:$ret, httpcode:$http_code"
                         IsDirectBlocked
                         skipDirect=$?
                         if [ $skipDirect -eq 0 ]; then
@@ -565,17 +572,17 @@ sendHttpRequestToServer()
                         fi
                         break
                     elif [ "$http_code" = "404" ]; then
-                       echo "`/bin/timestamp`:sendHttpRequestToServer: Received 404 response for Codebig DCM connection, Retry logic not needed"
+                       dcmLog "sendHttpRequestToServer: Received 404 response for Codebig DCM connection, Retry logic not needed"
                        break
                     fi
-                    echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection return: retry:$cbretries ret:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
-                    cbretries=`expr $cbretries + 1`
+                    dcmLog "sendHttpRequestToServer: Codebig DCM connection return: retry:$cbretries ret:$ret, httpcode:$http_code"
+		    cbretries=`expr $cbretries + 1`
                     sleep 10
                 done
             fi
 
             if [ "$http_code" = "000" ]; then
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection failed: httpcode:$http_code, attempting direct" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Codebig DCM connection failed: httpcode:$http_code, attempting direct"
                 IsDirectBlocked
                 skipdirect=$?
                 if [ $skipdirect -eq 0 ]; then
@@ -585,41 +592,41 @@ sendHttpRequestToServer()
                     ret=$TLSRet
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                     if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failover attempt failed, return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Direct DCM connection failover attempt failed, return:$ret, httpcode:$http_code"
                     else
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failover attempt received, return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Direct DCM connection failover attempt received, return:$ret, httpcode:$http_code"
                     fi
                 fi
                 IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
-                    echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig blocking is released" >> $LOG_PATH/dcmscript.log
+                    dcmLog "sendHttpRequestToServer: Codebig blocking is released"
                 fi
             elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM Query failed with return=$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Codebig DCM Query failed with return=$ret, httpcode:$http_code"
             fi
         else
-            echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection not supported" >> $LOG_PATH/dcmscript.log
+            dcmLog "sendHttpRequestToServer: Codebig DCM connection not supported"
         fi
     else
-        echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig is disabled: UseCodebig=$UseCodebig" >> $LOG_PATH/dcmscript.log
+        dcmLog "sendHttpRequestToServer: Codebig is disabled: UseCodebig=$UseCodebig"
         IsDirectBlocked
         skipdirect=$?
         if [ $skipdirect -eq 0 ]; then
             while [ $retries -lt $MAX_UPLOAD_ATTEMPTS ]
             do
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Attempting direct DCM connection" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Attempting direct DCM connection"
                 sendTLSDCMRequest
                 ret=$TLSRet
                 http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                 if [ "$http_code" = "200" ];then
-                    echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection success, return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                    dcmLog "sendHttpRequestToServer: Direct DCM connection success, return:$ret, httpcode:$http_code"
                     break
                 elif [ "$http_code" = "404" ]; then
-                    echo "`/bin/timestamp`:sendHttpRequestToServer: Received 404 response for Direct DCM connection, Retry logic not needed"
+                    dcmLog "sendHttpRequestToServer: Received 404 response for Direct DCM connection, Retry logic not needed"
                     break
                 fi
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection retry:$retries, return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Direct DCM connection retry:$retries, return:$ret, httpcode:$http_code"
                 retries=`expr $retries + 1`
                 sleep 60
             done
@@ -627,47 +634,47 @@ sendHttpRequestToServer()
 
         if [ "$http_code" = "000" ]; then
             if [ "$DEVICE_TYPE" = "mediaclient"]; then
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failed: httpcode:$http_code, attempting Codebig" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Direct DCM connection failed: httpcode:$http_code, attempting Codebig"
                 IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
                     while [ $cbretries -le $CB_MAX_UPLOAD_ATTEMPTS ]
                     do
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Attempting Codebig DCM connection" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Attempting Codebig DCM connection"
                         DoCodebig 
                         ret=$TLSRet
                         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                         if [ "$http_code" = "200" ]; then
-                            echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection success return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                            dcmLog "sendHttpRequestToServer: Codebig DCM connection success return:$ret, httpcode:$http_code"
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                 touch $DIRECT_BLOCK_FILENAME
-                                echo "`/bin/timestamp`:sendHttpRequestToServer: Use Codebig and Block Direct for 24 hrs " >> $LOG_PATH/dcmscript.log
+                                dcmLog "sendHttpRequestToServer: Use Codebig and Block Direct for 24 hrs"
                             fi
                             break
                         elif [ "$http_code" = "404" ]; then
-                            echo "`/bin/timestamp`:sendHttpRequestToServer: Received 404 response for Codebig DCM connection, Retry logic not needed"
+                            dcmLog "sendHttpRequestToServer: Received 404 response for Codebig DCM connection, Retry logic not needed"
                             break
                         fi
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection return: retry:$cbretries, ret:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Codebig DCM connection return: retry:$cbretries, ret:$ret, httpcode:$http_code"
                         cbretries=`expr $cbretries + 1`
                         sleep 10
                     done
 
                     if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection failed return=$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+                        dcmLog "sendHttpRequestToServer: Codebig DCM connection failed return=$ret, httpcode:$http_code"
                         UseCodebig=0
                         if [ ! -f $CB_BLOCK_FILENAME ]; then
                             touch $CB_BLOCK_FILENAME
-                            echo "`/bin/timestamp`:sendHttpRequestToServer: Switch Direct and Blocking Codebig for 30mins" >> $LOG_PATH/dcmscript.log
+                            dcmLog "sendHttpRequestToServer: Switch Direct and Blocking Codebig for 30mins"
                         fi
                     fi
                 fi
             else
-                echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig DCM connection not supported" >> $LOG_PATH/dcmscript.log
+                dcmLog "sendHttpRequestToServer: Codebig DCM connection not supported"
             fi
         elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-            echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failed return:$ret, httpcode:$http_code" >> $LOG_PATH/dcmscript.log
+            dcmLog "sendHttpRequestToServer: Direct DCM connection failed return:$ret, httpcode:$http_code"
         fi
     fi
 
@@ -675,17 +682,17 @@ sendHttpRequestToServer()
 	resp=1
         touch $DCM_SKIP_RETRY_FLAG
     elif [ $ret -ne 0 -o "$http_code" != "200" ] ; then
-        echo "`/bin/timestamp` https request failed" >> $LOG_PATH/dcmscript.log
+        dcmLog "https request failed"
         rm -rf /tmp/DCMSettings.conf
         resp=1
     else
-        echo "`/bin/timestamp` https request success. Processing response.." >> $LOG_PATH/dcmscript.log
+        dcmLog "https request success. Processing response.."
         # Process the JSON response
         processJsonResponse
         stat=$?
-        echo "`/bin/timestamp` processJsonResponse returned $stat" >> $LOG_PATH/dcmscript.log
+        dcmLog "processJsonResponse returned $stat"
         if [ "$stat" != 0 ] ; then
-            echo "`/bin/timestamp` Processing response failed." >> $LOG_PATH/dcmscript.log
+            dcmLog "Processing response failed."
             rm -rf /tmp/DCMSettings.conf
             resp=1
         else
@@ -693,12 +700,12 @@ sendHttpRequestToServer()
         fi
     fi
     
-    echo "`/bin/timestamp` resp = $resp" >> $LOG_PATH/dcmscript.log
+    dcmLog "resp = $resp"
     return $resp
 }
 
-scheduleSupplementaryServices() {
-	
+scheduleSupplementaryServices() 
+{
     T2_DCM_CONFIG=$1
     cp $T2_DCM_CONFIG $FILENAME
     local OUTFILE='/tmp/DCMSettings.conf'
@@ -709,25 +716,25 @@ scheduleSupplementaryServices() {
 
     upload_protocol=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:uploadProtocol' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
     if [ -n "$upload_protocol" ]; then
-    	echo "`/bin/timestamp` upload_protocol: $upload_protocol" >> $LOG_PATH/dcmscript.log
+        dcmLog "upload_protocol: $upload_protocol"
     else
         upload_protocol='HTTP'
-        echo "`/bin/timestamp` 'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf" >> $LOG_PATH/dcmscript.log
+        dcmLog "'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf"
     fi
-	
+
     httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
     if [ -z "$httplink" ]; then
-        echo "`/bin/timestamp` 'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'" >> $LOG_PATH/dcmscript.log
+        dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
     else
         upload_httplink=$httplink
-        echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+        dcmLog "upload_httplink is $upload_httplink"
     fi
     
     if [ "$FORCE_MTLS" == "true" ]; then
-        echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
+        dcmLog "MTLS preferred"
         mTlsLogUpload="true"
     fi
-    echo "RFC_mTlsLogUpload:$mTlsLogUpload" >> $LOG_PATH/dcmscript.log
+    dcmLog "RFC_mTlsLogUpload:$mTlsLogUpload"
 
     if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
         #sky endpoint dont use the /secure extension;
@@ -735,7 +742,7 @@ scheduleSupplementaryServices() {
             upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
         fi
     fi
-    echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+    dcmLog "upload_httplink is $upload_httplink"
     #--------------------------------- END : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
 
     #Check the value of 'UploadOnReboot' in DCMSettings.conf
@@ -744,27 +751,26 @@ scheduleSupplementaryServices() {
     difdCron=`cat $OUTFILE | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2`
 
     if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
-        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        dcmLog "The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh"
         nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
     elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
-        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        dcmLog "The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh"
         nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
     else 
-        echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
+        dcmLog "Nothing to do here for uploadCheck value = $uploadCheck"
     fi
     if [ -z "$logUploadcron" ] || [ "$logUploadcron" == "null" ]; then
-        echo " `/bin/timestamp` Uploading logs as DCM response is either null or not present" >> $LOG_PATH/dcmscript.log
+        dcmLog "Uploading logs as DCM response is either null or not present"
         nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
     else
-        echo " `/bin/timestamp` 'UploadSchedule:cron' is present setting cron jobs " >> $LOG_PATH/dcmscript.log
+        dcmLog "'UploadSchedule:cron' is present setting cron jobs "
         sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$logUploadcron nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
     fi
 
     if [ -n "$difdCron" ]; then
-        echo "Configuring cron job for deviceInitiatedFWDnld.sh" >> $LOG_PATH/dcmscript.log
+        dcmLog "Configuring cron job for deviceInitiatedFWDnld.sh"
         sh /lib/rdk/cronjobs_update.sh "update" "deviceInitiatedFWDnld.sh" "$difdCron /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 2 >> /opt/logs/swupdate.log 2>&1"
-    fi	
-	
+    fi
 }
 
 
@@ -773,13 +779,13 @@ scheduleSupplementaryServices() {
 #---------------------------------
 
 if [ "x$T2_ENABLE" == "xtrue" ]; then
-	
+
     PROCESS_CONFIG_COMPLETE_FLAG="/tmp/t2DcmComplete"
     T2_DCM_CONFIG="$PERSISTENT_PATH/.t2persistentfolder/DCMresponse.txt"
-	
+
     t2Pid=`pidof $T2_0_APP`
     if [ -z "$t2Pid" ]; then
-        echo "${T2_BIN} is present, XCONF config fetch and parse will be handled by T2 implementation" >> $DCM_LOG_FILE
+        dcmLog "${T2_BIN} is present, XCONF config fetch and parse will be handled by T2 implementation"
         t2Log "Clearing markers from $TELEMETRY_PATH"
         rm -rf $TELEMETRY_PATH
         mkdir -p $TELEMETRY_PATH
@@ -807,7 +813,7 @@ if [ "x$T2_ENABLE" == "xtrue" ]; then
 
     while [ ! -f $PROCESS_CONFIG_COMPLETE_FLAG ]
     do
-        echo "Wait for config fetch complete" >> $DCM_LOG_FILE	
+        dcmLog "Wait for config fetch complete"
         sleep 10
         let count++
         if [ $count -eq $MAX_RETRY_T2_RESPONSE ]; then
@@ -819,7 +825,7 @@ if [ "x$T2_ENABLE" == "xtrue" ]; then
     exit 0
 fi
 
-echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
+dcmLog "Waiting for IP"
 getTimeZone
 loop=1
 counter=0
@@ -834,13 +840,13 @@ do
                    loop=0
                elif [ ! -f /tmp/estb_ipv4 ] && [ ! -f /tmp/estb_ipv6 ]; then
                    sleep 10
-                   echo "`/bin/timestamp` waiting for IPv6 IP" >> $LOG_PATH/dcmscript.log
+                   dcmLog "waiting for IPv6 IP"
                    let counter++
                    if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
                        sh $RDK_PATH/dca_utility.sh 0 0
                    fi
                elif [ "Y$estbIp" == "Y$DEFAULT_IP" ] && [ -f /tmp/estb_ipv4 ]; then
-                   echo "`/bin/timestamp` waiting for IPv4 IP" >> $LOG_PATH/dcmscript.log
+                   dcmLog "waiting for IPv4 IP"
                    let counter++
                    if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
                        sh $RDK_PATH/dca_utility.sh 0 0
@@ -873,12 +879,12 @@ done
 
 UseCodebig=0
 
-echo "`/bin/timestamp` Check UseCodebig flag" >> $LOG_PATH/dcmscript.log
+dcmLog "Check UseCodebig flag"
 IsDirectBlocked
 UseCodebig=$?
 
 if [ ! $estbIp ] ;then
-echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
+dcmLog "Waiting for IP"
 fi
 
 loop=1
@@ -892,25 +898,25 @@ do
     do
         sleep 1
         loop=0
-        echo "`/bin/timestamp` --------- box got an ip $estbIp" >> $LOG_PATH/dcmscript.log
+        dcmLog "--------- box got an ip $estbIp"
         #Checking the value of 'checkon_reboot'
         #The value of 'checkon_reboot' will be 0, if the value of 'urn:settings:CheckOnReboot' is false in DCMSettings.conf
         #The value of 'checkon_reboot' will be always 1, if DCMscript.sh is executing from cronjob
         if [ $checkon_reboot -eq 1 ]; then
             sendHttpRequestToServer $FILENAME $URL
             ret=$?
-            echo "`/bin/timestamp` sendHttpRequestToServer returned $ret" >> $LOG_PATH/dcmscript.log
+            dcmLog "sendHttpRequestToServer returned $ret"
         else
             ret=0
-            echo "`/bin/timestamp` sendHttpRequestToServer has not executed since the value of 'checkon_reboot' is $checkon_reboot" >> $LOG_PATH/dcmscript.log
+            dcmLog "sendHttpRequestToServer has not executed since the value of 'checkon_reboot' is $checkon_reboot"
         fi                
         #If sendHttpRequestToServer method fails
         if [ $ret -ne 0 ]
         then
-            echo "`/bin/timestamp` Processing response failed." >> $LOG_PATH/dcmscript.log
+            dcmLog "Processing response failed."
             count=$((count + 1))
             if [ $count -ge $RETRY_COUNT ]; then
-                echo " `/bin/timestamp` $RETRY_COUNT tries failed. Giving up..." >> $LOG_PATH/dcmscript.log
+                dcmLog "$RETRY_COUNT tries failed. Giving up..."
                 rm -rf $FILENAME $HTTP_CODE
 
                 if [ -f $PREVIOUS_CRON_FILE ]; then
@@ -928,20 +934,20 @@ do
                 sh $RDK_PATH/dca_utility.sh 0 1
 
                 if [ "$reboot_flag" == "1" ];then
-                    echo "Exiting script." >> $LOG_PATH/dcmscript.log
+                    dcmLog "Exiting script."
                     echo 0 > $DCMFLAG
                     exit 0
                 fi      
-                echo " `/bin/timestamp` Executing $RDK_PATH/uploadSTBLogs.sh." >> $LOG_PATH/dcmscript.log
+                dcmLog "Executing $RDK_PATH/uploadSTBLogs.sh."
                 nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 0 1 $upload_protocol $upload_httplink &
                 echo 0 > $DCMFLAG
                 exit 1
             fi
-            echo "`/bin/timestamp` count = $count. Sleeping $RETRY_DELAY_DCM seconds ..." >> $LOG_PATH/dcmscript.log
+            dcmLog "count = $count. Sleeping $RETRY_DELAY_DCM seconds ..."
             rm -rf $FILENAME $HTTP_CODE
             sleep $RETRY_DELAY_DCM
             if [ "$reboot_flag" == "1" ];then
-                echo "Exiting script." >> $LOG_PATH/dcmscript.log
+                dcmLog "Exiting script."
                 echo 0 > $DCMFLAG
                 exit 0
             fi
@@ -952,25 +958,25 @@ do
                 #---------------------------------------------------------
                 upload_protocol=`cat /tmp/DCMSettings.conf | grep 'LogUploadSettings:UploadRepository:uploadProtocol' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
                 if [ -n "$upload_protocol" ]; then
-                    echo "`/bin/timestamp` upload_protocol: $upload_protocol" >> $LOG_PATH/dcmscript.log
+                    dcmLog "upload_protocol: $upload_protocol"
                 else
                     upload_protocol='HTTP'
-                    echo "`/bin/timestamp` 'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf" >> $LOG_PATH/dcmscript.log
+                    dcmLog "'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf"
                 fi
                 #---------------------------------------------------------
                 if [ "$upload_protocol" == "HTTP" ]; then
                     httplink=`cat /tmp/DCMSettings.conf | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
                     if [ -z "$httplink" ]; then
-                        echo "`/bin/timestamp` 'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'" >> $LOG_PATH/dcmscript.log
+                        dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
                     else
                         upload_httplink=$httplink
-                        echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+                        dcmLog "upload_httplink is $upload_httplink"
                     fi
                     if [ "$FORCE_MTLS" == "true" ]; then
-                        echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
+                        dcmLog "MTLS preferred"
                         mTlsLogUpload="true"
                     fi
-                    echo "RFC_mTlsLogUpload:$mTlsLogUpload" >> $LOG_PATH/dcmscript.log
+                    dcmLog "RFC_mTlsLogUpload:$mTlsLogUpload"
 
                     if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
                         #sky endpoint dont use the /secure extension;
@@ -978,7 +984,7 @@ do
                             upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
                         fi
                     fi
-                    echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+                    dcmLog "upload_httplink is $upload_httplink"
                 fi
                 #---------------------------------------------------------
                 #Check the value of 'UploadOnReboot' in DCMSettings.conf
@@ -987,26 +993,26 @@ do
 
                 if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
                     # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
-                    echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+                    dcmLog "The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh"
                     nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
                 elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
                     # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
-                    echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+                    dcmLog "The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh"
                     nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
                 else 
-                    echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
+                    dcmLog "Nothing to do here for uploadCheck value = $uploadCheck"
                 fi
 
                 #If UploadSchedule:cron is not present in DCMSettings.conf, get the value of urn:settings:LogUploadSettings:UploadSchedule:levelthree:cron
                 if [ -z "$cron" ] || [ "$cron" == "null" ]; then
-                    echo " `/bin/timestamp` 'UploadSchedule:cron' is not present or null " >> $LOG_PATH/dcmscript.log
-                    echo " `/bin/timestamp` Uploading logs as DCM response is either null or not present" >> $LOG_PATH/dcmscript.log
+                    dcmLog "'UploadSchedule:cron' is not present or null "
+                    dcmLog "Uploading logs as DCM response is either null or not present"
                     rm $LOG_PATH/dcm_upload
                     nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
                     echo 0 > $DCMFLAG
                 else
                     cron_update=1 
-                    echo " `/bin/timestamp` 'UploadSchedule:cron' is present setting cron jobs " >> $LOG_PATH/dcmscript.log
+                    dcmLog "'UploadSchedule:cron' is present setting cron jobs "
                     sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$cron nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
                 fi
 
@@ -1032,15 +1038,14 @@ do
                     echo "cron:$cron" > $PREVIOUS_CRON_FILE
                     echo "sleep_time:$sleep_time" >> $PREVIOUS_CRON_FILE
                 else
-                    #echo " `/bin/timestamp` Failed to read 'urn:settings:LogUploadSettings:UploadSchedule:levelone:cron' from DCMSettings.conf." >> $LOG_PATH/dcmscript.log
-                    echo " `/bin/timestamp` Failed to read \"schedule\" cronjob value from DCMSettings.conf." >> $LOG_PATH/dcmscript.log
+                    dcmLog "Failed to read \"schedule\" cronjob value from DCMSettings.conf."
                 fi
 
                 cron=''
                 cron=`cat /tmp/DCMSettings.conf | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2`
                 if [ -n "$cron" ]; then
                     cron_update=1 
-                    echo "Configuring cron job for deviceInitiatedFWDnld.sh" >> $LOG_PATH/dcmscript.log
+                    dcmLog "Configuring cron job for deviceInitiatedFWDnld.sh"
                     sh /lib/rdk/cronjobs_update.sh "update" "deviceInitiatedFWDnld.sh" "$cron /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 2 >> /opt/logs/swupdate.log 2>&1"
 		fi	
                         
@@ -1049,7 +1054,7 @@ do
                 fi
 
             else
-                echo "`/bin/timestamp` /tmp/DCMSettings.conf file not found." >> $LOG_PATH/dcmscript.log
+                dcmLog "/tmp/DCMSettings.conf file not found."
             fi
         fi
     done

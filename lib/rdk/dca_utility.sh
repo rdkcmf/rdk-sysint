@@ -92,18 +92,22 @@ TLSRet=""
 MAX_UPLOAD_ATTEMPTS=3
 RETRY_DELAY=60
 
+dcaLog() {
+    timestamp=`/bin/timestamp`
+    echo "$timestamp $0: $*" >> $RTL_LOG_FILE
+}
+
 if [ $# -ne 2 ]; then
-   echo "Usage : `basename $0` <Trigger Type> sendInformation 0 or 1" >> $RTL_LOG_FILE
-   echo "Trigger Type : 1 (Upon log upload request)/ 0 (Count updating to file)" >> $RTL_LOG_FILE
-   echo "sendInformation : 1 (Will upload telemetry information)/ 0 (Will NOT upload telemetry information)" >> $RTL_LOG_FILE
-   
+   dcaLog "Usage : `basename $0` <Trigger Type> sendInformation 0 or 1"
+   dcaLog "Trigger Type : 1 (Upon log upload request)/ 0 (Count updating to file)"
+   dcaLog "sendInformation : 1 (Will upload telemetry information)/ 0 (Will NOT upload telemetry information)"
    exit 0
 fi
 
 if [ -z $sleep_time ];then
     sleep_time=10
 fi
-echo "$timestamp: dca: sleep_time = $sleep_time" >> $RTL_LOG_FILE
+dcaLog "sleep_time = $sleep_time"
 
 
 if [ "$sendInformation" -ne 1 ] ; then
@@ -112,13 +116,13 @@ else
    TELEMETRY_PROFILE_PATH=$TELEMETRY_PROFILE_DEFAULT_PATH
 fi
 	
-echo "Telemetry Profile File Being Used : $TELEMETRY_PROFILE_PATH" >> $RTL_LOG_FILE
+dcaLog "Telemetry Profile File Being Used : $TELEMETRY_PROFILE_PATH"
 
 previousLogPath=""
 TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 if [ -f $TELEMETRY_PREVIOUS_LOG ]; then
       previousLogPath="$LOG_PATH/PreviousLogs/"
-      echo "Telemetry run for previous log path : $previousLogPath $SORTED_PATTERN_CONF_FILE" >> $RTL_LOG_FILE
+      dcaLog "Telemetry run for previous log path : $previousLogPath $SORTED_PATTERN_CONF_FILE"
 fi
 
 if [ "${BUILD_TYPE}" = "dev" ]; then
@@ -139,7 +143,7 @@ else
 fi
 
 if [ -f /tmp/.dcm_success ]; then
-    echo "Removing Telemetry directory $TELEMETRY_PATH" >> $RTL_LOG_FILE
+    dcaLog "Removing Telemetry directory $TELEMETRY_PATH"
     rm -rf $TELEMETRY_PATH     
     rm /tmp/.dcm_success
 fi
@@ -147,7 +151,7 @@ fi
 mTlsDCMUpload=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsDCMUpload.Enable 2>&1 > /dev/null`
 
 if [ "$FORCE_MTLS" == "true" ]; then
-    echo "$timestamp: MTLS prefered, force mTlsDCMUpload to true"
+    dcaLog "MTLS prefered, force mTlsDCMUpload to true"
     mTlsDCMUpload=true
 fi
 
@@ -191,9 +195,9 @@ getMTLSTelemetryEndpointURL() {
        if [ "$FORCE_MTLS" != "true"  ]; then
            DCA_UPLOAD_URL=`echo $DCA_UPLOAD_URL | sed 's/$/\/secure/'`
        fi
-       echo "MTLS Telemetry Logupload URL:$DCA_UPLOAD_URL" >> $RTL_LOG_FILE
+       dcaLog "MTLS Telemetry Logupload URL:$DCA_UPLOAD_URL"
     else
-       echo "DCA Log Upload Telemetry URL:$DCA_UPLOAD_URL" >> $RTL_LOG_FILE
+       dcaLog "DCA Log Upload Telemetry URL:$DCA_UPLOAD_URL"
     fi
 }
 
@@ -206,7 +210,7 @@ getTelemetryEndpoint() {
         TelemetryEndpointURL=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.TelemetryEndpoint.URL 2>&1 > /dev/null`
         if [ ! -z "$TelemetryEndpointURL" ]; then
             DCA_UPLOAD_URL="https://$TelemetryEndpointURL"
-            echo "dca upload url from RFC is $TelemetryEndpointURL" >> $RTL_LOG_FILE
+            dcaLog "dca upload url from RFC is $TelemetryEndpointURL"
             TelemetryNewEndpointAvailable=1
         fi
     else
@@ -216,7 +220,7 @@ getTelemetryEndpoint() {
         
         if [ ! -z "$TelemetryEndpointURL" ]; then
             DCA_UPLOAD_URL=`echo "$TelemetryEndpointURL" | sed "s/http:/https:/g"`
-            echo "dca upload url from dcmresponse is $TelemetryEndpointURL" >> $RTL_LOG_FILE
+            dcaLog "dca upload url from dcmresponse is $TelemetryEndpointURL"
         fi
     fi
     if [ -z "$TelemetryEndpointURL" ]; then
@@ -226,21 +230,20 @@ getTelemetryEndpoint() {
 
 getTelemetryEndpoint
 getMTLSTelemetryEndpointURL
-echo "`/bin/timestamp`: dca upload url : $DCA_UPLOAD_URL" >> $RTL_LOG_FILE
+dcaLog "dca upload url : $DCA_UPLOAD_URL"
 
 PrevFileName=''
 
 if [ ! -d "$TELEMETRY_PATH_TEMP" ]
 then
-    echo "Telemetry Folder does not exist . Creating now" >> $RTL_LOG_FILE
+    dcaLog "Telemetry Folder does not exist . Creating now"
     mkdir -p "$TELEMETRY_PATH_TEMP"
 else
-    echo "Telemetry Folder exists" >> $RTL_LOG_FILE
+    dcaLog "Telemetry Folder exists"
 fi
  
 cd $LOG_PATH
 
-timestamp=`date +%Y-%b-%d_%H-%M-%S`
 triggerType=1
 TotalTuneCount=0
 TuneFailureCount=0
@@ -335,9 +338,9 @@ getOfflineStatus() {
     if [ -f $TELEMETRY_PATH/lastlog_path ]; then
         filePath=`cat $TELEMETRY_PATH/lastlog_path`
     fi
-    echo "File Path = $filePath" >> $RTL_LOG_FILE
+    dcaLog "File Path = $filePath"
     offline_status=`nice -20 grep 'CM  STATUS :' $filePath/ocapri_log.txt | tail -1`
-    echo "Last Cable Card Status = $offline_status" >> $RTL_LOG_FILE
+    dcaLog "Last Cable Card Status = $offline_status"
     operational_check=`echo $offline_status | grep -c "Operational"`
     if [ $operational_check -eq 0 ]; then
         cablecard=`echo $offline_status | awk -F ': ' '{print $NF}'`
@@ -365,7 +368,7 @@ getFWVersion()
 clearTelemetryConfig()
 {
     if [ -f $MAP_PATTERN_CONF_FILE ]; then
-        echo "$timestamp: dca: MAP_PATTERN_CONF_FILE : $MAP_PATTERN_CONF_FILE" >> $RTL_LOG_FILE
+        dcaLog "MAP_PATTERN_CONF_FILE : $MAP_PATTERN_CONF_FILE"
         rm -f $MAP_PATTERN_CONF_FILE
     fi
 
@@ -374,7 +377,7 @@ clearTelemetryConfig()
         mkdir -p $TELEMETRY_PATH_TEMP
     fi
     
-    echo "$timestamp: dca: TEMP_PATTERN_CONF_FILE : $TEMP_PATTERN_CONF_FILE" >> $RTL_LOG_FILE
+    dcaLog "TEMP_PATTERN_CONF_FILE : $TEMP_PATTERN_CONF_FILE"
     echo "" > $TEMP_PATTERN_CONF_FILE
         
 }
@@ -424,13 +427,13 @@ sendDirectTelemetryRequest()
     EnableOCSPStapling="/tmp/.EnableOCSPStapling"
     EnableOCSP="/tmp/.EnableOCSPCA"
 
-    echo "`/bin/timestamp`: dca$2: Attempting $TLS direct connection to telemetry service" >> $RTL_LOG_FILE
+    dcaLog "Attempting $TLS direct connection to telemetry service"
     
     if [ "$mTlsDCMUpload" == "true" ]; then
-        echo "Log Upload requires Mutual Authentication" >> $LOG_PATH/dcmscript.log
+        dcaLog "Log Upload requires Mutual Authentication"
 	    if [ -d /etc/ssl/certs ]; then
                 if [ ! -f /usr/bin/GetConfigFile ];then
-                echo "Error: GetConfigFile Not Found"
+                dcaLog "Error: GetConfigFile Not Found"
                 exit 127
                 fi
                 ID="/tmp/geyoxnweddys"
@@ -446,7 +449,7 @@ sendDirectTelemetryRequest()
         HTTP_CODE=`curl $TLS$cert -w '%{http_code}\n' -H "Accept: application/json" -H "Content-type: application/json" -X POST -d  "$1" -o "$HTTP_FILENAME" "$DCA_UPLOAD_URL" --cert-status --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT`
         TLSRet=$?
     elif [ "$mTLS_RPI" == "true" ] ; then
-        echo "`/bin/timestamp`: RPI_DCA_CURL_IN_PROGRESS" >> $RTL_LOG_FILE
+        dcaLog " RPI_DCA_CURL_IN_PROGRESS"
         CURL_CMD="curl --cert-type pem --key /tmp/xconf-file.tmp --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem -w '%{http_code}\n' -H \"Accept: application/json\" -H \"Content-type: application/json\" -X POST -d '$1' -o \"$HTTP_FILENAME\" \"$DCA_UPLOAD_URL\" --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT"
         HTTP_CODE=`curl --cert-type pem --key /tmp/xconf-file.tmp --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem  -w '%{http_code}\n' -H "Accept: application/json" -H "Content-type: application/json" -X POST -d  "$1" -o "$HTTP_FILENAME" "$DCA_UPLOAD_URL" --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT`
     else
@@ -455,14 +458,14 @@ sendDirectTelemetryRequest()
         TLSRet=$?
     fi
  
-    echo "`/bin/timestamp`: dca$2: CURL_CMD: $CURL_CMD" >> $RTL_LOG_FILE 
+    dcaLog "CURL_CMD: $CURL_CMD"
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            echo "`/bin/timestamp`: dca$2: HTTPS $TLS failed to connect to telemetry service with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+            dcaLog "HTTPS $TLS failed to connect to telemetry service with curl error code $TLSRet"
 	    ;;
     esac
-    echo "Curl return code : $TLSRet" >> $RTL_LOG_FILE
+    dcaLog  "Curl return code : $TLSRet"
     rm -rf $ID
     return $TLSRet
 }
@@ -472,7 +475,7 @@ uploadTelemetryData()
     http_code="000"
     retries=0
 
-    echo "uploadTelemetryData:  Telemetry endpoint is always direct connect" >> $RTL_LOG_FILE
+    dcaLog "uploadTelemetryData:  Telemetry endpoint is always direct connect"
     while [ $retries -lt $MAX_UPLOAD_ATTEMPTS ]
     do
         # Use direct connection alway
@@ -480,29 +483,29 @@ uploadTelemetryData()
         ret=$TLSRet
         http_code=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
         if [ "$http_code" = "200" ]; then
-            echo "`/bin/timestamp`uploadTelemetryData: Telemetry data upload success dca$2: HTTP RESPONSE CODE : $http_code" >> $RTL_LOG_FILE
+            dcaLog "uploadTelemetryData: Telemetry data upload success dca$2: HTTP RESPONSE CODE : $http_code"
             break
         elif [ "$http_code" = "404" ]; then
-            echo "`/bin/timestamp`uploadTelemetryData: Received 404 response for Telemetry data upload, Retry logic not needed" >> $RTL_LOG_FILE
+            dcaLog "uploadTelemetryData: Received 404 response for Telemetry data upload, Retry logic not needed"
             break
         fi
-        echo "`/bin/timestamp`uploadTelemetryData: Telemetry data upload return dca$2: RETRIES:$retries RET: $ret HTTP RESPONSE CODE : $http_code" >> $RTL_LOG_FILE
+        dcaLog "uploadTelemetryData: Telemetry data upload return dca$2: RETRIES:$retries RET: $ret HTTP RESPONSE CODE : $http_code"
         retries=`expr $retries + 1`
         sleep $RETRY_DELAY
     done
 
     if [ "$http_code" = "000" ]; then
-        echo "`/bin/timestamp`uploadTelemetryData: Telemetry data upload Direct connection failed with RET: $ret HTTP RESPONSE CODE : $http_code" >> $RTL_LOG_FILE
-        echo "`/bin/timestamp`uploadTelemetryData: Telemetry data upload CodeBig connection not supported" >> $RTL_LOG_FILE
+        dcaLog "uploadTelemetryData: Telemetry data upload Direct connection failed with RET: $ret HTTP RESPONSE CODE : $http_code"
+        dcaLog "uploadTelemetryData: Telemetry data upload CodeBig connection not supported"
     elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-        echo "`/bin/timestamp`uploadTelemetryData: Telemetry data upload dca$2 failed with RET: $ret HTTP RESPONSE CODE : $http_code" >> $RTL_LOG_FILE
+        dcaLog "uploadTelemetryData: Telemetry data upload dca$2 failed with RET: $ret HTTP RESPONSE CODE : $http_code"
     fi
 }
 
 #main app
 if [ ! -f $SORTED_PATTERN_CONF_FILE ]; then
    if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
-      echo "resend queue size at its max. removing recent two entries" >> $RTL_LOG_FILE
+      dcaLog "resend queue size at its max. removing recent two entries"
       sed -i '$d' $TELEMETRY_RESEND_FILE
       sed -i '$d' $TELEMETRY_RESEND_FILE
    fi
@@ -521,7 +524,7 @@ if [ -f $MAP_PATTERN_CONF_FILE ]; then
 fi
 
 if [ -f $RTL_TEMP_LOG_FILE ]; then
-    echo "$timestamp: dca: Deleting : $RTL_TEMP_LOG_FILE" >> $RTL_LOG_FILE
+    dcaLog "Deleting : $RTL_TEMP_LOG_FILE"
     rm -f $RTL_TEMP_LOG_FILE
 fi
 
@@ -579,9 +582,9 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
        getOptOutStatus
        opt_out=$?
        if [ $opt_out -eq 1 ]; then
-          echo "TelemetryOptOut is true" >> $RTL_LOG_FILE
+          dcaLog "TelemetryOptOut is true"
           estbMac=$(ObfuscateMAC)
-          echo "Obfuscated MAC is $estbMac" >> $RTL_LOG_FILE
+          dcaLog "Obfuscated MAC is $estbMac"
        fi
 
        if [ "$estbIp" = "" -a "$sendInformation" != "1" ]; then
@@ -590,7 +593,7 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
 	   
         if [ -f $TELEMETRY_PATH/lastlog_path ];
         then            
-            echo "File $TELEMETRY_PATH/lastlog_path exists." >> $RTL_LOG_FILE 
+            dcaLog "File $TELEMETRY_PATH/lastlog_path exists."
             offline_status=$(getOfflineStatus)
             if [ -n "$offline_status" ]; then
                 if $singleEntry ; then
@@ -629,7 +632,7 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
             fi
            rm -f $TELEMETRY_PATH/lastlog_path 
         else
-            echo "File $TELEMETRY_PATH/lastlog_path  does not exist. Not sending Cable Card Informtion " >> $RTL_LOG_FILE 
+            dcaLog "File $TELEMETRY_PATH/lastlog_path  does not exist. Not sending Cable Card Informtion " 
         fi		
    
         # Getting ping telemetry data if any and appending to the telemetry JSON 
@@ -664,7 +667,7 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
         if [ -f $RTL_TEMP_LOG_FILE ]; then
             rm -f $RTL_TEMP_LOG_FILE
         fi
-        echo "DCA processing complete, clearing up $RTL_TEMP_LOG_FILE" >> $RTL_LOG_FILE
+        dcaLog "DCA processing complete, clearing up $RTL_TEMP_LOG_FILE"
 
         remain="{\"<remaining_keys>\":\"<remaining_values>\"}"
         outputJson=`echo "$dcaOutputJson" | sed "s/$remain/$outputJson/"`
@@ -673,10 +676,10 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
         
         if [ "$sendInformation" != 1 ] ; then
            if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
-              echo "dca: resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries" >> $RTL_LOG_FILE
+              dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
            else
               echo $outputJson >> $TELEMETRY_RESEND_FILE
-	      echo "$timestamp: dca resend : Storing data to resend" >> $RTL_LOG_FILE
+	      dcaLog "resend : Storing data to resend"
 	      if ["$flag" == 1] ; then
                   kill `ps h -o pid -C dca_utility.sh`
                   exit 0
@@ -687,10 +690,8 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
 
            fi
         else
-           timestamp=`date +%Y-%b-%d_%H-%M-%S` 
-           echo "$timestamp: dca: sleeping $sleep_time seconds" >> $RTL_LOG_FILE 
+           dcaLog "sleeping $sleep_time seconds"
            sleep $sleep_time
-           timestamp=`date +%Y-%b-%d_%H-%M-%S`
            retry=0
            
            if [ -f $TELEMETRY_RESEND_FILE ]; then
@@ -709,7 +710,7 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
                           # This is to address the use case when device is offline
                           echo "$resend" >> $TELEMETRY_TEMP_RESEND_FILE
                        else
-                          echo "dca: resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries" >> $RTL_LOG_FILE
+                          dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
                        fi
                    fi
 	           sleep 10
@@ -728,11 +729,11 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
            http_code=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
     
            if [ "$http_code" = "200" ];then
-              echo "`/bin/timestamp`: dca: Json message successfully submitted. Moving files from $TELEMETRY_PATH_TEMP to $TELEMETRY_PATH" >> $RTL_LOG_FILE
+              dcaLog "Json message successfully submitted. Moving files from $TELEMETRY_PATH_TEMP to $TELEMETRY_PATH"
            else
-              echo "`/bin/timestamp`: dca: Json message submit failed. Removing files from $TELEMETRY_PATH_TEMP" >> $RTL_LOG_FILE
+              dcaLog "Json message submit failed. Removing files from $TELEMETRY_PATH_TEMP"
               if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
-                 echo "dca: resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries" >> $RTL_LOG_FILE
+                 dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
               else
                  touch $TELEMETRY_RESEND_FILE
                  echo "$outputJson" >> $TELEMETRY_RESEND_FILE
@@ -750,7 +751,7 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
         fi
     fi
 else
-    echo "$timestamp: dca: Configuration File Not Found" >> $RTL_LOG_FILE
+    dcaLog "Configuration File Not Found"
 fi
 
 # Safe clean up during exit 
