@@ -132,36 +132,13 @@ if [ ! -f $T2_0_BIN ]; then
     T2_ENABLE="false"
 fi
 
-if [ "x$T2_ENABLE" == "xtrue" ]; then
-    t2Pid=`pidof $T2_0_APP`
-    if [ -z "$t2Pid" ]; then
-        echo "${T2_BIN} is present, XCONF config fetch and parse will be handled by T2 implementation" >> $DCM_LOG_FILE
-        t2Log "Clearing markers from $TELEMETRY_PATH"
-        rm -rf $TELEMETRY_PATH
-        mkdir -p $TELEMETRY_PATH
-        mkdir -p $TELEMETRY_PATH_TEMP
-        touch $T2_SERVICE_PATH
-        #${T2_0_BIN}
-    else
-         mkdir -p $TELEMETRY_PATH_TEMP
-         t2Log "telemetry daemon is already running .. Trigger from maintenance window."
-         t2Log "Send signal 15 $T2_0_APP to restart for config fetch "
-         kill -12 $t2Pid
-    fi
-    ## Clear any dca_utility.sh cron entries if present from T1.1 previous execution
-    dcaCheck=`sh /lib/rdk/cronjobs_update.sh "check-entry" "dca_utility.sh"`
-    if [ "$dcaCheck" != "0" ]; then
-        sh /lib/rdk/cronjobs_update.sh "remove" "dca_utility.sh"
-    fi
-    
-    exit 0
-fi
-
 ###########################################################################################
 
-touch $TELEMETRY_PREVIOUS_LOG
-# Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
-sh /lib/rdk/dca_utility.sh 0 0 &
+if [ "x$T2_ENABLE" != "xtrue" ]; then
+    touch $TELEMETRY_PREVIOUS_LOG
+    # Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
+    sh /lib/rdk/dca_utility.sh 0 0 &
+fi
 
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
@@ -394,7 +371,8 @@ getVODId()
 
 ## Process the responce and update it in a file DCMSettings.conf
 processJsonResponse()
-{   
+{  	 
+
     if [ -f "$FILENAME" ]
     then
         OUTFILE='/tmp/DCMSettings.conf'
@@ -719,6 +697,128 @@ sendHttpRequestToServer()
     return $resp
 }
 
+scheduleSupplementaryServices() {
+	
+    T2_DCM_CONFIG=$1
+    cp $T2_DCM_CONFIG $FILENAME
+    local OUTFILE='/tmp/DCMSettings.conf'
+    processJsonResponse
+    
+    #--------------------------------- START : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
+    # Cannot move away from all mTls and new device specific workarounds present today due to deployment complexity. Clean up effort will take care of this.
+
+    upload_protocol=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:uploadProtocol' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    if [ -n "$upload_protocol" ]; then
+    	echo "`/bin/timestamp` upload_protocol: $upload_protocol" >> $LOG_PATH/dcmscript.log
+    else
+        upload_protocol='HTTP'
+        echo "`/bin/timestamp` 'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf" >> $LOG_PATH/dcmscript.log
+    fi
+	
+    httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    if [ -z "$httplink" ]; then
+        echo "`/bin/timestamp` 'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'" >> $LOG_PATH/dcmscript.log
+    else
+        upload_httplink=$httplink
+        echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+    fi
+    
+    if [ "$FORCE_MTLS" == "true" ]; then
+        echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
+        mTlsLogUpload="true"
+    fi
+    echo "RFC_mTlsLogUpload:$mTlsLogUpload" >> $LOG_PATH/dcmscript.log
+
+    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
+        #sky endpoint dont use the /secure extension;
+        if [ "$FORCE_MTLS" != "true"  ]; then
+            upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
+        fi
+    fi
+    echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+    #--------------------------------- END : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
+
+    #Check the value of 'UploadOnReboot' in DCMSettings.conf
+    uploadCheck=`cat $OUTFILE | grep 'urn:settings:LogUploadSettings:UploadOnReboot' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    logUploadcron=`cat $OUTFILE | grep 'urn:settings:LogUploadSettings:UploadSchedule:cron' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    difdCron=`cat $OUTFILE | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2`
+
+    if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
+        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
+    elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
+        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+    else 
+        echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
+    fi
+    if [ -z "$logUploadcron" ] || [ "$logUploadcron" == "null" ]; then
+        echo " `/bin/timestamp` Uploading logs as DCM response is either null or not present" >> $LOG_PATH/dcmscript.log
+        nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+    else
+        echo " `/bin/timestamp` 'UploadSchedule:cron' is present setting cron jobs " >> $LOG_PATH/dcmscript.log
+        sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$logUploadcron nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
+    fi
+
+    if [ -n "$difdCron" ]; then
+        echo "Configuring cron job for deviceInitiatedFWDnld.sh" >> $LOG_PATH/dcmscript.log
+        sh /lib/rdk/cronjobs_update.sh "update" "deviceInitiatedFWDnld.sh" "$difdCron /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 2 >> /opt/logs/swupdate.log 2>&1"
+    fi	
+	
+}
+
+
+#---------------------------------
+#        Main App
+#---------------------------------
+
+if [ "x$T2_ENABLE" == "xtrue" ]; then
+	
+    PROCESS_CONFIG_COMPLETE_FLAG="/tmp/t2DcmComplete"
+    T2_DCM_CONFIG="$PERSISTENT_PATH/.t2persistentfolder/DCMresponse.txt"
+	
+    t2Pid=`pidof $T2_0_APP`
+    if [ -z "$t2Pid" ]; then
+        echo "${T2_BIN} is present, XCONF config fetch and parse will be handled by T2 implementation" >> $DCM_LOG_FILE
+        t2Log "Clearing markers from $TELEMETRY_PATH"
+        rm -rf $TELEMETRY_PATH
+        mkdir -p $TELEMETRY_PATH
+        mkdir -p $TELEMETRY_PATH_TEMP
+        touch $T2_SERVICE_PATH
+        #${T2_0_BIN}
+    else
+         mkdir -p $TELEMETRY_PATH_TEMP
+         t2Log "telemetry daemon is already running .. Trigger from maintenance window."
+         t2Log "Send signal 15 $T2_0_APP to restart for config fetch "
+         kill -12 $t2Pid
+    fi
+    ## Clear any dca_utility.sh cron entries if present from T1.1 previous execution
+    dcaCheck=`sh /lib/rdk/cronjobs_update.sh "check-entry" "dca_utility.sh"`
+    if [ "$dcaCheck" != "0" ]; then
+        sh /lib/rdk/cronjobs_update.sh "remove" "dca_utility.sh"
+    fi
+    
+    ## Schedule rest of the secondary services as part of DCM .
+    #1] Device initiated FW download 
+    #2] Log upload cron 
+    local MAX_RETRY_T2_RESPONSE=12
+    local count=0
+    local t2_dcm_config=$PERSISTENT_PATH
+
+    while [ ! -f $PROCESS_CONFIG_COMPLETE_FLAG ]
+    do
+        echo "Wait for config fetch complete" >> $DCM_LOG_FILE	
+        sleep 10
+        let count++
+        if [ $count -eq $MAX_RETRY_T2_RESPONSE ]; then
+            break 
+        fi
+    done 
+    scheduleSupplementaryServices $T2_DCM_CONFIG
+
+    exit 0
+fi
+
 echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
 getTimeZone
 loop=1
@@ -769,9 +869,6 @@ do
 
 done
 
-#---------------------------------
-#        Main App
-#---------------------------------
 # Enable telemetry profile creation during boot-up
 
 UseCodebig=0
