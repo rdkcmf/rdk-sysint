@@ -373,7 +373,8 @@ else
                     hardPowerCheck "$NXSERVER_LOG_FILE"
                     hw_info=$?
                     if [ $hw_info -eq 1 ];then
-                        if [ -s "$RESETT_LIST" ];then
+                        RESET_INFO=`cat $RESET_LIST  2> /dev/null`
+                        if [ ! -z "$RESET_INFO" ];then
                             echo "Checking Hard Power reason using $RESET_LIST file..."
                             rebootReason=`cat "$RESET_LIST" | sed "s/$/_reset/g" | awk '{print toupper($NF)}'`
                             if [ ! -z "$rebootReason" ]; then
