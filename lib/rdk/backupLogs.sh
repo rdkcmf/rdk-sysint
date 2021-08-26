@@ -21,6 +21,10 @@
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 PREV_LOG_PATH="$LOG_PATH/PreviousLogs"
 PREV_LOG_BACKUP_PATH="$LOG_PATH/PreviousLogs_backup"
 

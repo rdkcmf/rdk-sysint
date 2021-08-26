@@ -23,6 +23,10 @@ sleep_time=5
 output=""
 count=0
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 # Ensure auth service is ready for URL request
 auth_pid=`pidof authservice`
 while [ ! $auth_pid ]

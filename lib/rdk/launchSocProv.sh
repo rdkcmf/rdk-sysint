@@ -21,6 +21,11 @@
 
 . /etc/include.properties
 . /etc/device.properties
+
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 . /etc/config.properties
 
 PROVISION_PROPERTIES=/etc/provision.properties

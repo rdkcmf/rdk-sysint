@@ -20,7 +20,13 @@
 
 . /etc/include.properties
 . /etc/device.properties
+
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 . /etc/config.properties
+
 if [ -f /lib/rdk/getSecureDumpStatus.sh ]; then
      . /lib/rdk/getSecureDumpStatus.sh
 fi

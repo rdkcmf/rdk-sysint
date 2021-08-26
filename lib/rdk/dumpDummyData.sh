@@ -22,6 +22,10 @@
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 if [ -f /lib/rdk/t2Shared_api.sh ]; then
     source /lib/rdk/t2Shared_api.sh
 fi

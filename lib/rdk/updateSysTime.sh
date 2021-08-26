@@ -18,6 +18,10 @@
 # limitations under the License.
 ##############################################################################
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 loop=1
 while [ $loop -eq 1 ]
 do

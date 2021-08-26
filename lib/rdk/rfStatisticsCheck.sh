@@ -21,6 +21,10 @@
 
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 export SNMP_BIN_DIR=/mnt/nfs/bin/target-snmp/bin
 export MIBS=ALL
 export MIBDIRS=$SNMP_BIN_DIR/../share/snmp/mibs:/usr/share/snmp/mibs

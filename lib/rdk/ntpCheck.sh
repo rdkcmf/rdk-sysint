@@ -18,6 +18,10 @@
 # limitations under the License.
 ##############################################################################
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 echo "Calling the ntpclient script"
 if [ ! -f /opt/persistent/firstNtpTime ]; then
         echo "factory fresh box creating first ntp time"

@@ -26,6 +26,10 @@ if [ -f /etc/include.properties ];then
   . /etc/include.properties
 fi
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 VENDOR_SPEC_FILE="/etc/udhcpc.vendor_specific"
 OPTION_FILE="/tmp/vendor_spec.txt"
 DHCP_CONFIG_FILE="/etc/dibbler/client.conf"

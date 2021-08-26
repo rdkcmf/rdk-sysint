@@ -18,6 +18,9 @@
 # limitations under the License.
 ##############################################################################
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 # Look whether we have already installed cron job for this
 tCheck=`sh /lib/rdk/cronjobs_update.sh "check-entry" "wifi-telemetry-cronjob.sh"`

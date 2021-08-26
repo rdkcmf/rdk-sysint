@@ -18,6 +18,9 @@
 # limitations under the License.
 ##############################################################################
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 LOG_FILE="/opt/logs/path_fail.log"
 

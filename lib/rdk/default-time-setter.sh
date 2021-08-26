@@ -18,6 +18,9 @@
 # limitations under the License.
 ##############################################################################
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 if [ -f /tmp/date_completed ];then
      echo "BUILD TIME is already set previously..!"

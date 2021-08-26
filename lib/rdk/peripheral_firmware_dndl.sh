@@ -21,6 +21,10 @@
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 # override env if rfc desires so
 if [ -f /lib/rdk/rfcOverrides.sh ]; then
     . /lib/rdk/rfcOverrides.sh

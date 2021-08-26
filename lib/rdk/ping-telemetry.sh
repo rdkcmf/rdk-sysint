@@ -21,6 +21,10 @@
 
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 fi

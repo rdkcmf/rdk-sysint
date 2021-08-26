@@ -21,6 +21,10 @@
 
 . /etc/include.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 log_file="$LOG_PATH/cronjobs_update.log"
 help_strings()
 {

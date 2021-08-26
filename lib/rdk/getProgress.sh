@@ -20,6 +20,10 @@
 
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 resetErrorTimer() 
 {
     rm -f /tmp/$1

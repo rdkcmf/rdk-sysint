@@ -18,7 +18,9 @@
 # limitations under the License.
 ##############################################################################
 
-
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 date "+%d.%m.%Y_%H:%M.%S"
 

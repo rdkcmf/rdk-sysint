@@ -27,6 +27,10 @@ MOUNT_PATH=$3
 . /etc/include.properties
 . /etc/device.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 TIMESTAMP=`date "+%m-%d-%y-%I-%M-%S%p"`
 SDCARD_TSBMOUNT_FLAG="/tmp/sdCardTsb_mounted"
 SDCARD_APPMOUNT_FLAG="/tmp/sdCardApp_mounted"

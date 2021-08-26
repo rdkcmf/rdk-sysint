@@ -18,7 +18,9 @@
 # limitations under the License.
 ##############################################################################
 
-
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 SCRIPT_NAME=$(basename "$0")
 

@@ -20,6 +20,10 @@
 
 . /etc/include.properties
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 #conf filename. The file will have the path and size limit(in MB) seperated by a tab
 CONF_FILE=/etc/diskMon.conf 
 

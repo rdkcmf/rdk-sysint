@@ -20,7 +20,10 @@
 
 
 . /etc/include.properties
-. /etc/env_setup.sh
+
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
 
 MSG_LOG=$TEMP_LOG_PATH/pipe_dmesg_messages
 FLAG=0

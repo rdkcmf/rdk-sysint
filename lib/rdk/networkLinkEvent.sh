@@ -22,6 +22,10 @@
 # Network Interface - $1
 # Network Interface Status - $2 (add/delete/up/down)
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 if [ "$#" -eq 2 ];then
     interfaceName=$1
     interfaceStatus=$2

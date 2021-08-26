@@ -30,6 +30,10 @@
 # Setup default values for environment
 umask 022
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 export LOG4C_RCPATH=/etc
 
 ## Screen Dimensions

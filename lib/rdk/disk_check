@@ -19,6 +19,10 @@
 ##############################################################################
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 # call platform specific prepare_disk before doing anything else
 if [ -f /etc/prepare_sdcard ]; then
     sh /etc/prepare_sdcard

@@ -27,6 +27,10 @@ if [ "$SKY_EPG_SUPPORT" == "true" ] ; then
    renice -n 10 $$
 fi
 
+if [ -f /etc/env_setup.sh ]; then
+    . /etc/env_setup.sh
+fi
+
 # initial check for power state to activate lightsleep
 if [ -f /tmp/.standby ] && [ "$LIGHTSLEEP_ENABLE" = "true" ];then
      if [ ! -f /tmp/.intermediate_sync ];then
@@ -106,7 +110,7 @@ fi
 
 if [ ! -f /tmp/.dump_application_log ]; then
 	/bin/nice -n 19 /bin/dmesg -c > ${log_prefix}/startup_stdout_log.txt
-	/bin/nice -n 19 /bin/journalctl -al > ${log_prefix}/applications.log
+	/bin/nice -n 19 /bin/journalctl --utc -al > ${log_prefix}/applications.log
 	touch /tmp/.dump_application_log
 fi
 
@@ -134,7 +138,7 @@ appendLog()
   skip_lines="^-- "
   offset_line="^-- cursor: s="
 
-  journalctl_cmd="/bin/nice -n 19 /bin/journalctl ${journalctl_args} -q --show-cursor $offset_arg"
+  journalctl_cmd="/bin/nice -n 19 /bin/journalctl --utc ${journalctl_args} -q --show-cursor $offset_arg"
 
   $journalctl_cmd | grep -v "$skip_lines" | grep -v "Timer Service (R)" >> $logfile
 
@@ -158,7 +162,7 @@ logunit()
 
    timestampname=`echo $logname | awk -F "/" '{print $NF}'`
 
-   cmd="nice -n 19 /bin/journalctl"
+   cmd="nice -n 19 /bin/journalctl --utc"
 
    # filter log by 'matching_string' if passed
    more_opts=""
