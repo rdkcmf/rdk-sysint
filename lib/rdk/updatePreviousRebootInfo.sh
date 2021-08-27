@@ -48,19 +48,22 @@ OLD_PREVIOUS_KEYPRESS_INFO_FILE="/opt/persistent/previouskeypress.info"
 PREVIOUS_KEYPRESS_INFO_FILE="/opt/secure/reboot/previouskeypress.info"
 STT_FLAG="/tmp/stt_received"
 REBOOT_INFO_FLAG="/tmp/rebootInfo_Updated"
+UPDATE_REBOOT_INFO_INVOKED_FLAG="/tmp/Update_rebootInfo_invoked"
 LOCK_DIR="/tmp/rebootInfo.lock"
 RESET_LIST="/proc/device-tree/bolt/reset-list"
-REBOOT_REASON_LOG="/opt/logs/rebootreason.log"
+SYSFS_FILE="/sys/devices/platform/aml_pm/reset_reason"
 
+rebootLog() {
+    echo "$0: $*"
+}
+
+rebootLog "Start of Reboot Reason Script"
 
 # Define reboot reasons for APP_TRIGGERED and OPS_TRIGGERED reasons
 APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset WarehouseService HrvInitWHReset HrvColdInitReset HtmlDiagnostics InstallTDK StartTDK TR69Agent SystemServices)
 OPS_TRIGGERED_REASONS=(ScheduledReboot RebootSTB.sh FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning eMMC_FW_UPGRADE BOOTLOADER_UPGRADE)
 MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
-rebootLog() {
-    echo "$0: $*"
-}
 
 # Save the reboot info with all the fields
 setPreviousRebootInfo()
@@ -71,6 +74,11 @@ setPreviousRebootInfo()
     reason=$3
     custom=$4
     other=$5
+    if [ ! -z $PREVIOUS_REBOOT_INFO_FILE ]; then
+	rebootLog "Reboot reason present in $PREVIOUS_REBOOT_INFO_FILE file:"
+	cat $PREVIOUS_REBOOT_INFO_FILE
+    fi
+    rebootLog "Updating Reboot reason in $PREVIOUS_REBOOT_INFO_FILE file"
     echo "{" > $PREVIOUS_REBOOT_INFO_FILE
     echo "\"timestamp\":\"$timestamp\"," >> $PREVIOUS_REBOOT_INFO_FILE
     echo "\"source\":\"$source\"," >> $PREVIOUS_REBOOT_INFO_FILE
@@ -147,6 +155,117 @@ oopsDumpCheck()
     fi
     
     return $oops_dump
+}
+
+#Read SysRootfs data for Reset value
+setResetReason()
+{
+    resetVal=$1
+
+    case $resetVal in
+        0)
+            rebootInitiatedBy="POWER_ON_REBOOT"
+            resetReason="POWER_ON_RESET"
+	    customReason="COLD_BOOT"
+            otherReason="Reboot due to hardware powere cable unplug"
+            ;;
+        1)
+            rebootInitiatedBy="SOFTWARE_REBOOT"
+            resetReason="SOFTWARE_MASTER_RESET"
+	    customReason="NORMAL_BOOT"
+            otherReason="Reboot due to user triggered reboot command"
+            ;;
+	2)
+            rebootInitiatedBy="FACTORY_RESET_REBOOT"
+            resetReason="FACTORY_RESET"
+	    customReason="FACTORY_RESET"
+            otherReason="Reboot due to factory reset reboot"
+	    ;;
+        3)
+            rebootInitiatedBy="UPGRADE_SYSTEM_REBOOT"
+            resetReason="UPDATE_BOOT"
+            customReason="UPDATE_BOOT"
+            otherReason="Reboot due to system upgrade reboot"
+            ;;
+        4)
+            rebootInitiatedBy="FASTBOOT_REBOOT"
+            resetReason="FAST_BOOT"
+            customReason="FAST_BOOT"
+            otherReason="Reboot due to fast reboot"
+            ;;
+        5)
+            rebootInitiatedBy="SUSPEND_REBOOT"
+            resetReason="SUSPEND_BOOT"
+	    customReason="SUSPEND_BOOT"
+            otherReason="Reboot due to suspend reboot"
+            ;;
+        6)
+            rebootInitiatedBy="HIBERNATE_REBOOT"
+            resetReason="HIBERNATE_BOOT"
+            customReason="HBERNATE_BOOT"
+            otherReason="Reboot due to hibernate reboot"
+            ;;
+        7)
+            rebootInitiatedBy="BOOTLOADER_REBOOT"
+            resetReason="FASTBOOT_BOOTLOADER"
+	    customReason="FASTBOOT_BOOTLOADER"
+            otherReason="Reboot due to fastboot boootloader reboot"
+            ;;
+        8)
+            rebootInitiatedBy="SHUTDOWN_REBOOT"
+            resetReason="SHUTDOWN_REBOOT"
+            customReason="SHUTDOWN_REBOOT"
+            otherReason="Reboot due to shutdown"
+            ;;
+        9)
+            rebootInitiatedBy="RPMPB"
+            resetReason="RPMPB_REBOOT"
+            customReason="RPMPB_REBOOT"
+            otherReason="Reboot due to RPMPB"
+            ;;
+       10)
+            rebootInitiatedBy="THERMAL"
+            resetReason="THERMAL_REBOOT"
+            customReason="THERMAL_REBOOT"
+            otherReason="Reboot due to thermal value"
+            ;;
+       11)
+            rebootInitiatedBy="CRASH_DUMP"
+            resetReason="CRASH_REBOOT"
+            customReason="CRASH_REBOOT"
+            otherReason="Reboot due to crash dump"
+            ;;
+       12)
+            rebootInitiatedBy="KernelPanic"
+            resetReason="KERNEL_PANIC"
+            customReason="KERNEL_PANIC"
+            otherReason="Reboot due to oops dump caused panic"
+            ;;
+       13)
+            rebootInitiatedBy="WATCH_DOG"
+            resetReason="WATCHDOG_REBOOT"
+            customReason="WATCHDOG_REBOOT"
+            otherReason="Reboot due to watch dog timer"
+            ;;
+       14)
+            rebootInitiatedBy="STR_AUTH_FAIL"
+            resetReason="AMLOGIC_DDR_SHA2_REBOOT"
+            customReason="AMLOGIC_DDR_SHA2_REBOOT"
+            otherReason="Reboot due to STR Authorization failure"
+            ;;
+       15)
+            rebootInitiatedBy="FFV"
+            resetReason="FFV_REBOOT"
+            customReason="FFV_REBOOT"
+            otherReason="Reboot due to Reserved FFV"
+            ;;
+        *)
+            rebootInitiatedBy="HARD_POWER_RESET"
+            resetReason="UNKNOWN_RESET"
+            customReason="UNKNOWN"
+            otherReason="Reboot due to unknown reason"
+            ;;
+    esac
 }
 
 #Read the HW Register value of  PreviousRebootReason and set details.
@@ -312,10 +431,27 @@ unlock()
 
 lock
 
-if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ]; then
-    rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
-    unlock
-    exit 0
+if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
+    if [ -f "${UPDATE_REBOOT_INFO_INVOKED_FLAG}" ];then
+        rebootLog "${UPDATE_REBOOT_INFO_INVOKED_FLAG} flag found"
+        rebootLog "Checking ${STT_FLAG} and ${REBOOT_INFO_FLAG} flag to update the reboot reason"
+        if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ]; then
+            rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
+            unlock
+            rebootLog "End of Reboot Reason Script"
+            exit 0
+        fi
+    else
+        rebootLog "${UPDATE_REBOOT_INFO_INVOKED_FLAG} not found, proceeding..."
+    fi
+else	
+    rebootLog "Checking ${STT_FLAG} and ${REBOOT_INFO_FLAG} flag to update the reboot reason"
+    if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ];then
+        rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
+        unlock
+        rebootLog "End of Reboot Reason Script"
+        exit 0
+    fi
 fi
 
 #Creating reboot folder in /opt/secure/ path
@@ -332,33 +468,32 @@ if [ -f "$OLD_KEYPRESS_INFO_FILE" ]; then
     mv $OLD_PREVIOUS_KEYPRESS_INFO_FILE $PREVIOUS_KEYPRESS_INFO_FILE
 fi
 
-#Check for Firmware Failure cases (ECM Crash, Max reboot etc)
-fwFailureCheck
-firmware_failure=$?
-if [ $firmware_failure -eq 1 ];then
-    rebootLog "Firmware failure found..."
-    rebootTime=`date -u`
-    rebootReason="FIRMWARE_FAILURE"
-    setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+# Reading the previous reboot details from /opt/secure/reboot/reboot.info on Bootup
+if [ -f "$REBOOT_INFO_FILE" ];then
+    rebootLog "New $REBOOT_INFO_FILE file found, Creating previous reboot info file..."
+    cat $REBOOT_INFO_FILE
+    mv $REBOOT_INFO_FILE $PREVIOUS_REBOOT_INFO_FILE
 else
-    # Reading the previous reboot details from /opt/secure/reboot/reboot.info on Bootup
-    if [ -f "$REBOOT_INFO_FILE" ];then
-        rebootLog "New $REBOOT_INFO_FILE file found, Creating previous reboot info file..."
-        cat $REBOOT_INFO_FILE
-        mv $REBOOT_INFO_FILE $PREVIOUS_REBOOT_INFO_FILE
-    else
-        # Reading the previous reboot details from /opt/logs/rebootInfo.log
-        rebootLog "$REBOOT_INFO_FILE file not found, Checking from $REBOOT_INFO_LOG_FILE"
-        if [ -f "$REBOOT_INFO_LOG_FILE" ];then
-            # Parse Previous reboot Info and remove leading space
-            rebootInitiatedBy=`grep "PreviousRebootInitiatedBy:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
-            rebootTime=`grep "PreviousRebootTime:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousRebootTime:' '{print $2}' | sed 's/^ *//'`
-            customReason=`grep "PreviousCustomReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
-            otherReason=`grep "PreviousOtherReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousOtherReason:' '{print $2}' | sed 's/^ *//'`
-            rebootLog "checking Kernel Panic and Hard Power scenarios..."
-            if [ "x$rebootInitiatedBy" == "x" ];then
-                # Use current time for kernel crash and hard power reset
-                rebootTime=`date -u`
+    # Reading the previous reboot details from /opt/logs/rebootInfo.log
+    rebootLog "$REBOOT_INFO_FILE file not found, Checking from $REBOOT_INFO_LOG_FILE"
+    if [ -f "$REBOOT_INFO_LOG_FILE" ];then
+        # Parse Previous reboot Info and remove leading space
+        rebootInitiatedBy=`grep "PreviousRebootInitiatedBy:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
+        rebootTime=`grep "PreviousRebootTime:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousRebootTime:' '{print $2}' | sed 's/^ *//'`
+        customReason=`grep "PreviousCustomReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
+        otherReason=`grep "PreviousOtherReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousOtherReason:' '{print $2}' | sed 's/^ *//'`
+        rebootLog "checking Kernel Panic and Hard Power scenarios..."
+        if [ "x$rebootInitiatedBy" == "x" ];then
+            # Use current time for kernel crash and hard power reset
+            rebootTime=`date -u`
+            #Reading hard reset values from sysfs
+            if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ]; then
+    	        rebootLog "Using $SYSFS_FILE to fetch hard reboot reason"
+                resetvalue=`cat $SYSFS_FILE`
+                setResetReason $resetvalue
+                customReason="Hardware Register - $customReason"
+                rebootReason="$resetReason"
+      	    else
                 # Check for Kernel Panic Reboot
                 oopsDumpCheck
                 kernel_crash=$?
@@ -396,33 +531,64 @@ else
                             customReason="Hardware Register - NULL"
                             otherReason="No information found"
                             rebootReason="HARD_POWER"
-                            rebootTime=`date -u`
                             setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
                             unlock
+			    rebootLog "End of Reboot Reason Script"
                             exit 0
                         fi
                     fi
-                fi
-                # Use current time for kernel crash and hard power reset
-                rebootTime=`date -u`
-            else
-                if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                    rebootReason="APP_TRIGGERED"
-                    if [ $customReason == "MAINTENANCE_REBOOT" ];then
-                         rebootReason="MAINTENANCE_REBOOT"
-                    fi
-                elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                    rebootReason="OPS_TRIGGERED"
-                elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                    rebootReason="MAINTENANCE_REBOOT"
-                else
-                    rebootReason="FIRMWARE_FAILURE"
-                fi
-            fi
-            setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+                fi	    
+    	    fi
         else
-            rebootLog "Unable to find the $REBOOT_INFO_LOG_FILE file"
+            if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+                rebootReason="APP_TRIGGERED"
+                if [ $customReason == "MAINTENANCE_REBOOT" ];then
+                     rebootReason="MAINTENANCE_REBOOT"
+                fi
+            elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+                rebootReason="OPS_TRIGGERED"
+            elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+                rebootReason="MAINTENANCE_REBOOT"
+            else
+                rebootReason="FIRMWARE_FAILURE"
+            fi
         fi
+	if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
+	    rebootLog "Firmware failure Check Not applicable..."
+	else
+            #Check for Firmware Failure cases (ECM Crash, Max reboot etc)
+            fwFailureCheck
+            firmware_failure=$?
+            if [ $firmware_failure -eq 1 ];then
+                rebootLog "Firmware failure found..."
+                rebootReason="FIRMWARE_FAILURE"
+       	    else
+                rebootLog "Firmware failure not found..."
+            fi
+        fi
+	#Update reboot information in /opt/secure/reboot/previousreboot.info file
+        setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+    else
+        # Use current time for kernel crash and hard power reset
+        rebootTime=`date -u`
+        if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ]; then
+            rebootLog "$REBOOT_INFO_LOG_FILE file not found, Using $SYSFS_FILE to fetch hard reboot reason"
+            resetvalue=`cat $SYSFS_FILE`
+            setResetReason $resetvalue
+            customReason="Hardware Register - $customReason"
+            rebootReason="$resetReason" 
+	    setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+	else
+            rebootLog "Unable to find the $REBOOT_INFO_LOG_FILE file"
+            rebootInitiatedBy="Hard Power Reset"
+            customReason="Hardware Register - NULL"
+            otherReason="No information found"
+            rebootReason="HARD_POWER"
+            setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+            unlock
+            rebootLog "End of Reboot Reason Script"
+            exit 0
+	fi
     fi
 fi
 
@@ -434,4 +600,9 @@ else
     rebootLog "Unable to find the $KEYPRESS_INFO_FILE file"
 fi
 
+if [ ! -f "$UPDATE_REBOOT_INFO_INVOKED_FLAG" ];then
+    touch $UPDATE_REBOOT_INFO_INVOKED_FLAG
+fi
+
+rebootLog "End of Reboot Reason Script"
 unlock
