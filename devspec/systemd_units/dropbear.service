@@ -1,0 +1,15 @@
+[Unit]
+Description=SSH Per-Connection Server
+After=network-online.target
+
+[Service]
+EnvironmentFile=-/etc/default/dropbear
+EnvironmentFile=/etc/device.properties
+ExecStart= /bin/sh  -c "/lib/rdk/startSSH.sh"
+RemainAfterExit=yes
+Type=forking
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

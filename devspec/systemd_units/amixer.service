@@ -1,0 +1,10 @@
+[Unit]
+Description=amixer
+Before=rdkbrowser.service
+
+[Service]
+ExecStart=/usr/bin/amixer.sh
+Type=idle
+
+[Install]
+WantedBy=multi-user.target

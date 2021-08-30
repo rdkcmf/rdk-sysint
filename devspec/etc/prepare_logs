@@ -1,0 +1,7 @@
+#!/bin/sh
+
+mkdir -p /opt/logs
+
+sh /lib/rdk/backupLogs.sh
+/sbin/mount-copybind /opt/logs /var/log
+

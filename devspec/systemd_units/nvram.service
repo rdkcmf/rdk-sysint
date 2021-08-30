@@ -1,0 +1,18 @@
+[Unit]
+Description=Prepare setup of logging areas
+DefaultDependencies=false
+After=local-fs.target
+Requires=local-fs.target
+Before=swap.target
+
+[Service]
+Type=notify
+ExecStart=/etc/prepare_logs
+ExecStop=/sbin/umount /var/log
+NotifyAccess=all
+RemainAfterExit=yes
+TimeoutStartSec=180s
+
+[Install]
+WantedBy=local-fs.target
+
