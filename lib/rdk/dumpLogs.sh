@@ -21,6 +21,12 @@
 
 . /etc/device.properties
 
+# reduce the priority of the dumpLogs script since it is swamping the CPU
+# when it runs on Sky.
+if [ "$SKY_EPG_SUPPORT" == "true" ] ; then
+   renice -n 10 $$
+fi
+
 # initial check for power state to activate lightsleep
 if [ -f /tmp/.standby ] && [ "$LIGHTSLEEP_ENABLE" = "true" ];then
      if [ ! -f /tmp/.intermediate_sync ];then
