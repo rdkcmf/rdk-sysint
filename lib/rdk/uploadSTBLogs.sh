@@ -311,7 +311,7 @@ modifyFileWithTimestamp()
             mv $f $DT$f
         fi
     done
-    timeValuePrefix="$DT"  
+    timeValuePrefix="$DT"
 }
 
 modifyTimestampPrefixWithOriginalName()
@@ -799,8 +799,8 @@ uploadLogOnReboot()
     # for the new filenames with suffix logbackup
     stat=`find /opt/logs -name "*-*-*-*-*M-logbackup" -mtime +3 -exec rm -rf {} \;`
     TIMESTAMP=`date "+%m-%d-%y-%I-%M%p-logbackup"`                   
-    PERM_LOG_PATH="$LOG_PATH/$TIMESTAMP"                                
-    mkdir -p $PERM_LOG_PATH                                             
+    PERM_LOG_PATH="$LOG_PATH/$TIMESTAMP"
+    #RDKTV-9938: Moved the logbackup folder creation before move operation
     echo $PERM_LOG_PATH >> $TELEMETRY_PATH/lastlog_path
     cd $PREV_LOG_PATH
     rm $LOG_FILE
@@ -840,6 +840,7 @@ uploadLogOnReboot()
         rm -rf $PREV_LOG_PATH/$LOG_FILE
     fi
     modifyTimestampPrefixWithOriginalName $PREV_LOG_PATH
+    mkdir -p $PERM_LOG_PATH
     mv $PREV_LOG_PATH/* $PERM_LOG_PATH
     if [ -d $PREV_LOG_BACKUP_PATH ]; then
         rm -rf  $PREV_LOG_BACKUP_PATH
