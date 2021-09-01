@@ -44,6 +44,7 @@ _sort()
 
 for resolver in `ls /tmp/resolv.dnsmasq.* | grep -v $composite_resolvFile`
 do
+   /usr/bin/timeout 5 /bin/sync -d $resolver
    if [ $resolver = $udhcpc_resolvfile ]  && [ -s $upnp_resolvFile ]; then
       continue
    fi
