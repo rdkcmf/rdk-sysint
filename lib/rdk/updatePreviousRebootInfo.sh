@@ -468,6 +468,13 @@ if [ -f "$OLD_KEYPRESS_INFO_FILE" ]; then
     mv $OLD_PREVIOUS_KEYPRESS_INFO_FILE $PREVIOUS_KEYPRESS_INFO_FILE
 fi
 
+if [ "$SOC" = "RTK" ];then
+  #Reading the /proc/cmdline to check wakeup reason on Realtek Platform.
+  if [ -f /lib/rdk/get-reboot-reason.sh ]; then
+    sh /lib/rdk/get-reboot-reason.sh >> $KERNEL_LOG_FILE
+  fi
+fi
+
 # Reading the previous reboot details from /opt/secure/reboot/reboot.info on Bootup
 if [ -f "$REBOOT_INFO_FILE" ];then
     rebootLog "New $REBOOT_INFO_FILE file found, Creating previous reboot info file..."
