@@ -605,5 +605,10 @@ if [ ! -f "$UPDATE_REBOOT_INFO_INVOKED_FLAG" ];then
     touch $UPDATE_REBOOT_INFO_INVOKED_FLAG
 fi
 
+if [ -f $STT_FLAG ]; then
+    rebootLog "Update previous reboot info to Parodus"
+    sh /lib/rdk/updateRebootInfoToParodus.sh
+fi
+
 rebootLog "End of Reboot Reason Script"
 unlock

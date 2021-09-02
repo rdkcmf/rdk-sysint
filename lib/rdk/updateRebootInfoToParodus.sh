@@ -1,3 +1,4 @@
+#!/bin/sh
 ##############################################################################
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
@@ -17,14 +18,21 @@
 # limitations under the License.
 ##############################################################################
 
-[Unit]
-Description=Update Previous reboot info path
-OnFailure=path-fail-notifier@%n.service
+PARODUS_LOG="/opt/logs/parodus.log"
+PREVIOUS_REBOOT_INFO_FILE="/opt/secure/reboot/previousreboot.info"
 
-[Path]
-PathExists=/tmp/stt_received
-Unit=update-reboot-info.service
-
-[Install]
-WantedBy=multi-user.target
-
+parodusLog() {
+    timestamp=`/bin/timestamp`
+    echo "$timestamp $0: $*" >> $PARODUS_LOG
+}
+parodusLog "Start Execution"
+if [ -f $PREVIOUS_REBOOT_INFO_FILE ]; then
+    timestamp=`grep -w "timestamp" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
+    reboot_reason=`grep -w "reason" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
+    customReason=`grep -w "customReason" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
+    source=`grep -w "source" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
+    parodusLog "PreviousRebootInfo:$timestamp,$reboot_reason,$customReason,$source"
+else
+    parodusLog "File $PREVIOUS_REBOOT_INFO_FILE not found, failed to get the Previous Reboot Info"
+fi
+parodusLog "End Execution"
