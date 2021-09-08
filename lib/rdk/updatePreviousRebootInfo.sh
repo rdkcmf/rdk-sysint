@@ -512,8 +512,9 @@ else
                             rebootLog "Checking Hard Power reason using $RESET_LIST file..."
                             rebootReason=`cat "$RESET_LIST" | sed "s/$/_reset/g" | awk '{print toupper($NF)}'`
                             if [ ! -z "$rebootReason" ]; then
-                                #Set Other fields for hard reboot information
                                 rebootLog "Received Hard reboot reason from $RESET_LIST file..."
+                                #Set Other fields for hard reboot information
+                                customReason="Hardware Register - $rebootReason"
                                 setRebootReason $rebootReason
                             fi
                         elif [ -f "$KERNEL_LOG_FILE" ] && [[ $(grep "$PR_STRING" $KERNEL_LOG_FILE) ]]; then
