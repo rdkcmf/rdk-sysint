@@ -54,6 +54,7 @@ check_valid_IPaddress()
 
 
 echo "updateGlobalIPInfo.sh Arguments: cmd:$1, mode:$2, ifc:$3, addr:$4, flags:$5"
+(/bin/busybox kill -STOP $$; /bin/busybox kill -CONT $$)
 
 if [ "x$cmd" == "xadd" ] && [ "x$flags" == "xglobal" ]; then
 
