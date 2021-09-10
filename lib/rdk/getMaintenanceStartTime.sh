@@ -62,7 +62,9 @@ if [ -f "$OPT_START_TIME_FILE" ]; then
         calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
         curr_epoc=$(date -u "+%s")
         sec=$((calc_epoc-curr_epoc))
-        if [ $sec -le 0 ]
+        # bump the maintenance start time returned by Xconf by 24 hours
+        # if it is within 4 hours of the current time.
+        if [ $sec -le 14400 ]
         then
            calc_epoc=$((calc_epoc+86399))
         fi
