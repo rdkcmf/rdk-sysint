@@ -18,7 +18,6 @@
 # limitations under the License.
 ##############################################################################
 
-
 . /etc/device.properties
 
 if [ -f /lib/rdk/t2Shared_api.sh ]; then
@@ -38,6 +37,7 @@ KERNEL_PANIC_SEARCH_STRING="PREVIOUS_KERNEL_OOPS_DUMP"
 ECM_CRASH_SEARCH_STRING="\*\*\*\* CRASH \*\*\*\*"
 MAX_REBOOT_STRING="Box has rebooted 10 times"
 PR_STRING="PreviousRebootReason"
+POWERON_STRING="POWER_ON"
 REBOOT_INFO_DIR="/opt/secure/reboot"
 REBOOT_INFO_FILE="/opt/secure/reboot/reboot.info"
 PREVIOUS_REBOOT_INFO_FILE="/opt/secure/reboot/previousreboot.info"
@@ -53,7 +53,9 @@ LOCK_DIR="/tmp/rebootInfo.lock"
 RESET_LIST="/proc/device-tree/bolt/reset-list"
 SYSFS_FILE="/sys/devices/platform/aml_pm/reset_reason"
 
-rebootLog() {
+#Use log framework to pring timestamp and source script name
+rebootLog() 
+{
     echo "$0: $*"
 }
 
@@ -64,7 +66,6 @@ APP_TRIGGERED_REASONS=(Servicemanager systemservice_legacy WarehouseReset Wareho
 OPS_TRIGGERED_REASONS=(ScheduledReboot RebootSTB.sh FactoryReset UpgradeReboot_firmwareDwnld.sh UpgradeReboot_restore XFS wait_for_pci0_ready websocketproxyinit NSC_IR_EventReboot host_interface_dma_bus_wait usbhotplug Receiver_MDVRSet Receiver_VidiPath_Enabled Receiver_Toggle_Optimus S04init_ticket Network-Service monitor.sh ecmIpMonitor.sh monitorMfrMgr.sh vlAPI_Caller_Upgrade ImageUpgrade_rmf_osal ImageUpgrade_mfr_api ImageUpgrade_updateNewImage.sh ImageUpgrade_userInitiatedFWDnld.sh ClearSICache tr69hostIfReset hostIf_utils hostifDeviceInfo HAL_SYS_Reboot UpgradeReboot_deviceInitiatedFWDnld.sh UpgradeReboot_ipdnl.sh PowerMgr_Powerreset PowerMgr_coldFactoryReset DeepSleepMgr PowerMgr_CustomerReset PowerMgr_PersonalityReset Power_Thermmgr PowerMgr_Plat HAL_CDL_notify_mgr_event vldsg_estb_poll_ecm_operational_state BcmIndicateEcmReset SASWatchDog BP3_Provisioning eMMC_FW_UPGRADE BOOTLOADER_UPGRADE)
 MAINTENANCE_TRIGGERED_REASONS=(AutoReboot.sh)
 
-
 # Save the reboot info with all the fields
 setPreviousRebootInfo()
 {
@@ -74,9 +75,10 @@ setPreviousRebootInfo()
     reason=$3
     custom=$4
     other=$5
+    # Get Previous Hard Power reset information
     if [ ! -z $PREVIOUS_REBOOT_INFO_FILE ]; then
-	rebootLog "Reboot reason present in $PREVIOUS_REBOOT_INFO_FILE file:"
-	cat $PREVIOUS_REBOOT_INFO_FILE
+        rebootLog "Reboot reason present in $PREVIOUS_REBOOT_INFO_FILE file:"
+        cat $PREVIOUS_REBOOT_INFO_FILE
     fi
     rebootLog "Updating Reboot reason in $PREVIOUS_REBOOT_INFO_FILE file"
     echo "{" > $PREVIOUS_REBOOT_INFO_FILE
@@ -157,7 +159,7 @@ oopsDumpCheck()
     return $oops_dump
 }
 
-#Read SysRootfs data for Reset value
+# Applicable only for AMLOGIC platforms where we read SysRootfs data for Reset value 
 setResetReason()
 {
     resetVal=$1
@@ -166,21 +168,21 @@ setResetReason()
         0)
             rebootInitiatedBy="POWER_ON_REBOOT"
             resetReason="POWER_ON_RESET"
-	    customReason="COLD_BOOT"
+            customReason="COLD_BOOT"
             otherReason="Reboot due to hardware powere cable unplug"
             ;;
         1)
             rebootInitiatedBy="SOFTWARE_REBOOT"
             resetReason="SOFTWARE_MASTER_RESET"
-	    customReason="NORMAL_BOOT"
+            customReason="NORMAL_BOOT"
             otherReason="Reboot due to user triggered reboot command"
             ;;
-	2)
+        2)
             rebootInitiatedBy="FACTORY_RESET_REBOOT"
             resetReason="FACTORY_RESET"
-	    customReason="FACTORY_RESET"
+            customReason="FACTORY_RESET"
             otherReason="Reboot due to factory reset reboot"
-	    ;;
+            ;;
         3)
             rebootInitiatedBy="UPGRADE_SYSTEM_REBOOT"
             resetReason="UPDATE_BOOT"
@@ -196,7 +198,7 @@ setResetReason()
         5)
             rebootInitiatedBy="SUSPEND_REBOOT"
             resetReason="SUSPEND_BOOT"
-	    customReason="SUSPEND_BOOT"
+            customReason="SUSPEND_BOOT"
             otherReason="Reboot due to suspend reboot"
             ;;
         6)
@@ -208,7 +210,7 @@ setResetReason()
         7)
             rebootInitiatedBy="BOOTLOADER_REBOOT"
             resetReason="FASTBOOT_BOOTLOADER"
-	    customReason="FASTBOOT_BOOTLOADER"
+            customReason="FASTBOOT_BOOTLOADER"
             otherReason="Reboot due to fastboot boootloader reboot"
             ;;
         8)
@@ -361,55 +363,7 @@ setRebootReason()
         esac
 }
 
-# Check Hardware registers to log the reason of reset/reboot correctly.
-hardPowerCheck()
-{
-    hw_check=0
-    rebootInitiatedBy="Hard Power Reset"
-    reasonlogfile=$1
-
-    # Reading the messages.txt file for hardware register reset values.
-    if [ -f "$reasonlogfile" ] && [[ $(grep "$PR_STRING" $reasonlogfile) ]]; then
-        HWR_ReasonCount=`grep "$PR_STRING" $reasonlogfile | grep  -v "security_dl_sw_reset" | wc -l`
-        if [ "$HWR_ReasonCount" -eq "0" ];then
-            rebootLog "Hardware Register reset reason information is missing...!!!"
-            hw_check=1
-        elif [ "$HWR_ReasonCount" -eq "1" ];then
-            HWR_Reason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | sed 's/\!//g'`
-            rebootLog "Hardware register reset reason received as $HWR_Reason"
-            customReason="Hardware Register - $HWR_Reason"
-            rebootReason="$HWR_Reason"
-        else
-            #If both power_on_reset and security_master_reset are printed, your script should ignore the security_master_reset.
-            if [[ $(grep "power_on_reset" $reasonlogfile) ]]; then
-                HWR_FirstReason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | head -n1 | sed 's/\!//g'`
-                HWR_SecondReason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | tail -n1 | sed 's/\!//g'`
-            else
-                HWR_FirstReason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_dl_sw_reset/ {print toupper($NF)}' | head -n1 | sed 's/\!//g'`
-                HWR_SecondReason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_dl_sw_reset/ {print toupper($NF)}' | tail -n1 | sed 's/\!//g'`
-            fi
-
-            HWR_PrevReason=`grep -w reason $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
-            rebootLog "Previous Hardware Register Reset Reason: HWR_PrevReason=$HWR_PrevReason"
-            rebootLog "Current Hardware Register has two reset reasons: HWR_FirstReason=$HWR_FirstReason HWR_SecondReason=$HWR_SecondReason"
-            customReason="Hardware Register - $HWR_FirstReason, $HWR_SecondReason"
-            if [ "$HWR_FirstReason" != "$HWR_PrevReason" ]; then
-                rebootReason="$HWR_FirstReason"
-            else
-                rebootReason="$HWR_SecondReason"
-            fi
-        fi
-        #Set Other fields for hard reboot information
-        rebootLog "Received Hard reboot reason from $reasonlogfile file..."
-        setRebootReason $rebootReason
-    else
-        rebootLog "$reasonlogfile file or $PR_STRING string is missing...!!!"
-        hw_check=1
-    fi
-
-    return $hw_check
-}
-
+#Perform locking of script execution to avoid parallel execution
 lock()
 {
     while ! mkdir "$LOCK_DIR" &> /dev/null;do
@@ -419,10 +373,70 @@ lock()
     rebootLog "Acquired rebootInfo lock"
 }
 
+#Unlock before exiting the script
 unlock()
 {
     rm -rf "$LOCK_DIR"
     rebootLog "Releasing rebootInfo lock"
+}
+
+#Check for STT and Reboot Checker flag before updating reboot reason 
+CheckSTT()
+{
+    rebootLog "Checking ${STT_FLAG} and ${REBOOT_INFO_FLAG} flag to update the reboot reason"
+    if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ];then
+        rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
+        unlock
+        rebootLog "End of Reboot Reason Script"
+        exit 0
+    fi
+}
+
+#Fucntion to update reboot reason when hardware register is empty
+exitforNullrebootreason()
+{
+    rebootInitiatedBy="Hard Power Reset"
+    customReason="Hardware Register - NULL"
+    otherReason="No information found"
+    rebootReason="HARD_POWER"
+    setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
+    unlock
+    rebootLog "End of Reboot Reason Script"
+    exit 0
+}
+
+# Check Hardware registers to log the reason of reset/reboot correctly.
+hardPowerCheck()
+{
+    reasonlogfile=$1
+
+    # Reading the logfile for hardware register reset values.
+    # Please ignore security_dl_sw_reset. You will not see security dl_sw_reset alone, it will come with some other reset reason.
+    HWR_ReasonCount=`grep "$PR_STRING" $reasonlogfile | grep  -v "security_dl_sw_reset" | wc -l`
+    if [ "$HWR_ReasonCount" -eq "0" ];then
+        rebootLog "Hardware Register reset reason information is missing...!!!"
+        exitforNullrebootreason
+    elif [ "$HWR_ReasonCount" -eq "1" ];then
+        HWR_Reason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | sed 's/\!//g'`
+        rebootLog "Hardware register reset reason received as $HWR_Reason"
+        customReason="Hardware Register - $HWR_Reason"
+        rebootReason="$HWR_Reason"
+    else
+        #Ignore main_chip_reset and security_master_reset for hard power plug reboot if these strings are populated with power_on_reset.
+        #Assign reboot reason as power_on_reset if hardware register contains power_on string else read the same string.
+        if [[ $(grep -i "$POWERON_STRING" $reasonlogfile) ]];then
+            HWR_Reason=`echo $POWERON_STRING | sed "s/$/_RESET/g"`
+        else
+            HWR_Reason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | head -n1 | sed 's/\!//g'`
+        fi
+        HWR_ExtraReason=`grep "$PR_STRING" $reasonlogfile | awk '!/security_master_reset|security_dl_sw_reset/ {print toupper($NF)}' | tail -n1 | sed 's/\!//g'`
+        rebootLog "Reboot Reason found in Hardware Register are: $HWR_Reason, $HWR_ExtraReason"
+        customReason="Hardware Register - $HWR_Reason, $HWR_ExtraReason"
+        rebootReason="$HWR_Reason"
+    fi
+    #Set Other fields for hard reboot information
+    rebootLog "Received Hard reboot reason from $reasonlogfile file..."
+    setRebootReason $rebootReason
 }
 
 ##############################
@@ -431,27 +445,16 @@ unlock()
 
 lock
 
+#check for first time invocation flag and proceed for script execution
 if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
     if [ -f "${UPDATE_REBOOT_INFO_INVOKED_FLAG}" ];then
         rebootLog "${UPDATE_REBOOT_INFO_INVOKED_FLAG} flag found"
-        rebootLog "Checking ${STT_FLAG} and ${REBOOT_INFO_FLAG} flag to update the reboot reason"
-        if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ]; then
-            rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
-            unlock
-            rebootLog "End of Reboot Reason Script"
-            exit 0
-        fi
+        CheckSTT
     else
         rebootLog "${UPDATE_REBOOT_INFO_INVOKED_FLAG} not found, proceeding..."
     fi
-else	
-    rebootLog "Checking ${STT_FLAG} and ${REBOOT_INFO_FLAG} flag to update the reboot reason"
-    if [ ! -f "${STT_FLAG}" ] || [ ! -f "${REBOOT_INFO_FLAG}" ];then
-        rebootLog "Exiting since ${STT_FLAG} or  ${REBOOT_INFO_FLAG} flag is not available"
-        unlock
-        rebootLog "End of Reboot Reason Script"
-        exit 0
-    fi
+else
+    CheckSTT
 fi
 
 #Creating reboot folder in /opt/secure/ path
@@ -475,129 +478,126 @@ if [ "$SOC" = "RTK" ];then
   fi
 fi
 
-# Reading the previous reboot details from /opt/secure/reboot/reboot.info on Bootup
+# Use current time to report the kernel crash and hard power reset
+rebootTimestamp=`date -u`
+
+# Read and Move /opt/secure/reboot/reboot.info as /opt/secure/reboot/previousreboot.info
 if [ -f "$REBOOT_INFO_FILE" ];then
     rebootLog "New $REBOOT_INFO_FILE file found, Creating previous reboot info file..."
     cat $REBOOT_INFO_FILE
     mv $REBOOT_INFO_FILE $PREVIOUS_REBOOT_INFO_FILE
 else
+    rebootLog "$REBOOT_INFO_FILE file not found, Assigning default values..."
+    # Set following variables to NULL before using them
+    rebootInitiatedBy=""
+    rebootTime=""
+    customReason=""
+    otherReason=""
+    
     # Reading the previous reboot details from /opt/logs/rebootInfo.log
-    rebootLog "$REBOOT_INFO_FILE file not found, Checking from $REBOOT_INFO_LOG_FILE"
     if [ -f "$REBOOT_INFO_LOG_FILE" ];then
+        rebootLog "$REBOOT_INFO_LOG_FILE logfile found, Fetching source, time and other reasons"
         # Parse Previous reboot Info and remove leading space
         rebootInitiatedBy=`grep "PreviousRebootInitiatedBy:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
         rebootTime=`grep "PreviousRebootTime:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousRebootTime:' '{print $2}' | sed 's/^ *//'`
         customReason=`grep "PreviousCustomReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F " " '{print $2}'`
         otherReason=`grep "PreviousOtherReason:" $REBOOT_INFO_LOG_FILE | grep -v grep | awk -F 'PreviousOtherReason:' '{print $2}' | sed 's/^ *//'`
-        rebootLog "checking Kernel Panic and Hard Power scenarios..."
-        if [ "x$rebootInitiatedBy" == "x" ];then
-            # Use current time for kernel crash and hard power reset
-            rebootTime=`date -u`
-            #Reading hard reset values from sysfs
-            if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ]; then
-    	        rebootLog "Using $SYSFS_FILE to fetch hard reboot reason"
-                resetvalue=`cat $SYSFS_FILE`
-                setResetReason $resetvalue
-                customReason="Hardware Register - $customReason"
-                rebootReason="$resetReason"
-      	    else
-                # Check for Kernel Panic Reboot
-                oopsDumpCheck
-                kernel_crash=$?
-                if [ $kernel_crash -eq 1 ];then
-                    rebootReason="KERNEL_PANIC"
-                    rebootInitiatedBy="Kernel"
-                    otherReason="Reboot due to Kernel Panic captured by Oops Dump"
-                else
-                    # Check for Hard Power Reboot or reset from Hardware register
-                    rebootLog "Checking Hard Power reason using "$NXSERVER_LOG_FILE" file..."
-                    hardPowerCheck "$NXSERVER_LOG_FILE"
-                    hw_info=$?
-                    if [ $hw_info -eq 1 ];then
-                        RESET_INFO=`cat $RESET_LIST`
-                        if [ ! -z "$RESET_INFO" ];then
-                            rebootLog "Checking Hard Power reason using $RESET_LIST file..."
-                            rebootReason=`cat "$RESET_LIST" | sed "s/$/_reset/g" | awk '{print toupper($NF)}'`
-                            if [ ! -z "$rebootReason" ]; then
-                                rebootLog "Received Hard reboot reason from $RESET_LIST file..."
-                                #Set Other fields for hard reboot information
-                                customReason="Hardware Register - $rebootReason"
-                                setRebootReason $rebootReason
-                            fi
-                        elif [ -f "$KERNEL_LOG_FILE" ] && [[ $(grep "$PR_STRING" $KERNEL_LOG_FILE) ]]; then
-                            rebootLog "Checking Hard Power reason using "$KERNEL_LOG_FILE" file..."
-                            hardPowerCheck "$KERNEL_LOG_FILE"
-                        elif [ -f "$DMESG_LOG_FILE" ] && [[ $(grep "$PR_STRING" $DMESG_LOG_FILE) ]]; then
-                            rebootLog "$KERNEL_LOG_FILE file not found, Checking Hard Power reason using "$DMESG_LOG_FILE" file..."
-                            hardPowerCheck "$DMESG_LOG_FILE"
-                        elif [ -f "$APPLICATION_LOG_FILE" ] && [[ $(grep "$PR_STRING" $APPLICATION_LOG_FILE) ]]; then
-                            rebootLog "$KERNEL_LOG_FILE or $DMESG_LOG_FILE file not found, Checking Hard Power reason using "$APPLICATION_LOG_FILE" file..."
-                            hardPowerCheck "$APPLICATION_LOG_FILE"
-                        else
-                            rebootLog "${KERNEL_LOG_FILE} or ${DMESG_LOG_FILE} or ${APPLICATION_LOG_FILE} logfile or $PR_STRING string is missing...!!!"
-                            rebootInitiatedBy="Hard Power Reset"
-                            customReason="Hardware Register - NULL"
-                            otherReason="No information found"
-                            rebootReason="HARD_POWER"
-                            setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
-                            unlock
-			    rebootLog "End of Reboot Reason Script"
-                            exit 0
-                        fi
-                    fi
-                fi	    
-    	    fi
-        else
-            if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                rebootReason="APP_TRIGGERED"
-                if [ $customReason == "MAINTENANCE_REBOOT" ];then
-                     rebootReason="MAINTENANCE_REBOOT"
-                fi
-            elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                rebootReason="OPS_TRIGGERED"
-            elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
-                rebootReason="MAINTENANCE_REBOOT"
-            else
-                rebootReason="FIRMWARE_FAILURE"
-            fi
-        fi
-	if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
-	    rebootLog "Firmware failure Check Not applicable..."
-	else
-            #Check for Firmware Failure cases (ECM Crash, Max reboot etc)
-            fwFailureCheck
-            firmware_failure=$?
-            if [ $firmware_failure -eq 1 ];then
-                rebootLog "Firmware failure found..."
-                rebootReason="FIRMWARE_FAILURE"
-       	    else
-                rebootLog "Firmware failure not found..."
-            fi
-        fi
-	#Update reboot information in /opt/secure/reboot/previousreboot.info file
-        setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
-    else
-        # Use current time for kernel crash and hard power reset
-        rebootTime=`date -u`
-        if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ]; then
-            rebootLog "$REBOOT_INFO_LOG_FILE file not found, Using $SYSFS_FILE to fetch hard reboot reason"
+    fi
+    
+    rebootLog "Validating reboot information received from $REBOOT_INFO_LOG_FILE..."
+    if [ "x$rebootInitiatedBy" == "x" ];then
+        rebootLog "$REBOOT_INFO_LOG_FILE file not found and Value of rebootInitiatedBy=$rebootInitiatedBy is empty"
+        rebootTime="$rebootTimestamp"
+        # Reading hard reset values from sysfs
+        if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
+            rebootLog "Using $SYSFS_FILE to fetch hard reboot reason for AMLOGIC TV platforms"
             resetvalue=`cat $SYSFS_FILE`
             setResetReason $resetvalue
             customReason="Hardware Register - $customReason"
-            rebootReason="$resetReason" 
-	    setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
-	else
-            rebootLog "Unable to find the $REBOOT_INFO_LOG_FILE file"
-            rebootInitiatedBy="Hard Power Reset"
-            customReason="Hardware Register - NULL"
-            otherReason="No information found"
-            rebootReason="HARD_POWER"
-            setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
-            unlock
-            rebootLog "End of Reboot Reason Script"
-            exit 0
-	fi
+            rebootReason="$resetReason"
+        else
+            # Check for Kernel Panic Reboot
+            rebootLog "Checking for OOPS DUMP for Kernel Panic..."
+            oopsDumpCheck
+            kernel_crash=$?
+            if [ $kernel_crash -eq 1 ];then
+                rebootReason="KERNEL_PANIC"
+                rebootInitiatedBy="Kernel"
+                otherReason="Reboot due to Kernel Panic captured by Oops Dump"
+            else
+                # For BOLT bootloader enabled platforms, we will get the hard reboot reason from /proc/device-tree/bolt/reset-list file
+                # For other bootloader platforms, we will be getting hard reboot reason from messages.txt/startup_stdout_log.txt/application.log files
+                # Hence, added condition to check logfiles only if /proc/device-tree/bolt/reset-list file is not present
+
+                rebootLog "Checking for HARD POWER Reboot Scenarios..."
+                rebootInitiatedBy="Hard Power Reset"                
+                if [ -f $RESET_LIST ] && [[ $(cat $RESET_LIST) ]];then
+                    rebootLog "Checking Hard Power reason using $RESET_LIST file..."
+                    # Assign reboot reason as power_on if power_on string present in /proc/device-tree/bolt/reset-list file
+                    # Update _reset for all reboot reason received from /proc/device-tree/bolt/reset-list file
+                    if [[ $(grep -i "$POWERON_STRING" $RESET_LIST) ]];then
+                        rebootReason=`echo $POWERON_STRING | sed "s/$/_RESET/g"`
+                    else
+                        rebootReason=`cat "$RESET_LIST" | sed "s/$/_reset/g" | awk '{print toupper($NF)}'`
+                    fi
+                    if [ ! -z "$rebootReason" ]; then
+                        rebootLog "Received Hard reboot reason from $RESET_LIST file..."
+                        #Set Other fields for hard reboot information
+                        customReason="Hardware Register - $rebootReason"
+                        setRebootReason $rebootReason
+                    else
+                        rebootLog "No Hard reboot reason found in $RESET_LIST file..."
+                        exitforNullrebootreason
+                    fi
+                elif [ -f "$KERNEL_LOG_FILE" ] && [[ $(grep "$PR_STRING" $KERNEL_LOG_FILE) ]]; then
+                    rebootLog "Checking Hard Power reason using "$KERNEL_LOG_FILE" file..."
+                    hardPowerCheck "$KERNEL_LOG_FILE"
+                elif [ -f "$DMESG_LOG_FILE" ] && [[ $(grep "$PR_STRING" $DMESG_LOG_FILE) ]]; then
+                    rebootLog "$KERNEL_LOG_FILE file not found, Checking Hard Power reason using "$DMESG_LOG_FILE" file..."
+                    hardPowerCheck "$DMESG_LOG_FILE"
+                elif [ -f "$APPLICATION_LOG_FILE" ] && [[ $(grep "$PR_STRING" $APPLICATION_LOG_FILE) ]]; then
+                    rebootLog "$KERNEL_LOG_FILE or $DMESG_LOG_FILE file not found, Checking Hard Power reason using "$APPLICATION_LOG_FILE" file..."
+                    hardPowerCheck "$APPLICATION_LOG_FILE"
+                else
+                    # Exit script by seeting hard reboot reason as NULL
+                    rebootLog "${KERNEL_LOG_FILE} or ${DMESG_LOG_FILE} or ${APPLICATION_LOG_FILE} logfile or $PR_STRING string is missing...!!!"
+                    exitforNullrebootreason
+                fi
+            fi
+        fi    
+    else
+        rebootLog "$REBOOT_INFO_LOG_FILE logfile found and received source of rebootInitiatedBy=$rebootInitiatedBy"
+        # Assign reboot reason by comparing the rebootInitiatedBy with APP_TRIGGERED_REASONS/OPS_TRIGGERED_REASONS/MAINTENANCE_TRIGGERED_REASONS
+        if [[ "${APP_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+            rebootReason="APP_TRIGGERED"
+            # Assign reboot reason as MAINTENANCE_REBOOT if customReason is passed as MAINTENANCE_REBOOT
+            if [ $customReason == "MAINTENANCE_REBOOT" ];then
+                 rebootReason="MAINTENANCE_REBOOT"
+            fi
+        elif [[ "${OPS_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+            rebootReason="OPS_TRIGGERED"
+        elif [[ "${MAINTENANCE_TRIGGERED_REASONS[@]}" == *"$rebootInitiatedBy"* ]];then
+            rebootReason="MAINTENANCE_REBOOT"
+        else
+            rebootReason="FIRMWARE_FAILURE"
+        fi
     fi
+    
+    # FIRMWARE FAILURE is of high priority for all the STB platforms and not applicable for TV platforms
+    # We have to report it before updating any soft/hard reboot scenarios
+    # Check for FIRMWARE FAILURE cases (ECM Crash, Max reboot etc) for STB platforms
+    if [ "$DEVICE_NAME" != "PLATCO" ] || [ "$DEVICE_NAME" != "LLAMA" ];then
+        fwFailureCheck
+        firmware_failure=$?
+        if [ $firmware_failure -eq 1 ];then
+            rebootLog "Firmware failure found..."
+            rebootReason="FIRMWARE_FAILURE"
+        else
+            rebootLog "Firmware failure not found..."
+        fi
+    fi
+    #Update reboot information in /opt/secure/reboot/previousreboot.info file
+    setPreviousRebootInfo "$rebootTime" "$rebootInitiatedBy" "$rebootReason" "$customReason" "$otherReason"
 fi
 
 # Keypress information
@@ -608,6 +608,7 @@ else
     rebootLog "Unable to find the $KEYPRESS_INFO_FILE file"
 fi
 
+# Create flag to ensure updatePreviousRebootInfo.sh script is invoked
 if [ ! -f "$UPDATE_REBOOT_INFO_INVOKED_FLAG" ];then
     touch $UPDATE_REBOOT_INFO_INVOKED_FLAG
 fi
