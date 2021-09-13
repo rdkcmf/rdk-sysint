@@ -278,6 +278,7 @@ setRebootReason()
     case $rebootReason in
         SOFTWARE_MASTER_RESET)
             rebootInitiatedBy="SoftwareReboot"
+	    t2CountNotify "Test_SWReset"
             otherReason="Reboot due to user triggered reboot command"
             ;;
         WATCHDOG_TIMER_RESET)
