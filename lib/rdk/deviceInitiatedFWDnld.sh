@@ -1313,6 +1313,10 @@ interrupt_download()
      if [ "$PID_PWRSTATE" != "" ]; then
         kill -9 $PID_PWRSTATE
      fi
+
+    #Notify Maintenance Manager, So that Maintenance thread can proceed  to next script.
+    eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+
      exit
 }
 
