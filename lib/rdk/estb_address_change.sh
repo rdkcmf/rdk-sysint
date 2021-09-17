@@ -36,6 +36,14 @@ ifc=$3
 addr=$4
 flags=$5
 
+if [ ! -f /etc/os-release ];then
+     IPV6_BIN="/sbin/ip6tables -w "
+     IPV4_BIN="/sbin/iptables -w "
+else
+     IPV6_BIN="/usr/sbin/ip6tables -w "
+     IPV4_BIN="/usr/sbin/iptables -w "
+fi
+
 uptime=`cat /proc/uptime | awk '{print $1}'`
 
 # Global Address Add Event
@@ -65,13 +73,35 @@ if [ "$GATEWAY_DEVICE" == "yes" ] && [ "$cmd" == "add" ] && [ "$flags" == "globa
                 # Update ESTB IP Bound FireWall
                 echo "`/bin/timestamp` Renewing firewal rules bound to ESTB IP " >> $LOG_FILE
                 /bin/busybox sh /lib/rdk/iptables_init "Refresh"
+                ## Accept Revssh incoming
+                if [[ "$mode" == "ipv6" ]];then
+                   $IPV6_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+                else
+                   $IPV4_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+                fi
             else
                 echo "`/bin/timestamp` No ESTB IP Change occured Previous IP:$PREVIOUS_IP Current IP : $CURRENT_IP" >> $LOG_FILE
             fi
         else
             # Store received new IP
             echo "$CURRENT_IP" > /tmp/ipv6_address.txt
+            ## Accept Revssh incoming
+            if [[ "$mode" == "ipv6" ]];then
+               $IPV6_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+            else
+               $IPV4_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+            fi
         fi
     fi
-fi
+elif [ "$GATEWAY_DEVICE" == "yes" ] && [ "$cmd" == "delete" ] && [ "$flags" == "global" ];then
+    if [[ "$ifc" == "$ESTB_INTERFACE" || "$ifc" == "$DEFAULT_ESTB_INTERFACE" ]] && [[ "$addr" != "$ESTB_ECM_COMMN_IP" && "$addr" != "$DEFAULT_ESTB_IP" ]];then
+        CURRENT_IP="$addr"
+        echo "`/bin/timestamp` CURRENT IP $cmd: $CURRENT_IP" >> $LOG_FILE
+        if [[ "$mode" == "ipv6" ]];then
+           $IPV6_BIN -D StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+        else
+           $IPV4_BIN -D StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
+        fi
+    fi
 
+fi
