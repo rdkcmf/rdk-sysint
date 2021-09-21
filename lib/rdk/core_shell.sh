@@ -322,6 +322,13 @@ if  [ "$1" = "xcal-discovery-" ] || [ "$1" = "xdiscovery" ] || [ "$1" = "IARMDae
         exit 0
 fi
 
+if [ "$SOC" = "AMLOGIC" ] ; then
+   if [ "$1" = "audio_server" ] ; then
+        dumpFile
+	exit 0
+   fi
+fi
+
 
 if [ "$SKY_EPG_SUPPORT" = "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
     APP_NAMES=( "appsserviced" "dropbear"
