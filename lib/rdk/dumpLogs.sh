@@ -31,6 +31,22 @@ if [ -f /etc/env_setup.sh ]; then
     . /etc/env_setup.sh
 fi
 
+/bin/journalctl --help | grep -qw "\-\-utc"
+
+# store exit status of grep
+# if found grep will return 0 exit status
+# if not found, grep will return a nonzero exit status
+status=$?
+
+if test $status -eq 0
+then
+	echo "Current platform supports UTC"
+	journal_cmd="/bin/journalctl --utc"
+else
+	echo "Not supports UTC"
+	journal_cmd="/bin/journalctl"
+fi
+
 # initial check for power state to activate lightsleep
 if [ -f /tmp/.standby ] && [ "$LIGHTSLEEP_ENABLE" = "true" ];then
     if [ ! -f /tmp/.intermediate_sync ];then
@@ -111,7 +127,7 @@ fi
 
 if [ ! -f /tmp/.dump_application_log ]; then
     /bin/nice -n 19 /bin/dmesg -c > ${log_prefix}/startup_stdout_log.txt
-    /bin/nice -n 19 /bin/journalctl -al > ${log_prefix}/applications.log
+    /bin/nice -n 19 ${journal_cmd} -al > ${log_prefix}/applications.log
     touch /tmp/.dump_application_log
 fi
 
@@ -138,7 +154,7 @@ appendLog()
     skip_lines="^-- "
     offset_line="^-- cursor: s="
 
-    journalctl_cmd="/bin/nice -n 19 /bin/journalctl ${journalctl_args} -q --show-cursor $offset_arg"
+    journalctl_cmd="/bin/nice -n 19 ${journal_cmd} ${journalctl_args} -q --show-cursor $offset_arg"
 
     $journalctl_cmd | grep -v "$skip_lines" | grep -v "Timer Service (R)" >> $logfile
 
@@ -162,7 +178,7 @@ logunit()
 
     timestampname=`echo $logname | awk -F "/" '{print $NF}'`
 
-    cmd="nice -n 19 /bin/journalctl"
+    cmd="nice -n 19 ${journal_cmd}"
 
     # filter log by 'matching_string' if passed
     more_opts=""
