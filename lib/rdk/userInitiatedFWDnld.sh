@@ -528,6 +528,8 @@ imageDownloadToLocalServer ()
         return $ret
     else
         log "Local image Download Success ret:$ret"
+        updateFWDnldStatus "$cloudProto" "Flashing In Progress" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Download complete"
+        eventManager $FirmwareStateEvent $FW_STATE_DOWNLOAD_COMPLETE
 
         if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
@@ -591,10 +593,6 @@ imageDownloadToLocalServer ()
             else
                updateFWDnldStatus "$cloudProto" "Failure" "ECM trigger failed" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
             fi
-        else
-            updateFWDnldStatus "$cloudProto" "Success" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Validation complete"
-            eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
-            echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
         fi
     fi
     return $ret
