@@ -422,6 +422,11 @@ if [ "$SOC" = "AMLOGIC" ];then
     logcat -C
 fi
 
+if [ "$SOC" = "RTK" ];then
+     logunit "-u fwlog" ${log_prefix}/rtk_fw.log
+     logunit "-u afw_license_check" ${log_prefix}/rtk_afw_license_check.log
+fi
+
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
     logunit "-u factorycomms" ${log_prefix}/factoryComms.log
 fi

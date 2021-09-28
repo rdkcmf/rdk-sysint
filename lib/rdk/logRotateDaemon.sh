@@ -374,6 +374,8 @@ else
 	logRotateFramework $LastUrlLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $CrashedUrlLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $rtroutedLog $logRotateGenericCount $logRotateGenericSize
+	logRotateFramework $rtkfwlog $logRotateGenericCount $logRotateGenericSize
+	logRotateFramework $rtkafwlicensechecklog $logRotateGenericCount $logRotateGenericSize
 fi
 
 if [ "$WIFI_SUPPORT" == "true" ];then

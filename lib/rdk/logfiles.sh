@@ -283,6 +283,10 @@ if [ "$SOC" = "RTK" ];then
         realtekConsoleKernelLogBackup="console-ramoops-0.log.*"
         realtekServiceLog="rtk_service.log"
         realtekServiceLogBackup="rtk_service.log.*"
+        realtekFWLog="rtk_fw.log"
+        realtekFWLogBackup="rtk_fw.log.*"
+        realtekAFWLicenseCheckLog="rtk_afw_license_check.log"
+        realtekAFWLicenseCheckLogBackup="rtk_afw_license_check.log.*"
 fi
 
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
@@ -582,6 +586,8 @@ backup()
         if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
         if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi 
         if [ -f $source$realtekServiceLog ] ; then $operation $source$realtekServiceLog $destn; fi
+        if [ -f $source$realtekFWLog ] ; then $operation $source$realtekFWLog $destn; fi
+        if [ -f $source$realtekAFWLicenseCheckLog ] ; then $operation $source$realtekAFWLicenseCheckLog $destn; fi
     fi
 
     if [ "$MEDIARITE" == "true" ];then
@@ -813,6 +819,8 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $realtekDmesgKernelLogBackup $destn
         moveFiles $opern $source $realtekConsoleKernelLogBackup $destn
         moveFiles $opern $source $realtekServiceLogBackup $destn
+        moveFiles $opern $source $realtekFWLogBackup $destn
+        moveFiles $opern $source $realtekAFWLicenseCheckLogBackup $destn
      fi
 
      if [ "$MEDIARITE" == "true" ];then
@@ -1046,7 +1054,9 @@ backupSystemLogFiles()
      if [ "$SOC" = "RTK" ];then
         if [ -f $source$realtekDmesgKernelLog ] ; then $operation $source$realtekDmesgKernelLog $destn; fi
         if [ -f $source$realtekConsoleKernelLog ] ; then $operation $source$realtekConsoleKernelLog $destn; fi
-        if [ -f $source$realtekServiceKernelLog ] ; then $operation $source$realtekServiceLog $destn; fi
+        if [ -f $source$realtekServiceLog ] ; then $operation $source$realtekServiceLog $destn; fi
+        if [ -f $source$realtekFWLog ] ; then $operation $source$realtekFWLog $destn; fi
+        if [ -f $source$realtekAFWLicenseCheckLog ] ; then $operation $source$realtekAFWLicenseCheckLog $destn; fi
      fi
 
 
