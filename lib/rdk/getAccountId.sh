@@ -32,7 +32,7 @@ getAccountId()
     accountIdLen=${#accountId}
         
     if [ "$accountId" != "" ] ; then
-        if [ "$accountIdLen" -lt "$KEY_LEN" ] && [[ "$accountId"  =~ ^[a-zA-Z0-9_-]+$ ]] && [[ "$accountId" != "*['!'@'#'"$"%^&*()+]*" ]];  then
+        if [ "$accountIdLen" -lt "$KEY_LEN" ] && [ `expr "$accountId" : ".*[a-zA-Z0-9_-].*"` -gt 0 ] &&  [ `expr "$accountId" : ".*[!@#\$%^\&*()_+].*"` -eq 0 ];  then
             echo "`/bin/timestamp`: accountId is valid and value retrieved from tr181 param." >> $ACCOUNT_ID_LOG
             echo "$accountId"
         else
