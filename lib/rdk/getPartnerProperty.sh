@@ -36,9 +36,22 @@ fi
 cgPDf=0
 
 useNewBC=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.BootstrapConfig.Enable 2>&1 > /dev/null`
-if [ "$useNewBC" =  "true" ]; then
+newNTP=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.newNTP.Enable 2>&1 > /dev/null`
+if [ "$useNewBC" =  "true" ] || [ "$newNTP" =  "true" ]; then
     if [ "$1" = "ntpHost" ]; then
         result=`tr181 Device.Time.NTPServer1 2>&1 > /dev/null`
+        echo $result
+    elif [ "$1" = "ntpHost2" ]; then
+        result=`tr181 Device.Time.NTPServer2 2>&1 > /dev/null`
+        echo $result
+    elif [ "$1" = "ntpHost3" ]; then
+        result=`tr181 Device.Time.NTPServer3 2>&1 > /dev/null`
+        echo $result
+    elif [ "$1" = "ntpHost4" ]; then
+        result=`tr181 Device.Time.NTPServer4 2>&1 > /dev/null`
+        echo $result
+    elif [ "$1" = "ntpHost5" ]; then
+        result=`tr181 Device.Time.NTPServer5 2>&1 > /dev/null`
         echo $result
     elif [ "$1" = "partnerName" ]; then
         result=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.PartnerName 2>&1 > /dev/null`

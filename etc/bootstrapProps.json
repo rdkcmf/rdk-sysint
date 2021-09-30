@@ -1,6 +1,10 @@
 {
    "default" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "time.xfinity.com",
+      "ntpHost2" : "time1.xfinity.com",
+      "ntpHost3" : "time2.xfinity.com",
+      "ntpHost4" : "time3.xfinity.com",
+      "ntpHost5" : "time4.xfinity.com",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -21,6 +25,10 @@
    },
    "sky-de" : {
       "ntpHost" : "devicetime1.sky.com",
+      "ntpHost2" : "devicetime2.sky.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -41,6 +49,10 @@
    },
    "sky-italia" : {
       "ntpHost" : "devicetime1.sky.com",
+      "ntpHost2" : "devicetime2.sky.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -62,6 +74,10 @@
 
    "sky-uk" : {
       "ntpHost" : "devicetime1.sky.com",
+      "ntpHost2" : "devicetime2.sky.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -83,6 +99,10 @@
 
       "sky-uk-dev" : {
       "ntpHost" : "devicetime1.sky.com",
+      "ntpHost2" : "devicetime2.sky.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -101,8 +121,36 @@
       "partnerProductName" : "SkyQ",
       "unlockable-feature:vidipath" : "true"
    },
+      "xglobal" : {
+         "ntpHost" : "time.xfinity.com",
+         "ntpHost2" : "",
+         "ntpHost3" : "",
+         "ntpHost4" : "",
+         "ntpHost5" : "",
+         "tr069:acs:url:dev" : "",
+         "tr069:acs:url:prod" : "",
+         "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
+         "tr069:authschme:one-way-ssl:server-side:cpe:key" : "tr69.dim",
+         "sdvIPV6AddressMapURL" : "",
+         "scm-locations" : "http://edge.x1-discovery.xcr.comcast.net/tvp/controllers/${device.controller.id}/locations.xml",
+         "scm-locations-bu" : "http://edge.stb-fds.xcr.comcast.net/tvp/locations/${device.controller.id}/locations.xml",
+         "scm-locations-safe" : "https://edge.x1-discovery-secure.xcr.comcast.net/secure/tvp/controllers/${device.controller.id}/locations.xml",
+         "scm-locations-retrycount" : "2",
+         "scm-locations-retryperiod" : "10",
+         "scm-locations-retrycyclecount" : "-1",
+         "scm-locations-retrycycleperiod" : "60",
+         "scm-locations-refreshperiod" : "3600",
+         "scm-locations-refreshcount" : "-1",
+         "partnerName" : "xglobal",
+         "partnerProductName" : "xglobal",
+         "unlockable-feature:vidipath" : "true"
+      },
    "comcast" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "time.xfinity.com",
+      "ntpHost2" : "time1.xfinity.com",
+      "ntpHost3" : "time2.xfinity.com",
+      "ntpHost4" : "time3.xfinity.com",
+      "ntpHost5" : "time4.xfinity.com",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/comcast_acs_ca.crt",
@@ -123,6 +171,10 @@
    },
    "cox" : {
       "ntpHost" : "cpentp.services.cox.net",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "http://edge.dukecvmedia.wcdn.cox.net/sdv/switchedlist/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "sdvAutoDiscoveryURL" : "http://edge.dukecvmedia.wcdn.cox.net/sdv/autodiscovery/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "tr069:acs:url:dev" : "https://dukercapp-acs-v6.east.cox.net",
@@ -143,6 +195,10 @@
    },
    "cox-hospitality" : {
       "ntpHost" : "cpentp.services.cox.net",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "tr069:acs:url:dev" : "https://dukercapp-acs-v6.east.cox.net",
       "tr069:acs:url:prod" : "https://dukercapp-acs-v6.east.cox.net",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/etc/ssl/certs/ca-certificates.crt",
@@ -160,6 +216,10 @@
    },
    "cox-dev" : {
       "ntpHost" : "cpentp.services.coxlab.net",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "http://edge.de2scvmedia.devs.cdn.coxlab.net/sdv/switchedlist/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "sdvAutoDiscoveryURL" : "http://edge.de2scvmedia.devs.cdn.coxlab.net/sdv/autodiscovery/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "tr069:acs:url:dev" : "https://chnm-acs-v6.qa1.coxlab.net",
@@ -180,6 +240,10 @@
    },
    "cox-qa" : {
       "ntpHost" : "cpentp.services.cox.net",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "http://edge.dukecvmedia.wcdn.cox.net/sdv/switchedlist/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "sdvAutoDiscoveryURL" : "http://edge.dukecvmedia.wcdn.cox.net/sdv/autodiscovery/1.0/controllers/{controller_id}/channelmaps/{channelmap_id}/config",
       "tr069:acs:url:dev" : "https://dukercapp-acs-v6.east.cox.net",
@@ -199,7 +263,11 @@
       "partnerProductName" : "Contour"
    },
   "MIT" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "time.xfinity.com",
+      "ntpHost2" : "time1.xfinity.com",
+      "ntpHost3" : "time2.xfinity.com",
+      "ntpHost4" : "time3.xfinity.com",
+      "ntpHost5" : "time4.xfinity.com",
       "tr069:acs:url:dev" : "https://acswg-dt-ai-vip.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:acs:url:prod" : "https://acswg.g.comcast.net:443/cwmpWeb/DigestCPEMgt?target=/CPEMgt",
       "tr069:authschme:one-way-ssl:server-side:acs:certdata" : "/usr/share/tr69/certs/comcast_acs_ca.crt",
@@ -214,7 +282,11 @@
       "scm-locations-refreshcount" : ""
    },
    "shaw" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "ntp.shawcable.net",
+      "ntpHost2" : "ntp1.shawcable.net",
+      "ntpHost3" : "ntp2.shawcable.net",
+      "ntpHost4" : "ntp3.shawcable.net",
+      "ntpHost5" : "time.xfinity.com",
       "sdvSwitchedListURL" : "",
       "sdvAutoDiscoveryURL" : "",
       "tr069:acs:url:dev" : "https://acs-secure.shawcable.net/dps/TR069",
@@ -234,7 +306,11 @@
       "unlockable-feature:vidipath" : "false"
    },
    "shaw-dev" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "ntp.shawcable.net",
+      "ntpHost2" : "ntp1.shawcable.net",
+      "ntpHost3" : "ntp2.shawcable.net",
+      "ntpHost4" : "ntp3.shawcable.net",
+      "ntpHost5" : "time.xfinity.com",
       "sdvSwitchedListURL" : "",
       "sdvAutoDiscoveryURL" : "",
       "tr069:acs:url:dev" : "https://acs-secure-stg.shawcable.net/dps/TR069",
@@ -255,6 +331,10 @@
    },
    "rogers" : {
       "ntpHost" : "pool.ntp.net.rogers.com",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "",
       "sdvAutoDiscoveryURL" : "",
       "tr069:acs:url:dev" : "https://ecoacs.acs.net.rogers.com",
@@ -273,6 +353,10 @@
    },
    "rogers-dev" : {
       "ntpHost" : "pool.ntp.net.rogers.com",
+      "ntpHost2" : "time.xfinity.com",
+      "ntpHost3" : "",
+      "ntpHost4" : "",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "",
       "sdvAutoDiscoveryURL" : "",
       "tr069:acs:url:dev" : "http://ecoacs.vf.rogers.com",
@@ -290,7 +374,11 @@
       "scm-locations-refreshcount" : ""
    },
    "videotron" : {
-      "ntpHost" : "ntp.ccp.xcal.tv",
+      "ntpHost" : "vl-vi-ntp001.ip.videotron.ca",
+      "ntpHost2" : "vl-vi-ntp002.ip.videotron.ca",
+      "ntpHost3" : "vl-vi-ntp003.ip.videotron.ca",
+      "ntpHost4" : "time.xfinity.com",
+      "ntpHost5" : "",
       "sdvSwitchedListURL" : "",
       "sdvAutoDiscoveryURL" : "",
       "tr069:acs:url:dev" : "",

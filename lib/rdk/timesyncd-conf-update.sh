@@ -39,13 +39,21 @@ sleep 2
 # NTP URL from the property file
 if [ -f /lib/rdk/getPartnerProperty.sh ]; then
      hostName=`/lib/rdk/getPartnerProperty.sh ntpHost`
+     hostName2=`/lib/rdk/getPartnerProperty.sh ntpHost2`
+     hostName3=`/lib/rdk/getPartnerProperty.sh ntpHost3`
+     hostName4=`/lib/rdk/getPartnerProperty.sh ntpHost4`
+     hostName5=`/lib/rdk/getPartnerProperty.sh ntpHost5`
 fi
 
-while [ ! "$hostName" ]
+while [ ! "$hostName" ] && [ ! "$hostName2" ] && [ ! "$hostName3" ] && [ ! "$hostName4" ] && [ ! "$hostName5" ]
 do
 
     if [ -f /lib/rdk/getPartnerProperty.sh ]; then
          hostName=`/lib/rdk/getPartnerProperty.sh ntpHost`
+         hostName2=`/lib/rdk/getPartnerProperty.sh ntpHost2`
+         hostName3=`/lib/rdk/getPartnerProperty.sh ntpHost3`
+         hostName4=`/lib/rdk/getPartnerProperty.sh ntpHost4`
+         hostName5=`/lib/rdk/getPartnerProperty.sh ntpHost5`
     fi
 
    sleep 5
@@ -55,10 +63,15 @@ echo "NTP Server URL for this env is $hostName ..!"
 # Update the timesyncd configuration with URL
 if [ -f /etc/systemd/timesyncd.conf ];then
       defaultHostName=`cat /etc/systemd/timesyncd.conf | grep ^NTP= | cut -d "=" -f2 | tr -s ' '`
-      if [ "$hostName" ] && [ "$hostName" != "$defaultHostName" ];then
+      defaultHostName2=$defaultHostName
+      if [ "$hostName" ] || [ "$hostName2" ] || [ "$hostName3" ] || [ "$hostName4" ] || [ "$hostName5" ];then
+           if  [ "$hostName" == "$defaultHostName" ] || [ "$hostName2" == "$defaultHostName" ] || [ "$hostName3" == "$defaultHostName" ] || [ "$hostName4" == "$defaultHostName" ] || [ "$hostName5" == "$defaultHostName" ];then
+                 defaultHostName2=''
+           fi
+
            # Update the timesyncd configuration with URL
            cp /etc/systemd/timesyncd.conf /tmp/timesyncd.conf
-           sed -i "s/^NTP=$defaultHostName/NTP=$hostName $defaultHostName/" /tmp/timesyncd.conf
+           sed -i "s/^NTP=$defaultHostName/NTP=$hostName $hostName2 $hostName3 $hostName4 $hostName5 $defaultHostName2/" /tmp/timesyncd.conf
            echo "ConnectionRetrySec=5" >> /tmp/timesyncd.conf
            cat /tmp/timesyncd.conf > /etc/systemd/timesyncd.conf
            rm -rf /tmp/timesyncd.conf
