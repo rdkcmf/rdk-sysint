@@ -840,8 +840,10 @@ fi
     # hours if it is within 4 hours of the current time
     if [ $sec -le 14400 ]
     then
+      echo "Next window time within 4hrs: $calc_epoc, bumping by 24 hours: " $((calc_epoc+86399)) >> $LOG_PATH/dcmscript.log
       calc_epoc=$((calc_epoc+86399))
     fi
+    echo epoch:$calc_epoc >> $OPT_START_TIME_FILE
     echo $calc_epoc
 
 }

@@ -54,18 +54,19 @@ if [ -f "$OPT_START_TIME_FILE" ]; then
     start_time_sec=`grep "sec" $OPT_START_TIME_FILE  | cut -d ":" -f2`
     start_time_min=`grep "min" $OPT_START_TIME_FILE  | cut -d ":" -f2`
     start_time_hr=`grep "hours" $OPT_START_TIME_FILE  | cut -d ":" -f2`
+    start_epoch=`grep "epoch" $OPT_START_TIME_FILE  | cut -d ":" -f2`
 
-    echo "`/bin/timestamp` start time got from persistent file : $start_time_hr:$start_time_min:$start_time_sec" >> $LOG_PATH/dcmscript.log
+    echo "`/bin/timestamp` start time got from persistent file : $start_time_hr:$start_time_min:$start_time_sec epoch: $start_epoch" >> $LOG_PATH/dcmscript.log
  
     if [ $start_time_hr  -le 24 ] && [ $start_time_min -le 60 ] && [ $start_time_sec -le 60 ] 
     then 
-        calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
+        # calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
+        calc_epoc=$start_epoch
         curr_epoc=$(date -u "+%s")
         sec=$((calc_epoc-curr_epoc))
-        # bump the maintenance start time returned by Xconf by 24 hours
-        # if it is within 4 hours of the current time.
-        if [ $sec -le 14400 ]
+        if [ $sec -le 0 ]
         then
+           echo "Maintenance start time is in the past ($calc_epoc), bumping by 24hrs: " $((calc_epoc+86399)) >> $LOG_PATH/dcmscript.log
            calc_epoc=$((calc_epoc+86399))
         fi
         StartTime_eventSender "MaintenanceMGR" $IARM_BUS_DCM_NEW_START_TIME_EVENT $calc_epoc   
