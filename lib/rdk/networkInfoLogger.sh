@@ -19,6 +19,7 @@
 ##############################################################################
 
 
+(/bin/busybox kill -STOP $$; /bin/busybox kill -CONT $$)
 # Include File check
 if [ -f /etc/device.properties ];then
     . /etc/device.properties

@@ -51,6 +51,7 @@ if [ ! -f ${IP_REMOTE_ENABLED_FLAG} ];then
     exit 0
 fi
 
+(/bin/busybox kill -STOP $$; /bin/busybox kill -CONT $$)
 # Global Address Add Event
 if [ "$cmd" = "add" ] && [ "$mode" = "ipv4" ] && [ "$flags" = "global" ];then
     # Check for interface type, The ip remote uses virtual wifi interface
