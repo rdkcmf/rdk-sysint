@@ -69,7 +69,6 @@ RCDL_FLAG="/tmp/device_initiated_rcdl_in_progress"
 
 # File to save http code
 HTTP_CODE="/tmp/rcdl_curl_httpcode"
-rm -rf $HTTP_CODE
 
 DnldURLvalue="/opt/.dnldURL"
 
@@ -520,7 +519,6 @@ imageDownloadToLocalServer ()
         fi
         updateFWDnldStatus "$cloudProto" "Failure"  "$failureReason" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
         eventManager $FirmwareStateEvent $FW_STATE_FAILED
-        rm -f $RCDL_FLAG
 
         if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
@@ -553,7 +551,6 @@ imageDownloadToLocalServer ()
         if [ "$ret" -ne 0 ]; then
             updateFWDnldStatus "$cloudProto" "Failure" "Flashing failed" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
              eventManager $FirmwareStateEvent $FW_STATE_FAILED
-            rm -f $RCDL_FLAG
         else
             updateFWDnldStatus "$cloudProto" "Success" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Validation complete"
 	    eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
@@ -594,7 +591,6 @@ imageDownloadToLocalServer ()
             else
                updateFWDnldStatus "$cloudProto" "Failure" "ECM trigger failed" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
             fi
-            rm -f $RCDL_FLAG
         else
             updateFWDnldStatus "$cloudProto" "Success" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Validation complete"
             eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
@@ -636,11 +632,9 @@ ProcessImageUpgradeRequest()
     elif [ "$myFWFile" = "$dnldFile" ]; then
         log "FW version of the active image and the image to be upgraded are the same. No upgrade required."
         updateFWDnldStatus "$cloudProto" "No upgrade needed" "Versions Match" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "No upgrade needed"
-        rm -f $RCDL_FLAG
     elif [ "$lastDnldFile" = "$dnldFile" ]; then
         log "FW version of the standby image and the image to be upgraded are the same. No upgrade required."
         updateFWDnldStatus "$cloudProto" "No upgrade needed" "Versions Match" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "No upgrade needed"
-        rm -f $RCDL_FLAG
     else
         if [ $CodebigFlag -eq 1 ]; then
             log "ProcessImageUpgradeRequest: Codebig is enabled UseCodebig=$CodebigFlag"
@@ -788,6 +782,7 @@ ProcessImageUpgradeRequest()
             ret=0
         fi
     fi
+    rm -f $RCDL_FLAG #Removing lock only after all the retries are failed
     return $ret
 }
 
@@ -826,6 +821,19 @@ if [ $# -lt $FOUR_CMDLINE_PARAMS ]; then
 exit 1
 fi
 
+cleanup()
+{
+    log "cleanup..."
+    if [ -f $HTTP_CODE ]; then
+        log "http code file removed"
+        rm -f $HTTP_CODE
+    fi
+    if [ -f $RCDL_FLAG ]; then
+        log "Lock removed"
+        rm -f $RCDL_FLAG
+    fi
+}
+
 if [ "$estbIp" = "$DEFAULT_IP" ]; then
     log "waiting for IP ..."
     sleep 15
@@ -858,6 +866,7 @@ else
         IsWebpacdlEnabledForProd
         log "Found download details, triggering download..."
         touch $RCDL_FLAG
+        trap cleanup EXIT #Remove Lock upon exit
         dnldVersion=`echo $ImageName | sed  's/-signed.bin//g' | sed  's/.bin//g'`
         dnldFile=`echo $ImageName | tr '[A-Z]' '[a-z]'`
 	eventManager $FirmwareStateEvent $FW_STATE_REQUESTING
