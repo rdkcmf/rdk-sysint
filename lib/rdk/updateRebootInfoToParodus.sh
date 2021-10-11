@@ -20,19 +20,23 @@
 
 PARODUS_LOG="/opt/logs/parodus.log"
 PREVIOUS_REBOOT_INFO_FILE="/opt/secure/reboot/previousreboot.info"
+PARODUS_REBOOTINFO_FILE="/tmp/.parodus_rebootInfoUpdated"
 
 parodusLog() {
     timestamp=`/bin/timestamp`
     echo "$timestamp $0: $*" >> $PARODUS_LOG
 }
 parodusLog "Start Execution"
-if [ -f $PREVIOUS_REBOOT_INFO_FILE ]; then
+if [ -f $PREVIOUS_REBOOT_INFO_FILE ] && [ ! -f $PARODUS_REBOOTINFO_FILE ]; then
     timestamp=`grep -w "timestamp" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
     reboot_reason=`grep -w "reason" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
     customReason=`grep -w "customReason" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
     source=`grep -w "source" $PREVIOUS_REBOOT_INFO_FILE | awk -F '"' '{print $4}'`
     parodusLog "PreviousRebootInfo:$timestamp,$reboot_reason,$customReason,$source"
-else
+    touch $PARODUS_REBOOTINFO_FILE #This file is to make sure update rebootInfo to parodus.log only once per reboot
+elif [ ! -f $PREVIOUS_REBOOT_INFO_FILE ]; then
     parodusLog "File $PREVIOUS_REBOOT_INFO_FILE not found, failed to get the Previous Reboot Info"
+else
+    parodusLog "Reboot Info already updated"
 fi
 parodusLog "End Execution"
