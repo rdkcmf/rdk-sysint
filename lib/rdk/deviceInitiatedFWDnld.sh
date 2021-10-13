@@ -101,6 +101,7 @@ FW_STATE_FAILED=3
 FW_STATE_DOWNLOAD_COMPLETE=4
 FW_STATE_VALIDATION_COMPLETE=5
 FW_STATE_PREPARING_TO_REBOOT=6
+FW_STATE_ONHOLD_FOR_OPTOUT=7
 FW_STATE_CRITICAL_REBOOT=8
 
 #maintaince states
@@ -114,6 +115,9 @@ MAINT_FWDOWNLOAD_INPROGRESS=15
 isCriticalUpdate=false # setting default value as false
 
 maintenance_error_flag=0
+
+##Maintenance MGR record file
+MAINTENANCE_MGR_RECORD_FILE="/opt/maintenance_mgr_record.conf"
 
 #Upgrade events
 FirmwareStateEvent="FirmwareStateEvent"
@@ -1514,7 +1518,7 @@ postFlash ()
     sleep 5
     sync
     eventManager $FirmwareStateEvent $FW_STATE_PREPARING_TO_REBOOT
-    
+
     sed -i 's/FwUpdateState|.*/FwUpdateState|Preparing to reboot/g' $STATUS_FILE
 
     if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
@@ -1526,12 +1530,20 @@ postFlash ()
            if [ "x$DEVICE_NAME" = "xPLATCO" ] && [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
                echo "`Timestamp` Send notification to reboot in 10mins due to critical upgrade"
                eventManager "FirmwareStateEvent" $FW_STATE_CRITICAL_REBOOT
-               echo "`Timestamp` Sleeping for $CRITICAL_REBOOT_DELAY sec before rebooting the STB"
+               swupdateLog "Sleeping for $CRITICAL_REBOOT_DELAY sec before rebooting the STB"
                sleep $CRITICAL_REBOOT_DELAY
-               echo "`Timestamp` Application Reboot Timer of $CRITICAL_REBOOT_DELAY expired, Rebooting from RDK"
+               swupdateLog "Application Reboot Timer of $CRITICAL_REBOOT_DELAY expired, Rebooting from RDK"
                sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box from RDK for Pending Critical Firmware Upgrade..."
+           elif [ "x$ENABLE_SOFTWARE_OPTOUT" = "xtrue" ]; then
+               #set the optout value back to Enforce
+               OptOut=$(grep softwareoptout $MAINTENANCE_MGR_RECORD_FILE | cut -d "=" -f2)
+               swupdateLog "OptOut: Value = $OptOut \n"
+               if [ "x$OptOut" = "xBYPASS_OPTOUT" ]; then
+                   sed -i 's/softwareoptout.*/softwareoptout=ENFORCE_OPTOUT/g' $MAINTENANCE_MGR_RECORD_FILE
+                   swupdateLog "OptOut: Setting back to Enforce optout"
+               fi
            fi
-       else
+      else
              echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
              if [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
                  swupdateLog "Download is complete. Rebooting the box now..."
@@ -1858,10 +1870,37 @@ checkForUpgrades ()
             checkForValidPCIUpgrade
             if [ $pci_upgrade -eq 1 ]; then
                 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-                then  
-                    eventManager "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
-                    isCriticalUpdate=true 
-                fi 
+                then
+                    #if the Reboot immediate flag is true only then its a critical update.
+                    if [ "$cloudImmediateRebootFlag" = "true" ]; then
+                        eventManager "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
+                        isCriticalUpdate=true
+                    fi
+                    #  set from the OEM recipe
+                    if [ "x$ENABLE_SOFTWARE_OPTOUT" = "xtrue" ]; then
+                        #check the OptOut State
+                        OptOut=$(grep softwareoptout $MAINTENANCE_MGR_RECORD_FILE | cut -d "=" -f2)
+                        swupdateLog "OptOut: OptOut = $OptOut"
+                        # if we see IGNORE_UPDATE & non critical exit from here
+                        if [ "x$OptOut" = "xIGNORE_UPDATE" ] && [ "$isCriticalUpdate" != "true" ]; then
+                            #dont send any event and exit from here;
+                            swupdateLog "OptOut: IGNORE UPDATE is set.Exiting !!"
+                            eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
+                            exit 1
+                        elif [ "x$OptOut" = "xENFORCE_OPTOUT" ]; then
+                            #if triggered from updateFrimware() we dont sent the consent
+                            # we proceed with the download.
+                            if [ $triggerType -ne 4 ]; then
+                                #send event on hold for optout
+                                eventManager $FirmwareStateEvent $FW_STATE_ONHOLD_FOR_OPTOUT
+                                swupdateLog "OptOut: Event sent for on hold for OptOut"
+                                eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_COMPLETE
+                                swupdateLog "OptOut: Consent Required from User"
+                                exit 1
+                            fi
+                        fi
+                    fi
+                fi
                 triggerPCIUpgrade
                 pci_upgrade_status=$?
             fi
@@ -2509,13 +2548,16 @@ do
         maintenance_error_flag=0
     fi
 
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ] && [ "x$isCriticalUpdate" != "xtrue" ]
-    then  
-        abort_flag=`cat /opt/maintenance_mgr_record.conf | cut -d "=" -f2`
-        if [ "x$abort_flag" == "xtrue" ]
-        then
-           eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
-	   exit 1
+    #only if RIF set we say its critical.
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        #check the abort flag status here. If BG exit the script.
+        if [ "x$isCriticalUpdate" != "xtrue" ]; then
+            abort_flag=$(grep background_flag $MAINTENANCE_MGR_RECORD_FILE | cut -d "=" -f2)
+            if [ "x$abort_flag" == "xtrue" ]; then
+                eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
+                swupdateLog "Maintenance: FW Download Aborted due to Background Flag Set!!"
+                exit 1
+            fi
         fi
     fi
 
