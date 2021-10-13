@@ -46,7 +46,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
 #---------------------------------------------------------------------------------------------
 # Variables
 #---------------------------------------------------------------------------------------------
-mTlsLogUpload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsLogUpload.Enable 2>&1 > /dev/null)
 useXpkiMtlsLogupload=false
 
 reboot_flag=0  # same as dcm log service
@@ -86,17 +85,11 @@ checkXpkiMtlsBasedLogUpload()
          upload_httplink=$httplink
          echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
      fi
-     if [ "$FORCE_MTLS" == "true" ]; then
-         echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
-         mTlsLogUpload="true"
-     fi
-     echo "RFC_mTlsLogUpload:$mTlsLogUpload" >> $LOG_PATH/dcmscript.log
-	 checkXpkiMtlsBasedLogUpload
-     if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
-         #sky endpoint dont use the /secure extension;
-         if [ "$FORCE_MTLS" != "true"  ]; then
-             upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
-         fi
+     echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
+     checkXpkiMtlsBasedLogUpload
+     #sky endpoint dont use the /secure extension;
+     if [ "$FORCE_MTLS" != "true"  ]; then
+         upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
      fi
      echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
  fi

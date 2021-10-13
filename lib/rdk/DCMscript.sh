@@ -162,7 +162,6 @@ tftp_server=$3
 checkon_reboot=$5
 
 #Flag to use Secure endpoints
-mTlsLogUpload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsLogUpload.Enable 2>&1 > /dev/null)
 useXpkiMtlsLogupload=false
 checkXpkiMtlsBasedLogUpload()
 {
@@ -447,12 +446,8 @@ sendTLSDCMRequest()
 {
     TLSRet=1
     dcmLog "Attempting $TLS connection to DCM server"
-    if [ "$FORCE_MTLS" == "true" ]; then
-        dcmLog "MTLS preferred for DCM Request"
-        mTlsLogUpload="true"
-    fi
+    dcmLog "MTLS preferred for DCM Request"
 
-    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
         if [ "$useXpkiMtlsLogupload" == "true" ]; then
             msg_tls_source="mTLS certificate from xPKI"
             dcmLog "Connect with $msg_tls_source"
@@ -488,11 +483,7 @@ sendTLSDCMRequest()
             fi
             CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         fi
-    else
-        msg_tls_source="TLS"
-        dcmLog "Connect with $msg_tls_source, no mtls support"
-        CURL_CMD="curl $TLS -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
-    fi
+    
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
     fi
@@ -729,18 +720,11 @@ scheduleSupplementaryServices()
         upload_httplink=$httplink
         dcmLog "upload_httplink is $upload_httplink"
     fi
-    
-    if [ "$FORCE_MTLS" == "true" ]; then
-        dcmLog "MTLS preferred"
-        mTlsLogUpload="true"
-    fi
-    dcmLog "RFC_mTlsLogUpload:$mTlsLogUpload"
 
-    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
-        #sky endpoint dont use the /secure extension;
-        if [ "$FORCE_MTLS" != "true"  ]; then
-            upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
-        fi
+    
+    #sky endpoint dont use the /secure extension;
+    if [ "$FORCE_MTLS" != "true"  ]; then
+        upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
     fi
     dcmLog "upload_httplink is $upload_httplink"
     #--------------------------------- END : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
@@ -972,17 +956,11 @@ do
                         upload_httplink=$httplink
                         dcmLog "upload_httplink is $upload_httplink"
                     fi
-                    if [ "$FORCE_MTLS" == "true" ]; then
-                        dcmLog "MTLS preferred"
-                        mTlsLogUpload="true"
-                    fi
-                    dcmLog "RFC_mTlsLogUpload:$mTlsLogUpload"
+                    dcmLog "MTLS preferred"
 
-                    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
-                        #sky endpoint dont use the /secure extension;
-                        if [ "$FORCE_MTLS" != "true"  ]; then
-                            upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
-                        fi
+                    #sky endpoint dont use the /secure extension;
+                    if [ "$FORCE_MTLS" != "true"  ]; then
+                        upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
                     fi
                     dcmLog "upload_httplink is $upload_httplink"
                 fi

@@ -222,7 +222,6 @@ tftp_server=$3
 checkon_reboot=$5
 
 #Flag to use Secure endpoints
-mTlsLogUpload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsLogUpload.Enable 2>&1 > /dev/null)
 useXpkiMtlsLogupload=false
 checkXpkiMtlsBasedLogUpload()
 {
@@ -518,12 +517,8 @@ sendTLSDCMRequest()
 {
     TLSRet=1
     echo "Attempting $TLS connection to DCM server"  >> $LOG_PATH/dcmscript.log
-    if [ "$FORCE_MTLS" == "true" ]; then
-        echo "MTLS preferred for DCM Request" >> $LOG_PATH/dcmscript.log
-        mTlsLogUpload="true"
-    fi
+    echo "MTLS preferred for DCM Request" >> $LOG_PATH/dcmscript.log
 
-    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
         if [ "$useXpkiMtlsLogupload" == "true" ]; then
             msg_tls_source="mTLS certificate from xPKI"
             echo "Connect with $msg_tls_source"
@@ -544,11 +539,6 @@ sendTLSDCMRequest()
             fi
             CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
         fi
-    else
-        msg_tls_source="TLS"
-        echo "Connect with $msg_tls_source, no mtls support"
-        CURL_CMD="curl $TLS -w '%{http_code}\n' --connect-timeout $CURL_TLS_TIMEOUT -m $timeout -o  \"$FILENAME\" '$HTTPS_URL$JSONSTR'"
-    fi
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
     fi

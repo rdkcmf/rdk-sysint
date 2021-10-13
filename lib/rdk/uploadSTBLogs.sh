@@ -97,7 +97,6 @@ fi
 CLOUD_URL=""
 CURL_TLS_TIMEOUT=30
 CURL_TIMEOUT=10
-mTlsLogUpload=false
 useXpkiMtlsLogupload=false
 encryptionEnable=false
 if [ -f /etc/os-release ]; then
@@ -408,14 +407,7 @@ sendTLSSSRRequest()
 
     uploadLog "Attempting $TLS connection to SSR server"
     checkXpkiMtlsBasedLogUpload
-    mTlsLogUpload=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsLogUpload.Enable 2>&1 > /dev/null`
 
-    if [ "$FORCE_MTLS" == "true" ]; then
-        uploadLog "MTLS prefered, force mTlsLogUpload to true"
-        mTlsLogUpload=true
-    fi
-
-    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
         uploadLog "Log Upload requires Mutual Authentication"
         if [ "$useXpkiMtlsLogupload" == "true" ]; then
             msg_tls_source="mTLS certificate from xPKI"
@@ -452,11 +444,6 @@ sendTLSSSRRequest()
             fi
             CURL_CMD="curl --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -w '%{http_code}\n' -d \"filename=$1\" $URLENCODE_STRING -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout $CURL_TLS_TIMEOUT -m 10"
         fi
-    else
-        msg_tls_source="TLS"
-        uploadLog "Connect with $msg_tls_source, no mtls support"
-        CURL_CMD="curl $TLS -w '%{http_code}\n' -d \"filename=$1\" $URLENCODE_STRING -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout $CURL_TLS_TIMEOUT -m 10"
-    fi
 
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
