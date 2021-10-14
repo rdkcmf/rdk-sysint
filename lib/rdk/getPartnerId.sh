@@ -17,39 +17,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##############################################################################
-
 ##################################################################
 ## Script to retrieve receiver ID and partner ID
 #
 ## Author: Milorad Neskovic
 ##################################################################
-
 if [ "$WHITEBOX_ENABLED" == "true" ]; then
     . /etc/wbdevice.conf
 else
     wbpath=/opt/www/whitebox/
 fi
-
 . /etc/authService.conf
+. /etc/include.properties
+. /etc/device.properties
 
 getReceiverId()
 {
     outputR=`awk -F',' </tmp/gpid.txt '{ for (i=1; i<=NF; i++) print $i}'| grep deviceId | cut -d ":" -f2 | tr -d " " |sed -e 's/[{,},/"]//g'`
     deviceId=`echo "$outputR" | tr '[A-Z]' '[a-z]'`
-
     if [ "$deviceId" != "" ]; then
        echo "$deviceId"
     else
-       if [ -f $aspath/deviceid.dat ]; then    
+       if [ -f $aspath/deviceid.dat ]; then
            cat $aspath/deviceid.dat
        elif [ -f $wbpath/wbdevice.dat ]; then
            cat $wbpath/wbdevice.dat
        else
            echo ""
        fi
-    fi       
+    fi
 }
- 
+
+
+
 getPartnerId()
 {
     # Check for the partner ID
@@ -63,14 +63,20 @@ getPartnerId()
         if [ -s $aspath/partnerId3.dat ]; then
             cat $aspath/partnerId3.dat
         else
-            # receiverId and partnerId are retrieved as a set
-            receiverId=$(getReceiverId)
 
-            if [ "$receiverId" != "" ]; then
-                echo "comcast"
-            else
-                echo ""
-            fi
+            # Use default partnerId
+			# receiverId and partnerId are retrieved as a set
+			receiverId=$(getReceiverId)
+			if [ "$receiverId" != "" ]; then
+				if [ "$DEVICE_NAME" = "PLATCO" ]; then
+					echo "xglobal"
+				else
+					echo "comcast"
+				fi
+			else
+				echo ""
+			fi
+
         fi
     fi
 }
@@ -80,7 +86,6 @@ getExperience()
     # Check for the Experience
     curl -s -d '' -X POST http://127.0.0.1:50050/authService/getExperience >/tmp/gpid.txt
     experience=`awk -F',' </tmp/gpid.txt '{ for (i=1; i<=NF; i++) print $i}'| grep experience | cut -d ":" -f2 | tr -d " " |sed -e 's/[{,},/"]//g'`
-
     if [ "$experience" != "" ]; then
        echo "$experience"
     else

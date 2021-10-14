@@ -18,16 +18,54 @@
 # limitations under the License.
 ##############################################################################
 
-
+. /etc/include.properties
+. /etc/device.properties
+BSFILE='/opt/secure/RFC/bootstrap.ini'
+FILENAME='/tmp/.bootstrap.ini'
 
 deviceIdFile="/opt/www/authService/deviceid.dat"
 partnerIdFile="/opt/www/authService/partnerId3.dat"
 wbDeviceIdFile="/opt/www/whitebox/wbdevice.dat"
 
-defaultPartnerId="comcast"
+if [ "$DEVICE_NAME" = "PLATCO" ]; then
+	defaultPartnerId="xglobal"
+else
+	defaultPartnerId="comcast"
+fi
 
 deviceId=""
 partnerId=""
+
+getBootstrapPartnerId()
+{
+    if [ -f "$BSFILE" ]; then
+
+        cp $BSFILE $FILENAME
+        sed -i 's/=/ /g' $FILENAME #
+
+        while read line
+        do
+
+            ## Check bootstrap string
+
+            value1=`echo "$line" | awk '{print $1}'`
+            value2=`echo "$line" | awk '{print $2}'`
+
+            enable_Check=`echo "$value1" | grep -ci 'X_RDKCENTRAL-COM_Syndication.PartnerId'`
+
+            if [ $enable_Check -ne 0 ]; then
+                echo "$value2"
+
+                return
+            fi
+        #
+        done < $FILENAME
+    fi
+
+### Nothing found in the boostrap file
+    echo ""
+}
+
 
 if [ -f "${deviceIdFile}" ]; then
     deviceId=`cat ${deviceIdFile}`
@@ -37,8 +75,15 @@ fi
 
 if [ -f "${partnerIdFile}" ]; then
     partnerId=`cat ${partnerIdFile}`
-elif [ "x${deviceId}" != "x" ]; then
-    partnerId=${defaultPartnerId}
+else
+	# Check if bootstrap was updated with partnerId
+	partnerId=$(getBootstrapPartnerId)
+	if [ "$partnerId" = "" ]; then
+	    # If boostrap partnerId is missing, use default id based on device class
+		if [ "x${deviceId}" != "x" ]; then
+			partnerId=${defaultPartnerId}
+		fi
+	fi
 fi
 
 echo "{ \"deviceId\" : \"${deviceId}\", \"partnerId\" : \"${partnerId}\" }"
