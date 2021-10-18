@@ -126,7 +126,7 @@ if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; the
 fi
 
 if [ ! -f /tmp/.dump_application_log ]; then
-    /bin/nice -n 19 /bin/dmesg -c > ${log_prefix}/startup_stdout_log.txt
+    /bin/nice -n 19 /bin/dmesg -c >> ${log_prefix}/startup_stdout_log.txt
     /bin/nice -n 19 ${journal_cmd} -al > ${log_prefix}/applications.log
     touch /tmp/.dump_application_log
 fi
@@ -401,6 +401,8 @@ if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; the
     logunit "$skyunits" $skycomponentslogname
 fi
 
+/bin/nice -n 19 journalctl -k | grep DENIED >> /opt/logs/startup_stdout_log.txt
+/bin/nice -n 19 journalctl -k | grep ALLOWED >> /opt/logs/startup_stdout_log.txt
 appendLog _PID=1 systemd ${log_prefix}/system.log
 
 if [ "$LIGHTSLEEP_ENABLE" = "true" ];then

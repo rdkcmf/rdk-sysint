@@ -23,7 +23,7 @@
 . /etc/device.properties
 
 # Save boot log
-dmesg > /opt/logs/startup_stdout_log.txt
+dmesg >> /opt/logs/startup_stdout_log.txt
 
 # Start syslog server
 syslogd -O /opt/logs/messages.txt

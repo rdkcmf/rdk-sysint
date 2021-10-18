@@ -110,6 +110,8 @@ if [ -d /opt/etc ];then rm -rf /opt/etc;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
 if [ -d /opt/certs ];then rm -rf /opt/certs; fi
 
+if [ -f /opt/secure/Apparmor_blocklist ];then rm -rf /opt/secure/Apparmor_blocklist ; fi
+
 if [ -e /lib/rdk/device-specific-reset.sh ]; then
     echo "Warehouse Reset: Clean configs specific to the device"
     /lib/rdk/device-specific-reset.sh "WAREHOUSE" "CLEAN-CONFIG"
