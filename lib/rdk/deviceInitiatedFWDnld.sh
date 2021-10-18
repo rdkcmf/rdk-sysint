@@ -1821,7 +1821,8 @@ checkForValidPCIUpgrade () {
         rebootFlag=0
     fi
 
-    if [ $triggerType -eq 1 ] ; then
+    # Adding the check to perform upgrade when $myFWFile is empty for both app triggered and maintainene triggered reboot
+    if [ $triggerType -eq 1 ] || [ $triggerType -eq 4 ]; then
         if [ -z "$myFWFile" ] || [ -z "$lastDnldFile" ]; then
             echo "Unable to fetch current running image file name or last download file"
             if [ "$myFWVersion" != "$cloudFWVersion" ]; then
