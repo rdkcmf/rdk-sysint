@@ -78,12 +78,13 @@ counter()
 
 deleteMaxFile()                                                   
 {
+    #Don't delete the log file. Instead empty it.
     find $LOG_PATH -type f | xargs ls -S > /tmp/deletionList.txt
     maxFile=`head -n 1 /tmp/deletionList.txt`
     echo "Max File: $maxFile" >> /tmp/disk_cleanup.log
     if [ -f $maxFile ]; then
-         echo "Deleting the file due to size issue `ls -l $maxFile`" >> /tmp/disk_cleanup.log
-         rm -rf $maxFile
+         echo "Emptying the file due to size issue `ls -l $maxFile`" >> /tmp/disk_cleanup.log
+         cat /dev/null > $maxFile
     fi
 }
 

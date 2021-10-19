@@ -389,6 +389,10 @@ fi
 if [ "$DOBBY_ENABLED" == "true" ];then
     logRotateFramework $dobbyLog $logRotateGenericCount $logRotateGenericSize
 fi
+if [ "x$SYSLOG_NG_ENABLED" == "xtrue" ];then
+    logRotateFramework $syslogFallbackLog $logRotateGenericCount $logRotateGenericSize
+fi
+
 logRotateFramework $cecLog $cecLogRotateCount $cecLogRotateSize
 if [ "$SOC" = "BRCM" ];then
      logRotateFramework $nxSvrLog $nxSvrLogRotatCount $nxSvrLogRotatSize

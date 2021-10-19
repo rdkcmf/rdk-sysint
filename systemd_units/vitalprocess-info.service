@@ -19,8 +19,6 @@
 
 [Unit]
 Description=Vital Process information Timer Service (R)
-After=dump-log.service
-Requires=dump-log.service
 
 [Service]
 ExecStart=/bin/sh -c '/lib/rdk/vitalProcessInfo.sh'

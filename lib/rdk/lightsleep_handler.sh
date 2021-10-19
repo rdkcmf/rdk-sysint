@@ -46,12 +46,20 @@ if [ -f /tmp/.power_on ];then
 else
     count=0
     echo "Starting the lightsleep monitoring..!" >> $LOG_FILE
+    if [ "x$SYSLOG_NG_ENABLED" == "xtrue" ];then
+	    echo "Triggering update_syslog_config.sh"
+	    sh /lib/rdk/update_syslog_config.sh
+    fi
     while [ true ]
     do
         sleep 60
         if [ -f /tmp/.power_on ];then
              echo "Box is in Power ON mode from STANDBY..! exiting" >> $LOG_FILE
              rm -rf /tmp/.lightsleep_on
+    	     if [ "x$SYSLOG_NG_ENABLED" == "xtrue" ];then
+	         echo "Triggering update_syslog_config.sh"
+	         sh /lib/rdk/update_syslog_config.sh
+     	     fi
              exit 0
         fi
         count=`expr $count + 1`
@@ -59,8 +67,9 @@ else
              echo "Intermediate logs sync from journalctl buffer..!" >> $LOG_FILE
              touch /tmp/.intermediate_sync
              count=0
-             if [ "x$MODEL_NUM" == "xPX001AN" ];then
+             if [ "x$MODEL_NUM" == "xPX001AN" -o "x$SYSLOG_NG_ENABLED" == "xtrue" ];then
                  if [ -f /etc/os-release ];then
+		      echo "Triggering update_syslog_config.sh"
                       sh /lib/rdk/update_syslog_config.sh
                  fi
              fi
