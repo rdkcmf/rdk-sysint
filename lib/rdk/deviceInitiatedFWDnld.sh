@@ -801,9 +801,9 @@ sendTLSCodebigRequest()
         else
             echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        result= eval $CURL_CMD > $HTTP_CODE
-        rc=$?
-        if [ $rc -eq 6 ]; then 
+        eval $CURL_CMD > $HTTP_CODE
+        TLSRet=$?
+        if [ $TLSRet -eq 6 ]; then 
             t2CountNotify "xconf_couldnt_resolve"
         fi
     elif [ "$1" == "SSR" ]; then
@@ -849,31 +849,34 @@ sendTLSCodebigRequest()
             echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]  || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-              result= eval $CURL_CMD &> $CURL_PROGRESS &
+              eval $CURL_CMD &> $CURL_PROGRESS &
               echo "$!" > $CURL_PID_FILE
               CurlPid=`cat $CURL_PID_FILE`
               wait $CurlPid
         else
-              result= eval $CURL_CMD &> $CURL_PROGRESS
+              eval $CURL_CMD &> $CURL_PROGRESS
         fi
-        rc=$?
-        if [ $rc -eq 28 ]; then
-            # Curl returns 28 if speed is less than 100 kbit/sec
-            # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
-            echo "CDL is suspended because speed is below 100 kbit/second"
-        fi
-
-        if [ $rc -eq 22 ]; then 
-            t2CountNotify "swdl_failed"
-        elif [ $rc -eq 18 ] || [ $rc -eq 7 ]; then
-            t2CountNotify "swdl_failed_$rc"
-        fi
-
+	TLSRet=$?
     fi
-    TLSRet=$?
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
     fi
+    if [ $TLSRet -ne 0 ]; then
+        if [ $TLSRet -eq 28 ]; then
+                # Curl returns 28 if speed is less than 100 kbit/sec
+                # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
+                echo "CDL is suspended because speed is below 100 kbit/second"
+        elif [ $TLSRet -eq 22 ]; then
+                t2CountNotify "swdl_failed"
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+                t2CountNotify "swdl_failed_$TLSRet"
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        else
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        fi
+    fi
+    
     case $TLSRet in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
         echo "HTTPS $TLS failed to connect to Codebig $1 server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
@@ -918,7 +921,8 @@ sendTLSRequest()
                     CURL_CMD="$CURL_CMD --cert-status"
                 fi
                 stateRedlog "State Red Recovery CURL_CMD: [$CURL_CMD]"
-                result= eval $CURL_CMD > $HTTP_CODE
+                eval $CURL_CMD > $HTTP_CODE
+                TLSRet=$?
             else
                 stateRedlog "Error: State Red Recovery config not found"
                 exit 127
@@ -968,9 +972,9 @@ sendTLSRequest()
         else 
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
-        result= eval $CURL_CMD > $HTTP_CODE
-        rc=$?
-        if [ $rc -eq 6 ]; then 
+        eval $CURL_CMD > $HTTP_CODE
+        TLSRet=$?
+        if [ $TLSRet -eq 6 ]; then 
            t2CountNotify "xconf_couldnt_resolve" 
         fi
     elif [ "$1" == "SSR" ]; then
@@ -1032,30 +1036,34 @@ sendTLSRequest()
            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-              result= eval $CURL_CMD &> $CURL_PROGRESS &
+              eval $CURL_CMD &> $CURL_PROGRESS &
               echo "$!" > $CURL_PID_FILE
               CurlPid=`cat $CURL_PID_FILE`
               wait $CurlPid
         else
-              result= eval $CURL_CMD &> $CURL_PROGRESS
+              eval $CURL_CMD &> $CURL_PROGRESS
         fi
-        rc=$?
-        if [ $rc -eq 28 ]; then
-            # Curl returns 28 if speed is less than 100 kbit/sec
-            # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
-            echo "CDL is suspended because speed is below 100 kbit/second"
-        fi
-
-        if [ $rc -eq 22 ]; then 
-            t2CountNotify "swdl_failed"
-        elif [ $rc -eq 18 ] || [ $rc -eq 7 ]; then
-            t2CountNotify "swdl_failed_$rc"
-        fi
+	TLSRet=$?
     fi
-    TLSRet=$?
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
-    fi 
+    fi
+    if [ $TLSRet -ne 0 ]; then
+        if [ $TLSRet -eq 28 ]; then
+                # Curl returns 28 if speed is less than 100 kbit/sec
+                # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
+                echo "CDL is suspended because speed is below 100 kbit/second"
+        elif [ $TLSRet -eq 22 ]; then
+                t2CountNotify "swdl_failed"
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+                t2CountNotify "swdl_failed_$TLSRet"
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        else
+                echo "CDL is suspended due to Curl $TLSRet Error"
+        fi
+    fi
+ 
     case $TLSRet in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
         echo "HTTPS $TLS failed to connect to $1 server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
