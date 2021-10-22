@@ -62,9 +62,14 @@ if [ "$DEVICE_TYPE" != "mediaclient" ]; then
     . $RDK_PATH/commonUtils.sh
 fi
 
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
+
 uploadLog() {
-    timestamp=`/bin/timestamp`
-    echo "$timestamp $0: $*" >> $DCM_LOG_FILE
+    echo "`/bin/timestamp`: $0: $*" >> $DCM_LOG_FILE
+}
+
+tlsLog() {
+    echo "$0: $*" >> $TLS_LOG_FILE
 }
 
 # assign the input arguments
@@ -369,7 +374,7 @@ logTLSError ()
     server=$2
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            uploadLog "HTTPS $TLS failed to connect to $server server with curl error code $TLSRet"
+            tlsLog "HTTPS $TLS failed to connect to $server server with curl error code $TLSRet"
             ;;
     esac
 }

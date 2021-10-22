@@ -77,6 +77,7 @@ TELEMETRY_PATH="/opt/.telemetry"
 SORTED_PATTERN_CONF_FILE="$TELEMETRY_PATH/dca_temp_file.conf"
 DCMFLAG="/tmp/.DCMSettingsFlag"
 DCM_LOG_FILE="$LOG_PATH/dcmscript.log"
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 
 #setting TLS value only for Yocto builds
 TLS=""
@@ -90,8 +91,11 @@ cron_update=0
 reboot_flag=$4
 
 dcmLog() {
-    timestamp=`/bin/timestamp`
-    echo "$timestamp $0: $*" >> $DCM_LOG_FILE
+    echo "`/bin/timestamp`: $0: $*" >> $DCM_LOG_FILE
+}
+
+tlsLog() {
+    echo "`/bin/timestamp`: $0: $*" >> $TLS_LOG_FILE
 }
 
 if [ $# -ne 5 ]
@@ -436,7 +440,7 @@ sendTLSDCMCodebigRequest()
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            dcmLog "HTTPS $TLS failed to connect to Codebig DCM server with curl error code $TLSRet"
+            tlsLog "HTTPS $TLS failed to connect to Codebig DCM server with curl error code $TLSRet"
             ;;
     esac
     dcmLog "Curl return code : $TLSRet"
@@ -493,7 +497,7 @@ sendTLSDCMRequest()
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            dcmLog "HTTPS with $msg_tls_source for $TLS failed to connect to XCONF server with curl error code $TLSRet"
+            tlsLog "HTTPS with $msg_tls_source for $TLS failed to connect to XCONF server with curl error code $TLSRet"
             ;;
 
     esac

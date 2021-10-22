@@ -46,6 +46,7 @@ if [ -z $LOG_PATH ]; then
 fi
 
 #Define variable for the peripheral image upgrade
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 peripheral_json_file="$RAMDISK_PATH/rc-proxy-params.json"
 CURL_TLS_TIMEOUT=30
 CURRENT_PERIPHERAL_VERSION="/tmp/current_peripheral_versions.txt"
@@ -64,6 +65,17 @@ CB_MAX_RETRIES=1
 DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_peridl"
 CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_peridl"
 
+#Use log framework to print timestamp and source script name
+swupdateLog()
+{
+    echo "`/bin/timestamp`: $0: $*"
+}
+
+tlsLog()
+{
+    echo "$0: $*" >> $TLS_LOG_FILE
+}
+
 IsDirectBlocked()
 {
     directret=0
@@ -71,10 +83,10 @@ IsDirectBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
         remtime=$((($DIRECT_BLOCK_TIME/3600) - ($modtime/3600)))
         if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
-            echo "`/bin/timestamp`peri_firmware_dndl: Last direct failed blocking is still valid for $remtime hrs, preventing direct"
+            swupdateLog "peri_firmware_dndl: Last direct failed blocking is still valid for $remtime hrs, preventing direct"
             directret=1
         else
-            echo "`/bin/timestamp`peri_firmware_dndl: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
+            swupdateLog "peri_firmware_dndl: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
             rm -f $DIRECT_BLOCK_FILENAME
         fi
     fi
@@ -88,10 +100,10 @@ IsCodeBigBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $CB_BLOCK_FILENAME)))
         cbremtime=$((($CB_BLOCK_TIME/60) - ($modtime/60)))
         if [ "$modtime" -le "$CB_BLOCK_TIME" ]; then
-            echo "`/bin/timestamp`peri_firmware_dndl: Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig"
+            swupdateLog "peri_firmware_dndl: Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig"
             codebigret=1
         else
-            echo "`/bin/timestamp`peri_firmware_dndl: Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig"
+            swupdateLog "peri_firmware_dndl: Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig"
             rm -f $CB_BLOCK_FILENAME
         fi
     fi
@@ -113,7 +125,6 @@ getRemoteInfo()
                 peripheral_audio_version=`echo $line | grep "AudioVer" | awk -F '"AudioVer":"' '{print $NF}' | awk -F '"' '{print $1}'`
                 peripheral_dsp_version=`echo $line | grep "DspVer" | awk -F '"DspVer":"' '{print $NF}' | awk -F '"' '{print $1}'`
                 peripheral_kw_model_version=`echo $line | grep "KwModelVer" | awk -F '"KwModelVer":"' '{print $NF}' | awk -F '"' '{print $1}'`
-
                 peripheral_data="$peripheral_data&remCtrl$peripheral_product=$peripheral_fw_version"
                 currentversions="${currentversions},${peripheral_product}_firmware_${peripheral_fw_version}.tgz"
                 if [ ! -z $peripheral_audio_version ]; then
@@ -141,7 +152,7 @@ sendNotification()
     if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ]; then
         $IARM_EVENT_BINARY_LOCATION/IARM_event_sender "PeripheralUpgradeEvent" "$DIFW_PATH" "$iarmevent_firmware_filenames"
     else
-        echo "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
+        swupdateLog "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
     fi
 }
 
@@ -166,9 +177,9 @@ getCodebigSignedURL()
     eval $SIGN_CMD > /tmp/.signedRequest
     if [ -s /tmp/.signedRequest ]
     then
-        echo "GetServiceUrl success"
+        swupdateLog "GetServiceUrl success"
     else
-        echo "GetServiceUrl failed"
+        swupdateLog "GetServiceUrl failed"
         exit 1
     fi
     cbSignedURL=`cat /tmp/.signedRequest`
@@ -195,7 +206,7 @@ sendTLSRequestForImageDownload()
     if [ "$DEVICE_TYPE" = "hybrid" ] || [ "$DEVICE_TYPE" = "mediaclient" ]; then
         mTlsXConfDownload=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsXConfDownload.Enable 2>&1 > /dev/null)
         if [ "$FORCE_MTLS" == "true" ]; then
-            echo "MTLS method enabled"
+            swupdateLog "MTLS method enabled"
             mTlsXConfDownload="true"
         fi
     fi
@@ -210,10 +221,10 @@ sendTLSRequestForImageDownload()
     else
         #RDK-32180: Use mTLS for Xconf/SSR Interaction for BLE Remote Control Firmware Upgrade
         if [ "$mTlsXConfDownload" == "true" ]; then
-            echo "Peripheral Upgrade requires Mutual Authentication"
+            swupdateLog "Peripheral Upgrade requires Mutual Authentication"
             if [ -d /etc/ssl/certs ]; then
                 if [ ! -f /usr/bin/GetConfigFile ];then
-                    echo "Error: GetConfigFile Not Found"
+                    swupdateLog "Error: GetConfigFile Not Found"
                     exit 127
                 fi
                 ID="/tmp/uydrgopwxyem"
@@ -229,21 +240,21 @@ sendTLSRequestForImageDownload()
             cmd="$cmd  --cert-status"
         fi    
     fi
-    echo "Download URL: $cmd"
+    swupdateLog "Download URL: $cmd"
 
     eval $cmd > $HTTP_CODE
     TLSRet=$?
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            echo "HTTPS $TLS failed to connect to SSR server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+            tlsLog "HTTPS $TLS failed to connect to SSR server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
         ;;
     esac
-    echo "Curl download return code : $TLSRet"
+    swupdateLog "Curl download return code : $TLSRet"
 
     if [ -f "$ID" ];then
         rm -rf $ID
     else
-        echo "MTLS method not enabled"
+        swupdateLog "MTLS method not enabled"
     fi
 
     if [ "$TLSRet" = "7" ]; then
@@ -253,12 +264,12 @@ sendTLSRequestForImageDownload()
 
 downloadPeripheralFirmware()
 {
-    echo "Trying to download $firmware_version.tgz"
+    swupdateLog "Trying to download $firmware_version.tgz"
     sendTLSRequestForImageDownload
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
 
     if [ $TLSRet -eq 0 ] && [ "$http_code" = "200" ]; then
-        echo "Downloading $firmware_version.tgz is successful"
+        swupdateLog "Downloading $firmware_version.tgz is successful"
         # !! Have to stick with this message format as current dashboard is expecting this data !!
         t2ValNotify "xr_fwdnld_split" "${firmware_version:2}.tgz is successful"
         previous_downloadversions="${previous_downloadversions},${firmware_version}.tgz"
@@ -273,7 +284,7 @@ downloadPeripheralFirmware()
             iarmevent_firmware_filenames=$iarmevent_firmware_filenames","$firmware_version".tgz"
         fi
     else
-        echo "Downloading $firmware_version.tgz failed"
+        swupdateLog "Downloading $firmware_version.tgz failed"
     fi
 }
 
@@ -281,8 +292,7 @@ downloadPeripheralFirmware()
 #Also switches to Codebig if Direct fails
 getPeripheralFirmwares()
 {
-
-    echo "Going to download peripheral firmwares"
+    swupdateLog "Going to download peripheral firmwares"
     # Cleaning up the variable
     iarmevent_firmware_filenames="" 
     ret=0
@@ -297,11 +307,10 @@ getPeripheralFirmwares()
     if [ -f $DOWNLOADED_PERIPHERAL_VERSION ]; then
         previous_downloadversions=`cat $DOWNLOADED_PERIPHERAL_VERSION`
     fi
-    echo "`/bin/timestamp` getPeripheralFirmwares(): Received DL request for = $peripheral_firmwares"
+    swupdateLog "getPeripheralFirmwares(): Received DL request for = $peripheral_firmwares"
     firmware_version=`echo $peripheral_firmwares | cut -d "," -f1`
-    
-    echo "`/bin/timestamp` getPeripheralFirmwares(): Current FW = $currentversions"
-    echo "`/bin/timestamp` getPeripheralFirmwares(): FW to be downloaded =  $firmware_version"
+    swupdateLog "getPeripheralFirmwares(): Current FW = $currentversions"
+    swupdateLog "getPeripheralFirmwares(): FW to be downloaded =  $firmware_version"
 
     if [ ! -d $DIFW_PATH ]; then
         mkdir -p $DIFW_PATH
@@ -313,27 +322,27 @@ getPeripheralFirmwares()
         peripheral_device_type=`echo $firmware_version | cut -d "_" -f1`
         peripheral_version_type=`echo $firmware_version | cut -d "_" -f2`
 
-        echo "Deleting the Old $peripheral_device_type $peripheral_version_type tar files if any"
+        swupdateLog "Deleting the Old $peripheral_device_type $peripheral_version_type tar files if any"
         if [ ! -e $DIFW_PATH/$firmware_version.tgz ];then
              rm -rf $DIFW_PATH/${peripheral_device_type}_${peripheral_version_type}_*.tgz
-             echo "Deleted $DIFW_PATH/${peripheral_device_type}_${peripheral_version_type}_*.tgz"
+             swupdateLog "Deleted $DIFW_PATH/${peripheral_device_type}_${peripheral_version_type}_*.tgz"
         fi
 
         if [ "$currentversions" != "" ]; then
             image_check=`echo $currentversions | tr "," "\n" | grep "$peripheral_device_type" | grep "$peripheral_version_type" | grep -v "$firmware_version"`
-            echo "`/bin/timestamp` getPeripheralFirmwares(): ImageCheck = $image_check"
+            swupdateLog "getPeripheralFirmwares(): ImageCheck = $image_check"
 
             if [ "$image_check" == "" ]; then
                  trigger_download=0
-                 echo "`/bin/timestamp` getPeripheralFirmwares(): ImageCheck is empty Not triggering DL"
+                 swupdateLog "getPeripheralFirmwares(): ImageCheck is empty Not triggering DL"
             fi
         fi
 
         if [ "$previous_downloadversions" != "" ]; then
-            echo "`/bin/timestamp` getPeripheralFirmwares(): PrevDownload Version = $previous_downloadversions"
+            swupdateLog "getPeripheralFirmwares(): PrevDownload Version = $previous_downloadversions"
             downloaded_version=`echo $previous_downloadversions | tr "," "\n" | grep "$peripheral_device_type" | grep "$peripheral_version_type"`
             if [ "$downloaded_version" == "$firmware_version.tgz" ] ; then
-                echo "`/bin/timestamp` getPeripheralFirmwares: Prev Downloaded FW($downloaded_version) and Cur FW($firmware_version) are Same"
+                swupdateLog "getPeripheralFirmwares: Prev Downloaded FW($downloaded_version) and Cur FW($firmware_version) are Same"
                 trigger_download=0
             fi
         fi
@@ -341,7 +350,7 @@ getPeripheralFirmwares()
         if [ $trigger_download -eq 1 ] ; then
             ret=1
             if [ $UseCodebig -eq 1 ]; then
-                echo "`/bin/timestamp`getPeripheralFirmwares: Codebig is enabled UseCodebig:$UseCodebig" 
+                swupdateLog "getPeripheralFirmwares: Codebig is enabled UseCodebig:$UseCodebig" 
                 if [ "$DEVICE_TYPE" = "mediaclient" ]; then
                     # Use Codebig connection connection on XI platforms
                     IsCodeBigBlocked
@@ -349,11 +358,11 @@ getPeripheralFirmwares()
                     if [ $skipcodebig -eq 0 ]; then
                         while [ "$cbretries" -le $CB_MAX_RETRIES ]
                         do
-                            echo "`/bin/timestamp`getPeripheralFirmwares: Attempting Codebig firmware download" 
+                            swupdateLog "getPeripheralFirmwares: Attempting Codebig firmware download" 
                             downloadPeripheralFirmware
                             http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                             if [ "$http_code" = "200" ]; then
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download Success: httpcode=$http_code" 
+                                swupdateLog "getPeripheralFirmwares: Codebig firmware download Success: httpcode=$http_code" 
                                 IsDirectBlocked
                                 skipDirect=$?
                                 if [ $skipDirect -eq 0 ]; then
@@ -361,10 +370,10 @@ getPeripheralFirmwares()
                                 fi
                                 break
                             elif [ "$http_code" = "404" ]; then
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Received 404 response for Codebig firmware download, Retry logic not needed"
+                                swupdateLog "getPeripheralFirmwares: Received 404 response for Codebig firmware download, Retry logic not needed"
                                 break
                             fi
-                            echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download return: retry=$cbretries, httpcode=$http_code" 
+                            swupdateLog "getPeripheralFirmwares: Codebig firmware download return: retry=$cbretries, httpcode=$http_code" 
                             cbretries=`expr $cbretries + 1`
                             sleep 10
                         done
@@ -374,45 +383,45 @@ getPeripheralFirmwares()
                         IsDirectBlocked
                         skipdirect=$?
                         if [ $skipdirect -eq 0 ]; then
-                            echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download failed: httpcode=$http_code, Using Direct" 
+                            swupdateLog "getPeripheralFirmwares: Codebig firmware download failed: httpcode=$http_code, Using Direct" 
                             UseCodebig=0
                             downloadPeripheralFirmware
                             http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                             if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download request failover failed: httpcode=$http_code" 
+                                swupdateLog "getPeripheralFirmwares: Direct firmware download request failover failed: httpcode=$http_code" 
                             else
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download request failover received: httpcode=$http_code" 
+                                swupdateLog "getPeripheralFirmwares: Direct firmware download request failover received: httpcode=$http_code" 
                             fi
                         fi
                         IsCodeBigBlocked
                         skipCodeBig=$?
                         if [ $skipCodeBig -eq 0 ]; then
-                            echo "`/bin/timestamp`getPeripheralFirmwares: Codebig block released" 
+                            swupdateLog "getPeripheralFirmwares: Codebig block released" 
                         fi
                     elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download failed with httpcode=$http_code"
+                        swupdateLog "getPeripheralFirmwares: Codebig firmware download failed with httpcode=$http_code"
                     fi
                 else
-                    echo "`/bin/timestamp`getPeripheralFirmwares: Codebig is not supported"
+                    swupdateLog "getPeripheralFirmwares: Codebig is not supported"
                 fi
             else
-                echo "`/bin/timestamp`getPeripheralFirmwares: Codebig is disabled UseCodebig=$UseCodebig"
+                swupdateLog "getPeripheralFirmwares: Codebig is disabled UseCodebig=$UseCodebig"
                 IsDirectBlocked
                 skipdirect=$?
                 if [ $skipdirect -eq 0 ]; then
                     while [ "$retries" -lt $MAX_RETRIES ]
                     do
-                       echo "`/bin/timestamp`getPeripheralFirmwares: Attempting Direct firmware download" 
+                       swupdateLog "getPeripheralFirmwares: Attempting Direct firmware download" 
                        downloadPeripheralFirmware
                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                        if [ "$http_code" = "200" ];then
-                           echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download success: httpcode=$http_code" 
+                           swupdateLog "getPeripheralFirmwares: Direct firmware download success: httpcode=$http_code" 
                            break
                        elif [ "$http_code" = "404" ]; then
-                           echo "`/bin/timestamp`getPeripheralFirmwares: Received 404 response for Direct firmware download, Retry logic not needed"
+                           swupdateLog "getPeripheralFirmwares: Received 404 response for Direct firmware download, Retry logic not needed"
                            break
                        fi
-                       echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download return: retry=$retries, httpcode=$http_code" 
+                       swupdateLog "getPeripheralFirmwares: Direct firmware download return: retry=$retries, httpcode=$http_code" 
                        retries=`expr $retries + 1`
                        sleep 60
                     done
@@ -420,7 +429,7 @@ getPeripheralFirmwares()
         
                 if [ "$http_code" = "000" ]; then 
                     if [ "$DEVICE_TYPE" = "mediaclient" ]; then
-                        echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download failed: httpcode=$http_code, Using Codebig" 
+                        swupdateLog "getPeripheralFirmwares: Direct firmware download failed: httpcode=$http_code, Using Codebig" 
                         IsCodeBigBlocked
                         skipcodebig=$?
                         if [ $skipcodebig -eq 0 ]; then
@@ -430,49 +439,49 @@ getPeripheralFirmwares()
                                 downloadPeripheralFirmware
                                 http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                                 if [ "$http_code" = "200" ]; then
-                                    echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download success: httpcode=$http_code" 
+                                    swupdateLog "getPeripheralFirmwares: Codebig firmware download success: httpcode=$http_code" 
                                     UseCodebig=1
                                     if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                         touch $DIRECT_BLOCK_FILENAME
-                                        echo "`/bin/timestamp`getPeripheralFirmwares: Use Codebig and Block Direct for 24 hrs "
+                                        swupdateLog "getPeripheralFirmwares: Use Codebig and Block Direct for 24 hrs "
                                     fi
                                     break
                                 elif [ "$http_code" = "404" ]; then
-                                    echo "`/bin/timestamp`getPeripheralFirmwares: Received 404 response for Codebig firmware download, Retry logic not needed"
+                                    swupdateLog "getPeripheralFirmwares: Received 404 response for Codebig firmware download, Retry logic not needed"
                                     break
                                 fi
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download return: retry=$cbretries, http code=$http_code" 
+                                swupdateLog "getPeripheralFirmwares: Codebig firmware download return: retry=$cbretries, http code=$http_code" 
                                 cbretries=`expr $cbretries + 1`
                                 sleep 60
                             done
 
                             if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                                echo "`/bin/timestamp`getPeripheralFirmwares: Codebig firmware download failed: httpcode=$http_code" 
+                                swupdateLog "getPeripheralFirmwares: Codebig firmware download failed: httpcode=$http_code" 
                                 UseCodebig=0
                                 if [ ! -f $CB_BLOCK_FILENAME ]; then
                                     touch $CB_BLOCK_FILENAME
-                                    echo "`/bin/timestamp`getPeripheralFirmwares: Switch Direct and Blocking Codebig for 30mins"
+                                    swupdateLog "getPeripheralFirmwares: Switch Direct and Blocking Codebig for 30mins"
                                 fi
                             fi
                         fi
                     else
-                        echo "`/bin/timestamp`getPeripheralFirmwares: Codebig is not supported"
+                        swupdateLog "getPeripheralFirmwares: Codebig is not supported"
                     fi
                 elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                    echo "`/bin/timestamp`getPeripheralFirmwares: Direct firmware download failed: httpcode=$http_code"
+                    swupdateLog "getPeripheralFirmwares: Direct firmware download failed: httpcode=$http_code"
                 fi
             fi
         else
-            echo "`/bin/timestamp`getPeripheralFirmwares: Skipping download of $firmware_version, as current/downloaded image and cloud image are same"
+            swupdateLog "getPeripheralFirmwares: Skipping download of $firmware_version, as current/downloaded image and cloud image are same"
         fi
 
         if [ "$http_code" == "404" ] ; then
-            echo "`/bin/timestamp`getPeripheralFirmwares: download of $firmware_version failed with HTTP 404 error"
+            swupdateLog "getPeripheralFirmwares: download of $firmware_version failed with HTTP 404 error"
         fi
 
         count=`expr $count + 1`
         firmware_version=`echo $peripheral_firmwares | cut -d "," -f$count`
-        echo "`/bin/timestamp` getPeripheralFirmwares: Next FW to DL $firmware_version"
+        swupdateLog "getPeripheralFirmwares: Next FW to DL $firmware_version"
     done
     #send notification if atleast one download is successful
     if [ "$send_iarm_event" == "true" ]; then
@@ -482,4 +491,3 @@ getPeripheralFirmwares()
     echo $previous_downloadversions > $DOWNLOADED_PERIPHERAL_VERSION
     return $ret
 }
-

@@ -25,41 +25,46 @@ sourcepath="https://rdk4apps.com:8055/Images"
 imagePath="/tmp/images"
 rebootDelay=120
 DNLD_STATUS_FILE="/tmp/.dwnldStatus"
+DWNLD_LOG_FILE="/tmp/dwnldlog.txt"
 
 export PATH=$PATH:/usr/local/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 export SSL_CERT_FILE=/etc/ssl/certs/qt-cacert.pem
 
+swupdateLog ()
+{
+    echo "`/bin/timestamp` : $*" >> $DWNLD_LOG_FILE
+}
+
 # creating working path
 mkdir -p $imagePath
 # move to the working path
 cd $imagePath
-echo "--- Download method called ----" > /tmp/dwnldlog.txt
-echo Pulling image $1.img from server $server >> /tmp/dwnldlog.txt
-echo calling curl -o $imagePath/$1 $sourcepath/$1 >> /tmp/dwnldlog.txt
+swupdateLog "--- Download method called ----"
+swupdateLog "Pulling image $1.img from server $server"
+swupdateLog "calling curl -o $imagePath/$1 $sourcepath/$1"
+
 # image download
-#scp  -i /etc/dropbear/dropbear_rsa_host_key rdkcl@$server:/opt/images/$1 .
 curl -o $imagePath/$1 $sourcepath/$1
 if [ $? -ne 0 ]; then
-  echo "Can not pull image from server quitting" >> /tmp/dwnldlog.txt
-  echo "failed" > /tmp/.dwnld
+    swupdateLog "Can not pull image from server quitting"
+    echo "failed" > /tmp/.dwnld
 fi
-#sync
-echo "now flashing image $1" 
-echo "now flashing image $1" >> /tmp/dwnldlog.txt
+
+swupdateLog "now flashing image $1" 
+
 # invoking device specific call to flash the image
-echo sh  /lib/rdk/imageFlasher.sh "HTTP" $sourcepath $imagePath $1 >> /tmp/dwnldlog.txt
-sh  /lib/rdk/imageFlasher.sh "HTTP" $sourcepath $imagePath $1 >> /tmp/dwnldlog.txt
+swupdateLog "sh  /lib/rdk/imageFlasher.sh "HTTP" $sourcepath $imagePath $1"
+sh  /lib/rdk/imageFlasher.sh "HTTP" $sourcepath $imagePath $1
 if [ $? -eq 0 ] ; then
-  echo "======= Success flashing image... box will reboot in $rebootDelay seconds ==============" >> /tmp/dwnldlog.txt
-  echo "success" > $DNLD_STATUS_FILE
-  sleep $rebootDelay
-  #reboot
-  /rebootNow.sh -s ImageUpgrade_"`basename $0`" -o "Rebooting the box after Image Upgrade..."
+    swupdateLog "======= Success flashing image... box will reboot in $rebootDelay seconds =============="
+    echo "success" > $DNLD_STATUS_FILE
+    sleep $rebootDelay
+    /rebootNow.sh -s ImageUpgrade_"`basename $0`" -o "Rebooting the box after Image Upgrade..."
 else
-  echo "======= Can not flash image... may be its a bad one  ==============" >> /tmp/dwnldlog.txt
-  echo "failed" > $DNLD_STATUS_FILE
-  exit 1
+    swupdateLog "======= Can not flash image... may be its a bad one  =============="
+    echo "failed" > $DNLD_STATUS_FILE
+    exit 1
 fi
 exit 0
 

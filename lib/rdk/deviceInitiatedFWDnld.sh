@@ -29,26 +29,23 @@
 . /etc/include.properties
 . /etc/device.properties
 
-if [ -f /lib/rdk/t2Shared_api.sh ]; then
-    source /lib/rdk/t2Shared_api.sh
+if [ -f $RDK_PATH/t2Shared_api.sh ]; then
+    source $RDK_PATH/t2Shared_api.sh
 fi
 
 if [ "$DEVICE_TYPE" == "mediaclient" ]; then
     . /etc/common.properties 
     if [ -f $RDK_PATH/utils.sh ]; then
        . $RDK_PATH/utils.sh
-   
     fi
-
-     if [ -f $RDK_PATH/commonUtils.sh ]; then
-
+    if [ -f $RDK_PATH/commonUtils.sh ]; then
        . $RDK_PATH/commonUtils.sh
-     fi
+    fi
 else
-    if [ -f $RDK_PATH/commonUtils.sh ];then
+    if [ -f $RDK_PATH/commonUtils.sh ]; then
        . $RDK_PATH/commonUtils.sh
     fi
-    if [ -f $RDK_PATH/snmpUtils.sh ];then
+    if [ -f $RDK_PATH/snmpUtils.sh ]; then
        . $RDK_PATH/snmpUtils.sh
     fi
 fi
@@ -81,16 +78,14 @@ if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 fi
 
-eventSender()
-{
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
-    then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
-    fi
-}
+if [ -z $LOG_PATH ]; then
+    LOG_PATH="/opt/logs/"
+fi
 
+STATE_RED_LOG_FILE=$LOG_PATH/"swupdate.log"
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 
-
+#Image Download States
 IMAGE_FWDNLD_UNINITIALIZED=0
 IMAGE_FWDNLD_DOWNLOAD_INPROGRESS=1
 IMAGE_FWDNLD_DOWNLOAD_COMPLETE=2
@@ -123,11 +118,9 @@ maintenance_error_flag=0
 FirmwareStateEvent="FirmwareStateEvent"
 ImageDwldEvent="ImageDwldEvent"
 
-## RETRY DELAY in secs
+## RETRY DELAY and COUNT
 RETRY_DELAY_XCONF=60
 RETRY_SHORT_DELAY_XCONF=10
-
-## RETRY COUNT
 RETRY_COUNT=3
 CB_RETRY_COUNT=1
 
@@ -137,6 +130,9 @@ FILENAME="$PERSISTENT_PATH/response.txt"
 ## File to save http code and curl progress
 HTTP_CODE="$PERSISTENT_PATH/xconf_curl_httpcode"
 CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
+
+## File containing common firmware download state variables
+STATUS_FILE="/opt/fwdnldstatus.txt"
 
 if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
     useXpkiMtlsLogupload="true"
@@ -149,13 +145,10 @@ if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]; then
     CURL_PID_FILE="/tmp/.curl.pid"
     FWDNLD_PID_FILE="/tmp/.fwdnld.pid"
     PWR_STATE_LOG="/opt/logs/pwrstate.log"
-
     echo "$$" > $FWDNLD_PID_FILE
-
     if [ -f /usr/bin/pwrstate_notifier ]; then
          /usr/bin/pwrstate_notifier &> $PWR_STATE_LOG &
     fi
-
     PID_PWRSTATE=`pidof pwrstate_notifier`
     trap 'interrupt_download' 15
 fi
@@ -168,33 +161,24 @@ if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
     trap 'interrupt_download_onabort' SIGABRT
 fi
 
-
-
 ## PDRI image filename
 pdriFwVerInfo=""
 
-## File containing common firmware download state variables
-STATUS_FILE="/opt/fwdnldstatus.txt"
-
-##START RDKALL-966
-
+##RDKALL-966 Variables
 DelayDownloadXconf=0
-
 REBOOT_PENDING_DELAY=2
 
 ## Hour and Minute of the New Cron Jod for Delay Download
 NewCronHr=0
 NewCronMin=0
 
-##END RDKALL-966
-
 ## Flag to disable STATUS_FILE updates in case of PDRI upgrade
 disableStatsUpdate="no"
 
 ## Timezone file for all platforms Gram/Fles boxes.
 TIMEZONEDST="/opt/persistent/timeZoneDST"
-
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
+
 ## Capabilities of the current box
 CAPABILITIES='&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
 
@@ -233,6 +217,13 @@ DOWNLOAD_IN_PROGRESS="Download In Progress"
 UPGRADE_IN_PROGRESS="Flashing In Progress"
 dnldInProgressFlag="/tmp/.imageDnldInProgress"
 
+EnableOCSPStapling="/tmp/.EnableOCSPStapling"
+EnableOCSP="/tmp/.EnableOCSPCA"
+
+#Cert ops STB Red State recovery RDK-30717
+stateRedSprtFile="/lib/rdk/stateRedRecovery.sh"
+stateRedFlag="/tmp/stateRedEnabled"
+
 # NLMON Route and DNS flagss
 # AF_INET protocols are from /usr/include/linux/socket.h (in Linux)
 PING=/bin/ping
@@ -243,66 +234,7 @@ ROUTE_FLAG_MAX_CHECK=5
 AF_INET="IPV4"
 AF_INET6="IPV6"
 
-if [ -z $LOG_PATH ]; then
-    LOG_PATH="/opt/logs/"
-fi
-
-isThrottleEnabled="false"
-VIDEO=""
-if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
-   isThrottleEnabled=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.Enable 2>&1 > /dev/null)
-   if [ "$isThrottleEnabled" = "true" ]; then
-      echo "Throttle is enabled"
-      if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
-         #For Placto & LLAMA devices
-         STREAMING=`grep "frame width" /sys/class/vdec/vdec_status | awk -F':' '{printf $1}'`
-      elif [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
-         #For Xione Realtek SOC device
-         STREAMING=`/usr/bin/redis-cli get video.codec`
-      else
-         #For other media-client devices
-         STREAMING=`grep "pts" /proc/brcm/video_decoder`
-      fi
-
-      VIDEO=$STREAMING
-      ## Throttle Enabled Variables
-      if [ ! -z "$VIDEO" ] && [ "$VIDEO" != "None" ]; then
-         TOPSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.TopSpeed 2>&1 > /dev/null)
-         if [ $TOPSPEED -eq 0 ]; then
-            TOPSPEED=1280000
-         fi
-      fi
-   else
-      echo "Throttle is disabled"
-   fi
-fi
-
-if [ "$DEVICE_TYPE" != "mediaclient" ]; then
-    setSNMPEnv
-    snmpCommunityVal=`head -n 1 /tmp/snmpd.conf | awk '{print $4}'`
-    if [ ! "$snmpCommunityVal" ]; then 
-        echo "Missing the SNMP community string, existing..!"; 
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
-        fi
-        exit 1;
-    fi
-fi
-
-if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ] ; then
-    urlString=`grep -v '^[[:space:]]*#' $PERSISTENT_PATH/swupdate.conf`
-    echo "$urlString" | grep -q -i "^http.*://"
-    if [ $? -ne 0 ]; then
-        echo "`Timestamp` Device configured with an invalid overriden URL : $urlString !!! Exiting from Image Upgrade process..!"
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
-        fi
-        exit 0
-    fi
-fi
-
+## RFC Variables
 # Autoupdate exclusion based on Xconf
 Fwupdate_auto_exclude=`tr181 -D Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.FWUpdate.AutoExcluded.Enable 2>&1 > /dev/null`
 
@@ -330,11 +262,96 @@ if [ -z "$DEVXCONF_URL" ]; then
     DEVXCONF_URL="https://ccpxcb-dt-a001-q.dt.ccp.cable.comcast.com:8095/xconf/swu/stb"
 fi
 
+stateRedlog ()
+{
+    echo "`Timestamp` : $*" >> "$STATE_RED_LOG_FILE"
+}
+
+#Use log framework to pring timestamp and source script name
+swupdateLog()
+{
+    echo "`/bin/timestamp`: $0: $*"
+}
+
+tlsLog()
+{
+    echo "`/bin/timestamp`: $0: $*" >> $TLS_LOG_FILE
+}
+
+#Function to send IARM events
+eventManager()
+{
+    # Disable the event updates if PDRI upgrade
+    if [ "$disableStatsUpdate" == "yes" ]; then
+        return 0
+    fi
+
+    swupdateLog "Sending IARM Event $1 $2"
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ]; then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    else
+        swupdateLog "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
+    fi
+}
+
+isThrottleEnabled="false"
+VIDEO=""
+if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
+   isThrottleEnabled=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.Enable 2>&1 > /dev/null)
+   if [ "$isThrottleEnabled" = "true" ]; then
+      swupdateLog "Throttle is enabled"
+      if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
+         #For Placto & LLAMA devices
+         STREAMING=`grep "frame width" /sys/class/vdec/vdec_status | awk -F':' '{printf $1}'`
+      elif [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
+         #For Xione Realtek SOC device
+         STREAMING=`/usr/bin/redis-cli get video.codec`
+      else
+         #For other media-client devices
+         STREAMING=`grep "pts" /proc/brcm/video_decoder`
+      fi
+
+      VIDEO=$STREAMING
+      ## Throttle Enabled Variables
+      if [ ! -z "$VIDEO" ] && [ "$VIDEO" != "None" ]; then
+         TOPSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.TopSpeed 2>&1 > /dev/null)
+         if [ $TOPSPEED -eq 0 ]; then
+            TOPSPEED=1280000
+         fi
+      fi
+   else
+      swupdateLog "Throttle is disabled"
+   fi
+fi
+
+if [ "$DEVICE_TYPE" != "mediaclient" ]; then
+    setSNMPEnv
+    snmpCommunityVal=`head -n 1 /tmp/snmpd.conf | awk '{print $4}'`
+    if [ ! "$snmpCommunityVal" ]; then 
+        swupdateLog "Missing the SNMP community string, existing..!";
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+            eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
+        exit 1;
+    fi
+fi
+
+if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ] ; then
+    urlString=`grep -v '^[[:space:]]*#' $PERSISTENT_PATH/swupdate.conf`
+    echo "$urlString" | grep -q -i "^http.*://"
+    if [ $? -ne 0 ]; then
+        swupdateLog "Device configured with an invalid overriden URL : $urlString !!! Exiting from Image Upgrade process..!"
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+            eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        fi
+        exit 0
+    fi
+fi
+
 if [ "$Fwupdate_auto_exclude" == "true" ] && [ $BUILD_TYPE != "prod" ] && [ ! $urlString ] ; then
-    echo "Device excluded from firmware update. Exiting !!"
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    swupdateLog "Device excluded from firmware update. Exiting !!"
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
     fi
     exit 0
 fi
@@ -342,11 +359,10 @@ fi
 if [ -f /tmp/DIFD.pid ]; then
     pid=`cat /tmp/DIFD.pid`
     if [ -d /proc/$pid ]; then
-        echo "Device initiated CDL is in progress.."
-        echo "Exiting without triggering device initiated firmware download."
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+        swupdateLog "Device initiated CDL is in progress.."
+        swupdateLog "Exiting without triggering device initiated firmware download."
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+            eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
         fi
         exit 0
     fi
@@ -367,13 +383,12 @@ elif [ "$DEVICE_TYPE" == "mediaclient" ]; then
     fi
 fi
 
-if [ $skipUpgrade -eq 1 ] ; then
-    echo "Device/ECM/Previous initiated firmware upgrade in progress."
+if [ $skipUpgrade -eq 1 ]; then
+    swupdateLog "Device/ECM/Previous initiated firmware upgrade in progress."
     t2CountNotify "SYST_ERR_PrevCDL_InProg"
-    echo "Exiting without triggering device initiated firmware download."
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    swupdateLog "Exiting without triggering device initiated firmware download."
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
     fi
     exit 0
 fi
@@ -381,56 +396,41 @@ fi
 if [ $# -eq 2 ]; then
     # Retry Count ($1) argument will not be parsed as we will use hardcoded fallback mechanism added in RDK-27491. 
     RETRY_COUNT_XCONF=0                        # Assign 0 as default retry count will be used.
-    echo "Retry count passed in first argument=$1 is not used as we follow default retry count=$RETRY_COUNT_XCONF for fallback mechanism"
+    swupdateLog "Retry count passed in first argument=$1 is not used as we follow default retry count=$RETRY_COUNT_XCONF for fallback mechanism"
     triggerType=$2                             # Set the Image Upgrade trigger Type
 else
-    echo "Usage: sh <SCRIPT> <failure retry count> <Image trigger Type>"
+    echo "     Usage: sh <SCRIPT> <failure retry count> <Image trigger Type>"
     echo "     failure retry count: This value from DCM settings file, if not \"0\""
     echo "     Image  trigger Type : Bootup(1)/scheduled(2)/tr69 or SNMP triggered upgrade(3)/App triggered upgrade(4)/(5) Delayed Download"
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
     fi
     exit 0
 fi
 
 if [ $triggerType -eq 1 ]; then
-    echo "`Timestamp` Image Upgrade During Bootup ..!"
+    swupdateLog "Image Upgrade During Bootup ..!"
 elif [ $triggerType -eq 2 ]; then
-    echo "`Timestamp` Scheduled Image Upgrade using cron ..!"
+    swupdateLog "Scheduled Image Upgrade using cron ..!"
 elif [ $triggerType -eq 3 ]; then # Existing SNMP/TR69 upgrades are triggred with type 3
-    echo "`Timestamp` TR-69/SNMP triggered Image Upgrade ..!"
+    swupdateLog "TR-69/SNMP triggered Image Upgrade ..!"
 elif [ $triggerType -eq 4 ]; then
-     echo "`Timestamp` App triggered Image Upgrade ..!"
+    swupdateLog "App triggered Image Upgrade ..!"
 elif [ $triggerType -eq 5 ]; then
-     echo "`Timestamp` Delayed Trigger Image Upgrade ..!"
+    swupdateLog "Delayed Trigger Image Upgrade ..!"
 elif [ $triggerType -eq 6 ]; then
-     echo "`Timestamp` State Red Image Upgrade ..!"
+    swupdateLog "State Red Image Upgrade ..!"
 else
-     echo "`Timestamp` Invalid Upgrade request : $triggerType !"
-     if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-     then
-        eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
-     fi
-     exit 0
+    swupdateLog "Invalid Upgrade request : $triggerType !"
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    fi
+    exit 0
 fi
 
 if [ -f $CURL_PROGRESS ]; then
     rm $CURL_PROGRESS
 fi
-
-EnableOCSPStapling="/tmp/.EnableOCSPStapling"
-EnableOCSP="/tmp/.EnableOCSPCA"
-
-#Cert ops STB Red State recovery RDK-30717
-stateRedSprtFile="/lib/rdk/stateRedRecovery.sh"
-stateRedFlag="/tmp/stateRedEnabled"
-
-STATE_RED_LOG_FILE=$LOG_PATH/"swupdate.log"
-stateRedlog ()
-{
-    echo "`Timestamp` : $*" >> "$STATE_RED_LOG_FILE"
-}
 
 #isStateRedSupported; check if state red supported
 isStateRedSupported()
@@ -452,7 +452,7 @@ isInStateRed()
     isStateRedSupported
     stateSupported=$?
     if [ $stateSupported -eq 0 ]; then
-         return $stateRed
+        return $stateRed
     fi
 
     if [ -f $stateRedFlag ]; then
@@ -510,7 +510,7 @@ checkAndEnterStateRed()
         return
     fi
 
-#Enter state red on ssl or cert errors
+    #Enter state red on ssl or cert errors
     case $curlReturnValue in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
         stateRedlog "checkAndEnterStateRed: Curl SSL/TLS error ($curlReturnValue). Set State Red Recovery Flag and Exit!!!"
@@ -532,15 +532,15 @@ IsDirectBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
         remtime=$((($DIRECT_BLOCK_TIME/3600) - ($modtime/3600)))
         if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
-            echo "`Timestamp` ImageUpgrade: Last direct failed blocking is still valid for $remtime hrs, preventing direct"
+            swupdateLog "ImageUpgrade: Last direct failed blocking is still valid for $remtime hrs, preventing direct"
             directret=1
         else
-            echo "`Timestamp` ImageUpgrade: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
+            swupdateLog "ImageUpgrade: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
             rm -f $DIRECT_BLOCK_FILENAME
         fi
     fi
 
-#Cert ops STB Red State recovery RDK-30717
+    #Cert ops STB Red State recovery RDK-30717
     isInStateRed
     redflagset=$?
     if [ $redflagset -eq 1 ]; then
@@ -557,15 +557,15 @@ IsCodeBigBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $CB_BLOCK_FILENAME)))
         cbremtime=$((($CB_BLOCK_TIME/60) - ($modtime/60)))
         if [ "$modtime" -le "$CB_BLOCK_TIME" ]; then
-            echo "`Timestamp` ImageUpgrade: Last codebig failed blocking is still valid for $cbremtime mins, preventing codebig"
+            swupdateLog "ImageUpgrade: Last codebig failed blocking is still valid for $cbremtime mins, preventing codebig"
             codebigret=1
         else
-            echo "`Timestamp` ImageUpgrade: Last codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing codebig"
+            swupdateLog "ImageUpgrade: Last codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing codebig"
             rm -f $CB_BLOCK_FILENAME
         fi
     fi
 
-#Cert ops STB Red State recovery RDK-30717
+    #Cert ops STB Red State recovery RDK-30717
     isInStateRed
     redflagset=$?
     if [ $redflagset -eq 1 ]; then
@@ -589,31 +589,20 @@ updateUpgradeFlag ()
     if [ "$1" == "create" ]; then
         touch $flag        
     elif [ "$1" == "remove" ]; then
-        if [ -f $flag ]; then rm $flag; fi
-    fi
-}
-
-eventManager()
-{
-    # Disable the event updates if PDRI upgrade
-    if [ "$disableStatsUpdate" == "yes" ]; then
-        return 0
-    fi
-
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ]; then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
-    else
-        echo "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
+        if [ -f $flag ]; then 
+	    rm $flag
+	fi
     fi
 }
 
 Trigger_RebootPendingNotify()
 {
-	#Trigger RebootPendingNotification prior to device reboot for all software managed types of reboots
-	echo "RDKV_REBOOT : Setting RebootPendingNotification before reboot"
-	tr181 -s -v $REBOOT_PENDING_DELAY Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification 
-	echo "RDKV_REBOOT  : RebootPendingNotification SET succeeded"
+    #Trigger RebootPendingNotification prior to device reboot for all software managed types of reboots
+    swupdateLog "RDKV_REBOOT : Setting RebootPendingNotification before reboot"
+    tr181 -s -v $REBOOT_PENDING_DELAY Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification 
+    swupdateLog "RDKV_REBOOT  : RebootPendingNotification SET succeeded"
 }
+
 ## Function to update Firmware download status in log file /opt/fwdnldstatus.txt
 ## Args : 1] Protocol
 ## Args : 2] Upgrade status
@@ -648,7 +637,7 @@ updateFWDownloadStatus()
     fi
     # Check to avoid error in status due error in argument count during logging
     if [ "$numberOfArgs" -ne "9" ]; then
-        echo "Error in number of args for logging status in fwdnldstatus.txt"
+        swupdateLog "Error in number of args for logging status in fwdnldstatus.txt"
     fi
 
     echo "Method|xconf" > $TEMP_STATUS
@@ -674,7 +663,7 @@ getaddressType()
             sleep 2
             retries=`expr $retries + 1`
             if [ $retries -eq 10 ]; then
-            break;
+                break;
             fi
         done
 
@@ -694,15 +683,15 @@ getLocalTime()
 
 getTimeZone()
 {
-    echo "Retrieving the timezone value"
+    swupdateLog "Retrieving the timezone value"
     JSONPATH=/opt
     if [ "$CPU_ARCH" == "x86" ]; then JSONPATH=/tmp; fi
     counter=1
-    echo "Reading Timezone value from $JSONPATH/output.json file..."
+    swupdateLog "Reading Timezone value from $JSONPATH/output.json file..."
     while [ ! "$zoneValue" ]
     do
-        echo "timezone retry:$counter"
-        if [ -f $JSONPATH/output.json ] && [ -s $JSONPATH/output.json ];then
+        swupdateLog "timezone retry:$counter"
+        if [ -f $JSONPATH/output.json ] && [ -s $JSONPATH/output.json ]; then
             grep timezone $JSONPATH/output.json | cut -d ":" -f2 | sed 's/[\",]/ /g' > /tmp/.timeZone.txt
         fi
         
@@ -714,8 +703,8 @@ getTimeZone()
             fi
         done < /tmp/.timeZone.txt
         
-        if [ $counter -eq 10 ];then
-            echo "Timezone retry count reached the limit . Timezone data source is missing"
+        if [ $counter -eq 10 ]; then
+            swupdateLog "Timezone retry count reached the limit . Timezone data source is missing"
             break;
         fi
         counter=`expr $counter + 1`
@@ -723,15 +712,15 @@ getTimeZone()
     done
 
     if [ ! "$zoneValue" ]; then
-        echo "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
-        if [ -f $TIMEZONEDST ] && [ -s $TIMEZONEDST ];then
+        swupdateLog "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
+        if [ -f $TIMEZONEDST ] && [ -s $TIMEZONEDST ]; then
             zoneValue=`cat $TIMEZONEDST | grep -v 'null'`
-            echo "Got timezone using $TIMEZONEDST successfully, value:$zoneValue"
+            swupdateLog "Got timezone using $TIMEZONEDST successfully, value:$zoneValue"
         else
-            echo "$TIMEZONEDST file not found, Timezone data source is missing "
+            swupdateLog "$TIMEZONEDST file not found, Timezone data source is missing "
         fi
     else
-        echo "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
+        swupdateLog "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
     fi
     
     echo "$zoneValue"
@@ -785,8 +774,8 @@ sendTLSCodebigRequest()
     echo "000" > $HTTP_CODE     # provide a default value in $HTTP_CODE
 
     if [ "$1" == "XCONF" ]; then
-        echo "Attempting $TLS connection to Codebig XCONF server"
-        if [ -f /lib/rdk/logMilestone.sh ];then
+        swupdateLog "Attempting $TLS connection to Codebig XCONF server"
+        if [ -f /lib/rdk/logMilestone.sh ]; then
             sh /lib/rdk/logMilestone.sh "CONNECT_TO_XCONF_CDL"
         fi
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
@@ -795,9 +784,9 @@ sendTLSCodebigRequest()
            CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 10"
         fi
         if [ "$BUILD_TYPE" != "prod" ]; then
-            echo CURL_CMD: $CURL_CMD
+            swupdateLog "CURL_CMD: $CURL_CMD"
         else
-            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
+            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         eval $CURL_CMD > $HTTP_CODE
         TLSRet=$?
@@ -805,14 +794,14 @@ sendTLSCodebigRequest()
             t2CountNotify "xconf_couldnt_resolve"
         fi
     elif [ "$1" == "SSR" ]; then
-        echo "Attempting $TLS connection to Codebig SSR server"
+        swupdateLog "Attempting $TLS connection to Codebig SSR server"
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
            if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
 	      if [ "$cloudImmediateRebootFlag" != "true" ]; then
-                 echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                 swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
                  CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --limit-rate $TOPSPEED > $HTTP_CODE"
 	      else
-                 echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                 swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
 		 CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
               fi
            else
@@ -821,10 +810,10 @@ sendTLSCodebigRequest()
         else
            if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then 
 	      if [ "$cloudImmediateRebootFlag" != "true" ]; then
-                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --limit-rate $TOPSPEED > $HTTP_CODE"
               else
-                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
               fi
            else
@@ -832,19 +821,19 @@ sendTLSCodebigRequest()
            fi
         fi
         if [ "$BUILD_TYPE" != "prod" ]; then
-            echo CURL_CMD: $CURL_CMD
+            swupdateLog "CURL_CMD: $CURL_CMD"
         else
-            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
+            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]  || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-              eval $CURL_CMD &> $CURL_PROGRESS &
-              echo "$!" > $CURL_PID_FILE
-              CurlPid=`cat $CURL_PID_FILE`
-              wait $CurlPid
+            eval $CURL_CMD &> $CURL_PROGRESS &
+            echo "$!" > $CURL_PID_FILE
+            CurlPid=`cat $CURL_PID_FILE`
+            wait $CurlPid
         else
-              eval $CURL_CMD &> $CURL_PROGRESS
+            eval $CURL_CMD &> $CURL_PROGRESS
         fi
-	TLSRet=$?
+        TLSRet=$?
     fi
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
@@ -855,15 +844,15 @@ sendTLSCodebigRequest()
 	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
            t2CountNotify "swdl_failed_$TLSRet"
         fi
-        echo "CDL is suspended due to Curl $TLSRet Error"
+        swupdateLog "CDL is suspended due to Curl $TLSRet Error"
     fi
     
     case $TLSRet in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-        echo "HTTPS $TLS failed to connect to Codebig $1 server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+        tlsLog "HTTPS $TLS failed to connect to Codebig $1 server with curl error code $TLSRet"
     ;;
     esac
-    echo "Curl return code : $TLSRet"
+    swupdateLog "Curl return code : $TLSRet"
     checkAndEnterStateRed $TLSRet
 }
 
@@ -873,7 +862,7 @@ sendTLSRequest()
     echo "000" > $HTTP_CODE     # provide a default value to avoid possibility of an old value remaining
 
     if [ "$FORCE_MTLS" == "true" ]; then
-        echo "MTLS prefered"
+        swupdateLog "MTLS prefered"
         mTlsXConfDownload="true"
     fi
     isInStateRed
@@ -914,21 +903,20 @@ sendTLSRequest()
         fi
 
     elif [ "$1" == "XCONF" ]; then
-        echo "Attempting $TLS connection to XCONF server"
+        swupdateLog "Attempting $TLS connection to XCONF server"
         if [ -f /lib/rdk/logMilestone.sh ];then
             sh /lib/rdk/logMilestone.sh "CONNECT_TO_XCONF_CDL"
         fi
 
         if [ "$mTLS_RPI" == "true" ] ; then
             CURL_CMD="curl -vv --cert-type pem --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem --key /tmp/xconf-file.tmp -w '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout 10 -m 10"
-
         else
             if [ $useXpkiMtlsLogupload == "true" ]; then
                 CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"    
             else    
                 if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
                     if [ ! -f /usr/bin/GetConfigFile ]; then
-                        echo "Error: GetConfigFile Not Found"
+                        swupdateLog "Error: GetConfigFile Not Found"
                         exit 127
                     fi
                     ID="/tmp/.cfgStaticxpki"
@@ -936,7 +924,7 @@ sendTLSRequest()
                         GetConfigFile $ID
                     fi
                     if [ ! -f "$ID" ]; then
-                        echo "Error: Getconfig file failed"
+                        swupdateLog "Error: Getconfig file failed"
                     fi
                     CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
                 else
@@ -949,9 +937,9 @@ sendTLSRequest()
         fi
 
         if [ "$BUILD_TYPE" != "prod" ]; then
-           echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
+           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
         else 
-           echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
+           swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         eval $CURL_CMD > $HTTP_CODE
         TLSRet=$?
@@ -959,11 +947,11 @@ sendTLSRequest()
            t2CountNotify "xconf_couldnt_resolve" 
         fi
     elif [ "$1" == "SSR" ]; then
-        echo "Attempting $TLS connection to SSR server" 
+        swupdateLog "Attempting $TLS connection to SSR server" 
         if [ "$mTlsXConfDownload" == "true" ]; then
             if [ -d /etc/ssl/certs ]; then
                 if [ ! -f /usr/bin/GetConfigFile ];then
-                    echo "Error: GetConfigFile Not Found"
+                    swupdateLog "Error: GetConfigFile Not Found"
                     exit 127
                 fi
                 ID="/tmp/uydrgopwxyem"
@@ -973,10 +961,10 @@ sendTLSRequest()
             fi
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
 	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
-                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
                   CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
-                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
                   CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
@@ -985,10 +973,10 @@ sendTLSRequest()
         else
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
 	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
-                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
-                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
@@ -1000,21 +988,21 @@ sendTLSRequest()
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
-        echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
+        swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
         if [ "$BUILD_TYPE" != "prod" ]; then
-           echo CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`
+           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
         else
-           echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
+           swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-              eval $CURL_CMD &> $CURL_PROGRESS &
-              echo "$!" > $CURL_PID_FILE
-              CurlPid=`cat $CURL_PID_FILE`
-              wait $CurlPid
+            eval $CURL_CMD &> $CURL_PROGRESS &
+            echo "$!" > $CURL_PID_FILE
+            CurlPid=`cat $CURL_PID_FILE`
+            wait $CurlPid
         else
-              eval $CURL_CMD &> $CURL_PROGRESS
-        fi
-	TLSRet=$?
+            eval $CURL_CMD &> $CURL_PROGRESS
+        fi 
+        TLSRet=$?
     fi
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
@@ -1025,15 +1013,15 @@ sendTLSRequest()
 	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
            t2CountNotify "swdl_failed_$TLSRet"
         fi
-        echo "CDL is suspended due to Curl $TLSRet Error"
+        swupdateLog "CDL is suspended due to Curl $TLSRet Error"
     fi
  
     case $TLSRet in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-        echo "HTTPS $TLS failed to connect to $1 server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+        tlsLog "HTTPS $TLS failed to connect to $1 server with curl error code $TLSRet"
     ;;
     esac
-    echo "Curl return code : $TLSRet"
+    swupdateLog "Curl return code : $TLSRet"
     if [ "0xTLSRet" != "0x0" ]; then
         checkAndEnterStateRed $TLSRet
     fi
@@ -1043,17 +1031,17 @@ httpTLSDownload () {
     ret=1
     http_code="000"
 
-    echo "Trying to communicate with SSR via TLS server"
+    swupdateLog "Trying to communicate with SSR via TLS server"
     sendTLSRequest "SSR"
     ret=$TLSRet
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-    echo "`Timestamp` httpTLSDownload: SSR Image download ret : $ret"
+    swupdateLog "httpTLSDownload: SSR Image download ret : $ret"
     if [ $ret -ne 0 ]; then
         rm -rf $DIFW_PATH/$UPGRADE_FILE
     fi
 
     if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
-       echo "`Timestamp` Failed to download image from normal SSR code download server with ret:$ret, httpcode:$http_code"
+       swupdateLog "Failed to download image from normal SSR code download server with ret:$ret, httpcode:$http_code"
        if [ "$DEVICE_TYPE" == "mediaclient" ]; then
           if [ "x$http_code" = "x000" ]; then
 	     failureReason="Image Download Failed - Unable to connect"
@@ -1090,17 +1078,16 @@ httpCodebigDownload () {
 
     SIGN_CMD="GetServiceUrl $request_type \"$imagedownloadHTTPURL\""
     eval $SIGN_CMD > /tmp/.signedRequest
-    if [ -s /tmp/.signedRequest ]
-    then
-        echo "GetServiceUrl success"
+    if [ -s /tmp/.signedRequest ]; then
+        swupdateLog "GetServiceUrl success"
     else
-        echo "GetServiceUrl failed"
+        swupdateLog "GetServiceUrl failed"
         exit 1
     fi
     cbSignedimageHTTPURL=`cat /tmp/.signedRequest`
     rm -f /tmp/.signedRequest
 
-    echo "`Timestamp` Trying to communicate with SSR via CodeBig server"
+    swupdateLog "Trying to communicate with SSR via CodeBig server"
     # Work around for resolving SSR url encoded location issue
     # Correcting stb_cdl location in CB signed request
     cbSignedimageHTTPURL=$(sed 's|stb_cdl%2F|stb_cdl/|g' <<< $cbSignedimageHTTPURL)
@@ -1111,7 +1098,7 @@ httpCodebigDownload () {
     sendTLSCodebigRequest "SSR" "$authorizationHeader"
     ret=$TLSRet
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-    echo "`Timestamp` httpCodebigDownload: SSR Codebig Image download ret : $ret"
+    swupdateLog "httpCodebigDownload: SSR Codebig Image download ret : $ret"
 
     if [ "$http_code" != "200" ]; then
         rm -rf $DIFW_PATH/$UPGRADE_FILE
@@ -1127,7 +1114,7 @@ httpDownload ()
     httpcbretry=0
 
     if [ $UseCodebig -eq 1 ]; then
-        echo "`Timestamp` httpDownload: Codebig is enabled UseCodebig=$UseCodebig"
+        swupdateLog "httpDownload: Codebig is enabled UseCodebig=$UseCodebig"
         if [ "$DEVICE_TYPE" = "mediaclient" ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
@@ -1135,11 +1122,11 @@ httpDownload ()
             if [ $skipcodebig -eq 0 ]; then
                 while [ $httpcbretry -le $CB_RETRY_COUNT ]
                 do
-                    echo "`Timestamp` httpDownload: Using Codebig Image upgrade connection"
+                    swupdateLog "httpDownload: Using Codebig Image upgrade connection"
                     httpCodebigDownload
                     ret=$?
                     if [ "$http_code" = "200" ]; then
-                       echo "`Timestamp` httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
+                       swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                        IsDirectBlocked
                        skipDirect=$?
                        if [ $skipDirect -eq 0 ]; then
@@ -1147,17 +1134,17 @@ httpDownload ()
                        fi
                        break
                     elif [ "$http_code" = "404" ]; then
-                       echo "`Timestamp` httpDownload: Received 404 response for Codebig Image upgrade, Retry logic not needed"
+                       swupdateLog "httpDownload: Received 404 response for Codebig Image upgrade, Retry logic not needed"
                        break
                     fi
-                    echo "`Timestamp` httpDownload: Codebig Image upgrade return: retry=$httpcbretry ret=$ret httpcode=$http_code"
+                    swupdateLog "httpDownload: Codebig Image upgrade return: retry=$httpcbretry ret=$ret httpcode=$http_code"
                     httpcbretry=`expr $httpcbretry + 1`
                     sleep $cbretryDelay
                 done
             fi
 
-            if [ "$http_code" = "000" ] ; then
-                echo "`Timestamp` httpDownload: Codebig Image upgrade failed: httpcode=$http_code, Switching direct"
+            if [ "$http_code" = "000" ]; then
+                swupdateLog "httpDownload: Codebig Image upgrade failed: httpcode=$http_code, Switching direct"
                 UseCodebig=0
                 IsDirectBlocked
                 skipdirect=$?
@@ -1165,41 +1152,41 @@ httpDownload ()
                     httpTLSDownload
                     ret=$?
                     if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`Timestamp` httpDownload: Direct image upgrade failover request failed return=$ret, httpcode=$http_code"
+                        swupdateLog "httpDownload: Direct image upgrade failover request failed return=$ret, httpcode=$http_code"
                     else
-                        echo "`Timestamp` httpDownload: Direct image upgrade failover request received return=$ret, httpcode=$http_code"
+                        swupdateLog "httpDownload: Direct image upgrade failover request received return=$ret, httpcode=$http_code"
                     fi
                 fi
                 IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
-                    echo "`Timestamp` httpDownload: Codebig Blocking is released"
+                    swupdateLog "httpDownload: Codebig Blocking is released"
                 fi
             elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                echo "`Timestamp` httpDownload: Codebig Image upgrade failed with httpcode=$http_code"
+                swupdateLog "httpDownload: Codebig Image upgrade failed with httpcode=$http_code"
             fi
         else
-            echo "`Timestamp` httpDownload: Codebig Image upgrade is not supported"
+            swupdateLog "httpDownload: Codebig Image upgrade is not supported"
         fi
     else
-        echo "`Timestamp` httpDownload: Codebig is disabled UseCodebig=$UseCodebig"
+        swupdateLog "httpDownload: Codebig is disabled UseCodebig=$UseCodebig"
         # Use direct connection connection for 3 failures with appropriate backoff/timeout,.
         IsDirectBlocked
         skipdirect=$?
         if [ $skipdirect -eq 0 ]; then
             while [ $httpretry -lt $RETRY_COUNT ]
             do
-                echo "`Timestamp` httpDownload: Using Direct Image upgrade connection"
+                swupdateLog "httpDownload: Using Direct Image upgrade connection"
                 httpTLSDownload
                 ret=$?
-                if [ "$http_code" = "200" ];then
-                    echo "`Timestamp` httpDownload: Direct Image upgrade Success: ret=$ret httpcode=$http_code"
+                if [ "$http_code" = "200" ]; then
+                    swupdateLog "httpDownload: Direct Image upgrade Success: ret=$ret httpcode=$http_code"
                     break
                 elif [ "$http_code" = "404" ]; then
-                    echo "`Timestamp` httpDownload: Received 404 response for Direct Image upgrade, Retry logic not needed"
+                    swupdateLog "httpDownload: Received 404 response for Direct Image upgrade, Retry logic not needed"
                     break
                 fi
-                echo "`Timestamp` httpDownload: Direct Image upgrade return: retry=$httpretry ret=$ret httpcode=$http_code"
+                swupdateLog "httpDownload: Direct Image upgrade return: retry=$httpretry ret=$ret httpcode=$http_code"
                 httpretry=`expr $httpretry + 1`
                 sleep $retryDelay
             done
@@ -1207,200 +1194,200 @@ httpDownload ()
 
         if [ "$http_code" = "000" ]; then
             if [ "$DEVICE_TYPE" = "mediaclient" ]; then
-                echo "`Timestamp` httpDownload: Direct Image upgrade Failed: httpcode=$http_code, attempting codebig"
+                swupdateLog "httpDownload: Direct Image upgrade Failed: httpcode=$http_code, attempting codebig"
                 # Use Codebig connection connection on XI platforms
                 IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
                     while [ $httpcbretry -le $CB_RETRY_COUNT ]
                     do
-                        echo "`Timestamp` httpDownload: Using Codebig Image upgrade connection"
+                        swupdateLog "httpDownload: Using Codebig Image upgrade connection"
                         httpCodebigDownload
                         ret=$?
                         if [ "$http_code" = "200" ]; then
-                            echo "`Timestamp` httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
+                            swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                 touch $DIRECT_BLOCK_FILENAME
-                                echo "`Timestamp` httpDownload: Use CodeBig and Blocking Direct attempts for 24hrs"
+                                swupdateLog "httpDownload: Use CodeBig and Blocking Direct attempts for 24hrs"
                             fi
                             break
                         elif [ "$http_code" = "404" ]; then
-                            echo "`Timestamp` httpDownload: Received 404 response for Codebig Image upgrade, Retry logic not needed"
+                            swupdateLog "httpDownload: Received 404 response for Codebig Image upgrade, Retry logic not needed"
                             break
                         fi
-                        echo "`Timestamp` httpDownload: Codebig Image upgrade return: retry=$httpcbretry ret=$ret httpcode=$http_code"
+                        swupdateLog "httpDownload: Codebig Image upgrade return: retry=$httpcbretry ret=$ret httpcode=$http_code"
                         httpcbretry=`expr $httpcbretry + 1`
                         sleep $cbretryDelay
                     done
 
                     if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`Timestamp` httpDownload: Codebig Image upgrade failed: ret=$ret httpcode=$http_code"
+                        swupdateLog "httpDownload: Codebig Image upgrade failed: ret=$ret httpcode=$http_code"
                         UseCodebig=0
                         if [ ! -f $CB_BLOCK_FILENAME ]; then
                             touch $CB_BLOCK_FILENAME
-                            echo "`Timestamp` httpDownload: Switch Direct and Blocking Codebig for 30mins,"
+                            swupdateLog "httpDownload: Switch Direct and Blocking Codebig for 30mins,"
                         fi
                     fi
                 fi
             else
-                echo "`Timestamp` httpDownload: Codebig Image upgrade is not supported"
+                swupdateLog "httpDownload: Codebig Image upgrade is not supported"
             fi
         elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-            echo "`Timestamp` httpDownload: Direct Image upgrade Failed: ret=$ret httpcode=$http_code"
+            swupdateLog "httpDownload: Direct Image upgrade Failed: ret=$ret httpcode=$http_code"
         fi
     fi
 
     return $ret
-
 }
 
-tftpDownload () {
+tftpDownload () 
+{
     # PCI TFTP upgrade of non-client devices doesnt require ESTB side image download
     if [ "x$PDRI_UPGRADE" != "xpdri" ] && [ "$DEVICE_TYPE" != "mediaclient" ]; then
         return 0
     fi
     ret=1
-    echo  "`Timestamp` Image download with tftp prtocol"
-    if [ -f /tmp/estb_ipv6 ] ; then
+    swupdateLog "Image download with tftp prtocol"
+    if [ -f /tmp/estb_ipv6 ]; then
         tftp -g [$UPGRADE_LOCATION] -r $UPGRADE_FILE -l $DIFW_PATH/$UPGRADE_FILE -b 16384
     else
         tftp -g  $UPGRADE_LOCATION -r $UPGRADE_FILE -l $DIFW_PATH/$UPGRADE_FILE -b 16384
     fi
     ret=$?
-    if [ $ret -ne 0 ] ; then
-        echo "`Timestamp` PDRI TFTP image download for file $UPGRADE_FILE failed."
+    if [ $ret -ne 0 ]; then
+        swupdateLog "PDRI TFTP image download for file $UPGRADE_FILE failed."
     else
-        echo "`Timestamp` $UPGRADE_FILE TFTP Download Completed.!"
+        swupdateLog "$UPGRADE_FILE TFTP Download Completed.!"
     fi
     return $ret
 }
 
 interrupt_download()
 {
-     echo "Download is interrupted due to the PowerState changed to ON"
-     if [ -f $CURL_PID_FILE ]; then
+    swupdateLog "Download is interrupted due to the PowerState changed to ON"
+    if [ -f $CURL_PID_FILE ]; then
         kill -9 $CurlPid
         rm -rf "$CURL_PID_FILE"
-     fi
+    fi
 
-     rm -rf "$FWDNLD_PID_FILE"
+    rm -rf "$FWDNLD_PID_FILE"
 
-     if [ "$PID_PWRSTATE" != "" ]; then
+    if [ "$PID_PWRSTATE" != "" ]; then
         kill -9 $PID_PWRSTATE
-     fi
+    fi
 
     #Notify Maintenance Manager, So that Maintenance thread can proceed  to next script.
-    eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
 
-     exit
+    exit
 }
 
-if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
 interrupt_download_onabort()
 {
-     echo "Download is interrupted due to the maintenance abort"
-     if [ -f $CURL_PID_FILE ]; then
-        kill -9 $CurlPid
-        rm -rf "$CURL_PID_FILE"
-     fi
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        swupdateLog "Download is interrupted due to the maintenance abort"
+        if [ -f $CURL_PID_FILE ]; then
+            kill -9 $CurlPid
+            rm -rf "$CURL_PID_FILE"
+        fi
 
-     rm -rf "$FWDNLD_PID_FILE"
-     rm -rf  /tmp/DIFD.pid
+        rm -rf "$FWDNLD_PID_FILE"
+        rm -rf  /tmp/DIFD.pid
 
-    eventSender "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
+        eventManager "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
 
-    sh /lib/rdk/maintenanceTrapEventNotifier.sh 2 &
+        sh /lib/rdk/maintenanceTrapEventNotifier.sh 2 &
 
-    trap - SIGABRT
+        trap - SIGABRT
 
-     exit
+        exit
+    fi
 }
-fi
+
 getNewCronTime ()
 {
-   now=$(date +"%T")
+    now=$(date +"%T")
 
-   NewCronHr=$(echo $now | cut -d':' -f1)
-   NewCronMin=$(echo $now | cut -d':' -f2)
-   Sec=$(echo $now | cut -d':' -f3)
+    NewCronHr=$(echo $now | cut -d':' -f1)
+    NewCronMin=$(echo $now | cut -d':' -f2)
+    Sec=$(echo $now | cut -d':' -f3)
 
+    if [ $Sec -gt 29 ]; then
+        NewCronMin=`expr $NewCronMin + 1`
+    fi
 
-   if [ $Sec -gt 29 ]; then
-      NewCronMin=`expr $NewCronMin + 1`
-   fi
-
-   NewCronMin=`expr $NewCronMin + $1`
+    NewCronMin=`expr $NewCronMin + $1`
    
-   while [ $NewCronMin -gt 59 ]
-   do
-      NewCronMin=`expr $NewCronMin - 60`
-      NewCronHr=`expr $NewCronHr + 1`
-      if [ $NewCronHr -gt 23 ]; then
-        NewCronHr=0
-      fi
-   done
+    while [ $NewCronMin -gt 59 ]
+    do
+        NewCronMin=`expr $NewCronMin - 60`
+        NewCronHr=`expr $NewCronHr + 1`
+        if [ $NewCronHr -gt 23 ]; then
+            NewCronHr=0
+        fi
+    done
 }
+
 ##
 ## Are We Delaying the FW image download to the box
 ##
 isDelayFWDownloadActive ()
 {
-    echo  "`Timestamp` Reboot Immed. : $cloudImmediateRebootFlag"
+    swupdateLog "Reboot Immed. : $cloudImmediateRebootFlag"
 
     if [ "$DelayDownloadXconf" == "1" ]; then
-        echo "`Timestamp` Device configured with download delay of $DelayDownloadXconf minute."
+        swupdateLog "Device configured with download delay of $DelayDownloadXconf minute."
     else
         if [ "$DelayDownloadXconf" == "" ]; then
             DelayDownloadXconf=0
         fi
-        echo "`Timestamp` Device configured with download delay of $DelayDownloadXconf minutes."
+        swupdateLog "Device configured with download delay of $DelayDownloadXconf minutes."
     fi
 
+    if [ $DelayDownloadXconf -gt 0 ]; then
+        swupdateLog "Modify The Cron Table.  Trigger Type : $triggerType"
+        # Remove any old Delay Image Upload Cron Jobs
+        sh /lib/rdk/cronjobs_update.sh "remove" "deviceInitiatedFWDnld.sh"
 
-        if [ $DelayDownloadXconf -gt 0 ]; then
-
-            echo "`Timestamp` Modify The Cron Table.  Trigger Type : $triggerType"
-            # Remove any old Delay Image Upload Cron Jobs
-            sh /lib/rdk/cronjobs_update.sh "remove" "deviceInitiatedFWDnld.sh"
-
-            if [ $triggerType -ne 5 ]; then
-               getNewCronTime $DelayDownloadXconf
-               echo "`Timestamp` Scheduling Cron for deviceInitiatedFWDnld.sh as a part of DelayDownload."
-               echo "`Timestamp` Delay Cron Job Time : $NewCronHr Hrs. $NewCronMin Mins."
-               sh /lib/rdk/cronjobs_update.sh "add" "deviceInitiatedFWDnld.sh" "$NewCronMin $NewCronHr * * * /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 5 >> /opt/logs/swupdate.log 2>&1"
-            fi
-
-            if [ $triggerType -ne 5 ]; then
-               echo "`Timestamp` Exit for this Trigger Type : $triggerType"
-               updateUpgradeFlag remove
-               rm -f $FILENAME $HTTP_CODE
-               # we gracefully exit from this script
-               # so that MM wont hung and send the event as error
-               if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue"  ];then
-                   echo "`Timestamp` Sending event to Maintenance Plugin with Error before exit"
-                   eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
-               fi
-               exit 0
-            fi
+        if [ $triggerType -ne 5 ]; then
+             getNewCronTime $DelayDownloadXconf
+             swupdateLog "Scheduling Cron for deviceInitiatedFWDnld.sh as a part of DelayDownload."
+             swupdateLog "Delay Cron Job Time : $NewCronHr Hrs. $NewCronMin Mins."
+             sh /lib/rdk/cronjobs_update.sh "add" "deviceInitiatedFWDnld.sh" "$NewCronMin $NewCronHr * * * /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 5 >> /opt/logs/swupdate.log 2>&1"
         fi
+
+        if [ $triggerType -ne 5 ]; then
+             swupdateLog "Exit for this Trigger Type : $triggerType"
+             updateUpgradeFlag remove
+             rm -f $FILENAME $HTTP_CODE
+             # we gracefully exit from this script
+             # so that MM wont hung and send the event as error
+             if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue"  ];then
+                 swupdateLog "Sending event to Maintenance Plugin with Error before exit"
+                 eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+             fi
+             exit 0
+        fi
+    fi
 }
+
 ##
 ## trigger image download to the box
 ##
 imageDownloadToLocalServer ()
 {
-    echo "`Timestamp` Triggering the Image Download ..."
+    swupdateLog "Triggering the Image Download ..."
     UPGRADE_LOCATION=$1
     UPGRADE_FILE=$2
     REBOOT_FLAG=$3
     UPGRADE_PROTO=$4
     PDRI_UPGRADE=$5
-    echo "`Timestamp` Upgrade Location = $UPGRADE_LOCATION"
-    echo "`Timestamp` Upgrade File = $UPGRADE_FILE"
-    echo "`Timestamp` Upgrade Reboot Flag = $REBOOT_FLAG"
-    echo "`Timestamp` Upgrade protocol = $UPGRADE_PROTO"
-    echo "`Timestamp` PDRI Flag  = $PDRI_UPGRADE"
+    swupdateLog "Upgrade Location = $UPGRADE_LOCATION"
+    swupdateLog "Upgrade File = $UPGRADE_FILE"
+    swupdateLog "Upgrade Reboot Flag = $REBOOT_FLAG"
+    swupdateLog "Upgrade protocol = $UPGRADE_PROTO"
+    swupdateLog "PDRI Flag  = $PDRI_UPGRADE"
      
     eventManager $ImageDwldEvent $IMAGE_FWDNLD_UNINITIALIZED
     if [ ! -d $DIFW_PATH ]; then
@@ -1412,17 +1399,16 @@ imageDownloadToLocalServer ()
     model_num=$(getModel)
     if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
         rm $model_num*PDRI*.bin
-        echo "`Timestamp` PDRI Download in Progress for $UPGRADE_FILE "
+        swupdateLog "PDRI Download in Progress for $UPGRADE_FILE "
     else
         rm $model_num*.bin
-        echo "`Timestamp` PCI Download in Progress for $UPGRADE_FILE "
+        swupdateLog "PCI Download in Progress for $UPGRADE_FILE "
     fi
 
     status=$DOWNLOAD_IN_PROGRESS
     if [ "$DEVICE_TYPE" != "mediaclient" ]; then
         status="ESTB in progress"        
     fi     
-
 
     updateFWDownloadStatus "$cloudProto" "$status" "$cloudImmediateRebootFlag" "" "$dnldVersion" "$cloudFWFile" "$runtime" "Downloading" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_DOWNLOADING 
@@ -1431,9 +1417,9 @@ imageDownloadToLocalServer ()
     #Set FirmwareDownloadStartedNotification before starting of firmware download
     if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
         current_time=`date +%s`
-        echo "current_time calculated as $current_time"
+        swupdateLog "current_time calculated as $current_time"
         tr181 -s -v $current_time  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification
-        echo "FirmwareDownloadStartedNotification SET succeeded"
+        swupdateLog "FirmwareDownloadStartedNotification SET succeeded"
     fi
 
     isDelayFWDownloadActive
@@ -1444,7 +1430,7 @@ imageDownloadToLocalServer ()
     elif [ $UPGRADE_PROTO -eq 2 ]; then
         # Change to support whether full http URL
         imageHTTPURL="$UPGRADE_LOCATION/$UPGRADE_FILE"  
-        echo  "`Timestamp` IMAGE URL= $imageHTTPURL"
+        swupdateLog "IMAGE URL= $imageHTTPURL"
         echo "$imageHTTPURL" > $DnldURLvalue
         httpDownload 
         ret=$?
@@ -1472,11 +1458,11 @@ imageDownloadToLocalServer ()
         if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
             tr181 -s -v false  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification
-            echo "FirmwareDownloadCompletedNotification SET to false succeeded"
-         fi 
+            swupdateLog "FirmwareDownloadCompletedNotification SET to false succeeded"
+        fi 
         return $ret
     elif [ -f "$UPGRADE_FILE" ]; then
-        echo "`Timestamp` $UPGRADE_FILE Local Image Download Completed using HTTPS $TLS protocol!"
+        swupdateLog "$UPGRADE_FILE Local Image Download Completed using HTTPS $TLS protocol!"
         if [ "$CPU_ARCH" == "x86" ]; then
             status="Triggered ECM download"
         elif [ "$DEVICE_TYPE" == "mediaclient" ]; then
@@ -1489,27 +1475,30 @@ imageDownloadToLocalServer ()
         if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
             tr181 -s -v true  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification
-            echo "FirmwareDownloadCompletedNotification SET to true succeeded"
+            swupdateLog "FirmwareDownloadCompletedNotification SET to true succeeded"
         fi
         if [ "$CPU_ARCH" != "x86" ]; then
             eventManager $ImageDwldEvent $IMAGE_FWDNLD_DOWNLOAD_COMPLETE
         fi    
         filesize=`ls -l $UPGRADE_FILE |  awk '{ print $5}'`
-        echo "`Timestamp` Downloaded $UPGRADE_FILE of size $filesize"
+        swupdateLog "Downloaded $UPGRADE_FILE of size $filesize"
     fi    
     return $ret
 }
 
 
-updateSecurityStage () {
-	if [ "$DEVICE_NAME" = "PLATCO" ] && [ ! -f $STAGE2LOCKFILE ]; then
-		# set the "deviceStage" to right stage (stage2)
-		curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -X PUT http://127.0.0.1:9998/Service/Controller/Activate/org.rdk.FactoryProtect.1
-		curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.FactoryProtect.1.setManufacturerData", "params":{ "key":"deviceStage", "value":"stage2" }}' http://127.0.0.1:9998/jsonrpc
-		touch $STAGE2LOCKFILE
-	fi
+updateSecurityStage () 
+{
+    if [ "$DEVICE_NAME" = "PLATCO" ] && [ ! -f $STAGE2LOCKFILE ]; then
+        # set the "deviceStage" to right stage (stage2)
+	curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -X PUT http://127.0.0.1:9998/Service/Controller/Activate/org.rdk.FactoryProtect.1
+	curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.FactoryProtect.1.setManufacturerData", "params":{ "key":"deviceStage", "value":"stage2" }}' http://127.0.0.1:9998/jsonrpc
+	touch $STAGE2LOCKFILE
+    fi
 }
-postFlash () {
+
+postFlash () 
+{
     updateSecurityStage
     updateFWDownloadStatus "$cloudProto" "Success" "$cloudImmediateRebootFlag" "" "$dnldVersion" "$cloudFWFile" "$runtime" "Validation complete" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
@@ -1521,17 +1510,17 @@ postFlash () {
     sed -i 's/FwUpdateState|.*/FwUpdateState|Preparing to reboot/g' $STATUS_FILE
 
     if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
-        echo "Reboot Not Needed after PDRI Upgrade..!"
+        swupdateLog "Reboot Not Needed after PDRI Upgrade..!"
     else  
        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
          then 
             echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
-	    eventSender "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
+	    eventManager "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
        else    
              echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
              if [ $REBOOT_FLAG -eq 1 ]; then
-                 echo "Download is complete. Rebooting the box now...\n"
-                 echo "Trigger RebootPendingNotification in background"
+                 swupdateLog "Download is complete. Rebooting the box now..."
+                 swupdateLog "Trigger RebootPendingNotification in background"
                  if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
                       Trigger_RebootPendingNotify &
                  fi
@@ -1539,7 +1528,7 @@ postFlash () {
                       stateRedlog "state red firmware updated rebooting"
                       unsetStateRed
                  fi
-                 echo "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
+                 swupdateLog "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
                  sleep $REBOOT_PENDING_DELAY
                  sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box after Firmware Image Upgrade..."
              fi
@@ -1547,37 +1536,38 @@ postFlash () {
     fi
 } 
 
-invokeImageFlasher () {
-    echo "`Timestamp` Starting Image Flashing ..."
+invokeImageFlasher () 
+{
+    swupdateLog "Starting Image Flashing ..."
     ret=0
     UPGRADE_SERVER=$1
     UPGRADE_FILE=$2
     REBOOT_FLAG=$3
     UPGRADE_PROTO=$4
     PDRI_UPGRADE=$5
-    echo "`Timestamp` Upgrade Server = $UPGRADE_SERVER "
-    echo "`Timestamp` Upgrade File = $UPGRADE_FILE "
-    echo "`Timestamp` Reboot Flag = $REBOOT_FLAG "
-    echo "`Timestamp` Upgrade protocol = $UPGRADE_PROTO "
-    echo "`Timestamp` PDRI Upgrade = $PDRI_UPGRADE "
+    swupdateLog "Upgrade Server = $UPGRADE_SERVER "
+    swupdateLog "Upgrade File = $UPGRADE_FILE "
+    swupdateLog "Reboot Flag = $REBOOT_FLAG "
+    swupdateLog "Upgrade protocol = $UPGRADE_PROTO "
+    swupdateLog "PDRI Upgrade = $PDRI_UPGRADE "
 
-    if [ "x$PDRI_UPGRADE" == "xpdri" ] ; then
-        echo "`Timestamp` Updating PDRI image with  $UPGRADE_FILE "
+    if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
+        swupdateLog "Updating PDRI image with  $UPGRADE_FILE "
     fi
 
     if [ "$DEVICE_TYPE" == "mediaclient" ]; then
         eventManager $ImageDwldEvent $IMAGE_FWDNLD_FLASH_INPROGRESS
     fi
 
-    if [ -f /lib/rdk/imageFlasher.sh ];then
+    if [ -f /lib/rdk/imageFlasher.sh ]; then
         /lib/rdk/imageFlasher.sh $UPGRADE_PROTO $UPGRADE_SERVER $DIFW_PATH $UPGRADE_FILE $REBOOT_FLAG $PDRI_UPGRADE
         ret=$?
     else
-        echo "imageFlasher.sh is missing"
+        swupdateLog "imageFlasher.sh is missing"
     fi
 
     if [ $ret -ne 0 ]; then
-        echo "`Timestamp` Image Flashing failed"
+        swupdateLog "Image Flashing failed"
         if [ "$DEVICE_TYPE" != "mediaclient" ]; then
             failureReason="RCDL Upgrade Failed"
             if [ "$CPU_ARCH" == "x86" ]; then
@@ -1591,7 +1581,7 @@ invokeImageFlasher () {
         eventManager $FirmwareStateEvent $FW_STATE_FAILED
         updateUpgradeFlag "remove"
     elif [ "$DEVICE_TYPE" == "mediaclient" ]; then
-        echo "`Timestamp` Image Flashing is success"
+        swupdateLog "Image Flashing is success"
         postFlash
     fi
     if [ "$DEVICE_TYPE" == "mediaclient" ]; then
@@ -1606,8 +1596,8 @@ getServURL()
 {
     buildType=$(getBuildType)
 
-#High Priority State Red recovery RDK-30717
-#If in state red other use cases are ignored
+    #High Priority State Red recovery RDK-30717
+    #If in state red other use cases are ignored
     isInStateRed
     redflagset=$?
     if [ $redflagset -eq 1 ]; then
@@ -1667,7 +1657,8 @@ getRequestType()
     return $request_type
 }
 
-checkAndTriggerPDRIUpgrade () {
+checkAndTriggerPDRIUpgrade () 
+{
     rebootFlag=1
     if [ "$cloudImmediateRebootFlag" = "false" ]; then
         rebootFlag=0   
@@ -1675,7 +1666,7 @@ checkAndTriggerPDRIUpgrade () {
     myPdriFile=`echo $myPdriFile | tr '[A-Z]' '[a-z]' | sed -e "s/.bin//g"`
     dnldPdriFile=`echo $dnldPdriFile | sed -e "s/.bin//g"`
     isSamePDRIfw=1
-    echo "`Timestamp` myPdriFile : $myPdriFile    dnldPdriFile : $dnldPdriFile "
+    swupdateLog "myPdriFile : $myPdriFile    dnldPdriFile : $dnldPdriFile"
     signedPdri=$myPdriFile"-signed"
     if [ "$myPdriFile" == "$dnldPdriFile" ] || [ "$signedPdri" == "$dnldPdriFile" ]; then
         isSamePDRIfw=0
@@ -1689,7 +1680,7 @@ checkAndTriggerPDRIUpgrade () {
             protocol=1
             addressType=$(getaddressType)
             cloudFWLocation=$ipv4cloudFWLocation
-            if [ "$addressType" == "ipv6" ] ; then
+            if [ "$addressType" == "ipv6" ]; then
                 cloudFWLocation=$ipv6cloudFWLocation
             fi                
         fi
@@ -1707,29 +1698,30 @@ checkAndTriggerPDRIUpgrade () {
             cloudPDRIVersion=$cloudPDRIVersion.bin
         fi
 
-        if [ $pci_upgrade -eq 1 ];then
-            echo "`Timestamp` Adding a sleep of 30secs to avoid the PCI PDRI race condition during flashing"
+        if [ $pci_upgrade -eq 1 ]; then
+            swupdateLog "Adding a sleep of 30secs to avoid the PCI PDRI race condition during flashing"
             sleep 30
         fi
 
         if [ $ret -eq 0 ]; then
-            echo "`Timestamp` PDRI image upgrade successful."
+            swupdateLog "PDRI image upgrade successful."
         else
-            echo "`Timestamp` PDRI image upgrade failure !!!"
+            swupdateLog "PDRI image upgrade failure !!!"
             t2CountNotify "SYST_ERR_PDRIUpg_failure"
         fi
     else
-        echo "`Timestamp` PDRI version of the active image and the image to be upgraded are the same. No upgrade required."
+        swupdateLog "PDRI version of the active image and the image to be upgraded are the same. No upgrade required."
     fi
     return $ret
 }
 
-triggerPCIUpgrade () {
-    if [ "$cloudProto" = "http" ] ; then
+triggerPCIUpgrade () 
+{
+    if [ "$cloudProto" = "http" ]; then
         protocol=2
     else
         addressType=$(getaddressType)
-        if [ "$addressType" == "ipv6" ];then
+        if [ "$addressType" == "ipv6" ]; then
             cloudFWLocation=$ipv6cloudFWLocation
         fi
         protocol=1
@@ -1737,16 +1729,15 @@ triggerPCIUpgrade () {
 
     # check whether any upgrade is in progress
     if [ -f $HTTP_CDL_FLAG ] || [ -f $SNMP_CDL_FLAG ] || [ -f $ECM_CDL_FLAG ]; then
-         echo "[$0]: Exiting from DEVICE INITIATED HTTP CDL"
-         echo "[$0]: Another upgrade is in progress"
-         if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-         then
-             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+         swupdateLog "Exiting from DEVICE INITIATED HTTP CDL"
+         swupdateLog "Another upgrade is in progress"
+         if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+             eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
          fi
          exit 0
     fi
 
-    if [ -f /lib/rdk/logMilestone.sh ];then
+    if [ -f /lib/rdk/logMilestone.sh ]; then
         sh /lib/rdk/logMilestone.sh "FWDNLD_STARTED"
     fi
     resp=1
@@ -1763,30 +1754,31 @@ triggerPCIUpgrade () {
         resp=$?
     fi  
      
-    echo "`Timestamp` upgrade method returned $resp"
+    swupdateLog "upgrade method returned $resp"
     if [ $resp != 0 ] ; then
-        if [ -f /lib/rdk/logMilestone.sh ];then
+        if [ -f /lib/rdk/logMilestone.sh ]; then
             sh /lib/rdk/logMilestone.sh "FWDNLD_FAILED"
         fi
-        echo "`Timestamp` doCDL failed"   
+        swupdateLog "doCDL failed"   
         ret=1
     else
-        if [ -f /lib/rdk/logMilestone.sh ];then
+        if [ -f /lib/rdk/logMilestone.sh ]; then
             sh /lib/rdk/logMilestone.sh "FWDNLD_COMPLETED"
         fi
-        echo "`Timestamp` doCDL success."
+        swupdateLog "doCDL success."
         ret=0
     fi
     return $ret
 }
 
-checkForValidPCIUpgrade () {
+checkForValidPCIUpgrade () 
+{
     upgrade=0
 
-    echo "Xconf image/PDRI configuration Check"
+    swupdateLog "Xconf image/PDRI configuration Check"
     wrongConfigCheck=`echo $dnldFile | grep "_PDRI_"`
-    if [ "$wrongConfigCheck" ];then 
-        echo "PDRI image is wrongly configured as Cloud Firmware Value"
+    if [ "$wrongConfigCheck" ]; then 
+        swupdateLog "PDRI image is wrongly configured as Cloud Firmware Value"
     fi 
     rebootFlag=1
     if [ "$cloudImmediateRebootFlag" = "false" ]; then
@@ -1796,9 +1788,9 @@ checkForValidPCIUpgrade () {
     # Adding the check to perform upgrade when $myFWFile is empty for both app triggered and maintainene triggered reboot
     if [ $triggerType -eq 1 ] || [ $triggerType -eq 4 ]; then
         if [ -z "$myFWFile" ] || [ -z "$lastDnldFile" ]; then
-            echo "Unable to fetch current running image file name or last download file"
+            swupdateLog "Unable to fetch current running image file name or last download file"
             if [ "$myFWVersion" != "$cloudFWVersion" ]; then
-                echo "Firmware versions are different myFWVersion : $myFWVersion cloudFWVersion : $cloudFWVersion"
+                swupdateLog "Firmware versions are different myFWVersion : $myFWVersion cloudFWVersion : $cloudFWVersion"
                 upgrade=1
             fi
         fi
@@ -1811,7 +1803,7 @@ checkForValidPCIUpgrade () {
     fi
 
     if [ $upgrade -eq 1 ] && [ ! "$wrongConfigCheck" ]; then
-        echo "`Timestamp` Error identified with image file comparison !!! Proceeding with firmware version check."
+        swupdateLog "Error identified with image file comparison !!! Proceeding with firmware version check."
         # In error conditions relay only on firmware version for image upgrade
         if [ "$myFWVersion" != "$cloudFWVersion" ]; then
             pci_upgrade=1
@@ -1821,22 +1813,22 @@ checkForValidPCIUpgrade () {
             #pci upgrade is true
             pci_upgrade=1
         else
-            echo "`Timestamp` FW version of the standby image and the image to be upgraded are the same. No upgrade required."
+            swupdateLog "FW version of the standby image and the image to be upgraded are the same. No upgrade required."
             t2CountNotify "fwupgrade_failed"
             updateFWDownloadStatus "$cloudProto" "No upgrade needed" "$cloudImmediateRebootFlag" "Versions Match" "$dnldVersion" "$cloudFWFile" "$runtime" "No upgrade needed" "$DelayDownloadXconf"
             eventManager $FirmwareStateEvent $FW_STATE_FAILED
             updateUpgradeFlag "remove"
         fi
-
     else
-        echo "`Timestamp` FW version of the active image and the image to be upgraded are the same. No upgrade required."
+        swupdateLog "FW version of the active image and the image to be upgraded are the same. No upgrade required."
         updateFWDownloadStatus "$cloudProto" "No upgrade needed" "$cloudImmediateRebootFlag" "Versions Match" "$dnldVersion" "$cloudFWFile" "$runtime" "No upgrade needed" "$DelayDownloadXconf"
         eventManager $FirmwareStateEvent $FW_STATE_FAILED
         updateUpgradeFlag "remove"
     fi
 }
 
-checkForUpgrades () {
+checkForUpgrades () 
+{
     ret=0
 
     # PCI Upgrades
@@ -1844,7 +1836,7 @@ checkForUpgrades () {
     if [ $pci_upgrade_status -ne 0 ]; then
         pci_upgrade_status=0  
         if [[ ! -n "$cloudFWVersion" ]] ; then
-            echo "`Timestamp` cloudFWVersion is empty. Do Nothing"
+            swupdateLog "cloudFWVersion is empty. Do Nothing"
             updateFWDownloadStatus "$cloudProto" "Failure" "$cloudImmediateRebootFlag" "Cloud FW Version is empty" "$dnldVersion" "$cloudFWFile" "$runtime" "Failed" "$DelayDownloadXconf"
             eventManager $FirmwareStateEvent $FW_STATE_FAILED
         else
@@ -1852,7 +1844,7 @@ checkForUpgrades () {
             if [ $pci_upgrade -eq 1 ]; then
                 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
                 then  
-                    eventSender "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
+                    eventManager "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
                     isCriticalUpdate=true 
                 fi 
                 triggerPCIUpgrade
@@ -1866,18 +1858,18 @@ checkForUpgrades () {
         pdri_upgrade_status=0
         if [ "$PDRI_ENABLED" == "true" ]; then
             # Do not upgrade if Reboot flag is True && pci_upgrade is True
-            if [ "$cloudImmediateRebootFlag" = "true" ] && [ $pci_upgrade -eq 1 ] ; then
-                echo "`Timestamp` cloudImmediateRebootFlag is $cloudImmediateRebootFlag , PCI Upgrade is required . Skipping PDRI upgrade check ... "
+            if [ "$cloudImmediateRebootFlag" = "true" ] && [ $pci_upgrade -eq 1 ]; then
+                swupdateLog "cloudImmediateRebootFlag is $cloudImmediateRebootFlag, PCI Upgrade is required. Skipping PDRI upgrade check ... "
                 return $ret
             else
-                echo "`Timestamp` cloudImmediateRebootFlag is $cloudImmediateRebootFlag. Starting PDRI upgrade check ... "
+                swupdateLog "cloudImmediateRebootFlag is $cloudImmediateRebootFlag. Starting PDRI upgrade check ... "
             fi
-            if [ "$wrongConfigCheck" -a ! "$cloudPDRIVersion" ];then
+            if [ "$wrongConfigCheck" -a ! "$cloudPDRIVersion" ]; then
                 cloudPDRIVersion=$cloudFWVersion
             fi
             #All PCI related upgrades are done,Start with PDRI
             if [[ ! -n "$cloudPDRIVersion" ]] ; then
-                echo "`Timestamp` cloudPDRIfile is empty. Do Nothing"
+                swupdateLog "cloudPDRIfile is empty. Do Nothing"
             else
                 disableStatsUpdate="yes"
                 checkAndTriggerPDRIUpgrade
@@ -1891,10 +1883,11 @@ checkForUpgrades () {
     if [ $peripheral_upgrade_status -ne 0 ]; then
         peripheral_upgrade_status=0
         if [ -f /etc/os-release ] && [ "$peripheralFirmwares" != "" ] && [ "$cloudProto" == "http" ]; then   
+            swupdateLog "Triggering Peripheral Download $cloudFWLocation $peripheralFirmwares $UseCodebig"
             getPeripheralFirmwares "$cloudFWLocation" "$peripheralFirmwares" "$UseCodebig"
             peripheral_upgrade_status=$?
         else
-            echo "Skipping Peripheral Download"
+            swupdateLog "Skipping Peripheral Download"
         fi
     fi
    
@@ -1909,7 +1902,7 @@ processJsonResponse()
     FILENAME=$1
     OUTPUT="$PERSISTENT_PATH/output.txt"
     OUTPUT1=`cat $FILENAME | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT`
-    echo OUTPUT1 : $OUTPUT1
+    swupdateLog "OUTPUT1 : $OUTPUT1"
 
     cloudFWFile=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
     cloudFWLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
@@ -1925,41 +1918,40 @@ processJsonResponse()
     peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "|" -f2 | tr '\n' ','`    # peripheral firmwares
     dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
 
-    echo "`Timestamp` cloudFWFile: $cloudFWFile"
-    echo "`Timestamp` cloudFWLocation: $cloudFWLocation"
-    echo "`Timestamp` ipv6cloudFWLocation: $ipv6cloudFWLocation"
-    echo "`Timestamp` cloudFWVersion: $cloudFWVersion"
-    echo "`Timestamp` cloudDelayDownload: $DelayDownloadXconf"
-    echo "`Timestamp` cloudProto: $cloudProto"
-    echo "`Timestamp` cloudImmediateRebootFlag: $cloudImmediateRebootFlag"
-    echo "`Timestamp` peripheralFirmwares: $peripheralFirmwares"
-    echo "`Timestamp` dlCertBundle: $dlCertBundle"
+    swupdateLog "cloudFWFile: $cloudFWFile"
+    swupdateLog "cloudFWLocation: $cloudFWLocation"
+    swupdateLog "ipv6cloudFWLocation: $ipv6cloudFWLocation"
+    swupdateLog "cloudFWVersion: $cloudFWVersion"
+    swupdateLog "cloudDelayDownload: $DelayDownloadXconf"
+    swupdateLog "cloudProto: $cloudProto"
+    swupdateLog "cloudImmediateRebootFlag: $cloudImmediateRebootFlag"
+    swupdateLog "peripheralFirmwares: $peripheralFirmwares"
+    swupdateLog "dlCertBundle: $dlCertBundle"
 
     # Check if xconf returned any bundles to update
     # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
     if [ -n "$dlCertBundle" ]; then
-	 echo "`Timestamp` Calling /etc/rdm/rdmBundleMgr.sh to process bundle update"
-	 (sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$cloudFWLocation" >> $LOG_PATH/rdm_status.log 2>&1) &
-	 echo "`Timestamp` /etc/rdm/rdmBundleMgr.sh started in background"
+	swupdateLog "Calling /etc/rdm/rdmBundleMgr.sh to process bundle update"
+	(sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$cloudFWLocation" >> $LOG_PATH/rdm_status.log 2>&1) &
+        swupdateLog "/etc/rdm/rdmBundleMgr.sh started in background"
     fi
 
     cloudfile_model=`echo $cloudFWFile | cut -d '_' -f1`
     if [[ "$cloudfile_model" != *"$MODEL_NUM"* ]]; then
-        echo "`Timestamp` Image configured is not of model $MODEL_NUM.. Skipping the upgrade"
-        echo "`Timestamp` Exiting from Image Upgrade process..!"
+        swupdateLog "Image configured is not of model $MODEL_NUM.. Skipping the upgrade"
+        swupdateLog "Exiting from Image Upgrade process..!"
         updateFWDownloadStatus "$cloudProto" "Failure" "$cloudImmediateRebootFlag" "Cloud FW Version is invalid" "$cloudFWVersion" "$cloudFWFile" "$runtime" "Failed" "$DelayDownloadXconf"
         eventManager $FirmwareStateEvent $FW_STATE_FAILED
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+             eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
         fi
         rm -f $FILENAME $HTTP_CODE
         exit 0
     fi
 
-    if [ "$PDRI_ENABLED" = "true" ] ; then   #get PDRI version from the cloud
+    if [ "$PDRI_ENABLED" = "true" ]; then   #get PDRI version from the cloud
         cloudPDRIVersion=`grep additionalFwVerInfo $OUTPUT | cut -d \| -f2 | tr -d ' '`
-        echo "`Timestamp` cloudPDRIVersion: $cloudPDRIVersion"
+        swupdateLog "cloudPDRIVersion: $cloudPDRIVersion"
         pdriVersion=`echo $cloudPDRIVersion | tr '[A-Z]' '[a-z]'`
         dnldPdriFile=$pdriVersion  # This doesn't have the file extension (.bin)
         #this one is the device PDRI;Global one
@@ -1968,7 +1960,7 @@ processJsonResponse()
 
     myPartnerID=$(getPartnerId)
     myPartnerID=`echo $myPartnerID | tr '[A-Z]' '[a-z]'`
-    echo "`Timestamp` myPartnerID = $myPartnerID"
+    swupdateLog "myPartnerID = $myPartnerID"
 
     myFWVersion=$(getFWVersion)
     currentVersion=$myFWVersion
@@ -1988,61 +1980,64 @@ processJsonResponse()
         myFWFile=`echo $myFWFile | tr '[A-Z]' '[a-z]'`
     fi
 
-    echo "`Timestamp` myFWVersion = $myFWVersion"
-    echo "`Timestamp` myFWFile = $myFWFile"
-    echo "`Timestamp` lastDnldFile: $lastDnldFile"
-    echo "`Timestamp` cloudFWVersion: $cloudFWVersion"
-    echo "`Timestamp` cloudFWFile: $dnldFile"
+    swupdateLog "myFWVersion = $myFWVersion"
+    swupdateLog "myFWFile = $myFWFile"
+    swupdateLog "lastDnldFile: $lastDnldFile"
+    swupdateLog "cloudFWVersion: $cloudFWVersion"
+    swupdateLog "cloudFWFile: $dnldFile"
 
     checkForUpgrades
     return $?
 }
 
-exitForXconf404response () {
-    echo "`Timestamp` Received HTTPS 404 Response from Xconf Server. Retry logic not needed"
-    echo "`Timestamp` Creating /tmp/.xconfssrdownloadurl with 404 response from Xconf"
+exitForXconf404response () 
+{
+    swupdateLog "Received HTTPS 404 Response from Xconf Server. Retry logic not needed"
+    swupdateLog "Creating /tmp/.xconfssrdownloadurl with 404 response from Xconf"
     echo "404" > /tmp/.xconfssrdownloadurl
 
     unsetStateRed
 
-    echo "`Timestamp` Exiting from Image Upgrade process..!"
+    swupdateLog "Exiting from Image Upgrade process..!"
     updateFWDownloadStatus "" "Failure" "" "Invalid Request" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_FAILED
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-             eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+         eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
     fi
     rm -f $FILENAME $HTTP_CODE
     exit 0
 }
 
-getPDRIVersion () {
+getPDRIVersion () 
+{
     if [ -f /usr/bin/mfr_util ]; then
         pdriVersion=`/usr/bin/mfr_util --PDRIVersion`
         echo "$pdriVersion" | grep -i 'failed' >  /dev/null
-        if [ $? -eq 0 ] ; then
-            echo "`Timestamp` PDRI version Retrieving Failed ..."
+        if [ $? -eq 0 ]; then
+            swupdateLog "PDRI version Retrieving Failed ..."
         else
             #copy to global variable
             pdriFwVerInfo=$pdriVersion
-            echo "`Timestamp` PDRI Version = $pdriFwVerInfo"
+            swupdateLog "PDRI Version = $pdriFwVerInfo"
         fi
     else
-        echo "`Timestamp` mfr_utility Not found. No P-DRI Upgrade !!"
+        swupdateLog "mfr_utility Not found. No P-DRI Upgrade !!"
     fi
 }
 
-createJsonString () {
+createJsonString () 
+{
     #Check if PDRI is supported or not
-    if [ "$PDRI_ENABLED" == "true" ] ; then
+    if [ "$PDRI_ENABLED" == "true" ]; then
+        swupdateLog "Retrive PDRI Version"
         getPDRIVersion
     else
-        echo "`Timestamp` P-DRI Upgrade Unsupported !!"
+        swupdateLog "P-DRI Upgrade Unsupported !!"
     fi
 
     remoteInfo=""
     if [ -f /etc/os-release ]; then
-        echo "Getting peripheral device firmware info"
+        swupdateLog "Getting peripheral device firmware info"
         remoteInfo=$(getRemoteInfo)
     fi        
     model=$(getModel)
@@ -2064,64 +2059,61 @@ createJsonString () {
      
     #Included additionalFwVerInfo and partnerId
     if [ "$(getModel)" = "RPI" ]; then
-    JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
+        JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
     else
-    JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
+        JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
     fi
 
     isInStateRed
     stateRed=$?
     if [ "0x$stateRed" == "0x1" ]; then
-    JSONSTR=$JSONSTR'&recovery="true"'
+        JSONSTR=$JSONSTR'&recovery="true"'
     fi
 }
-
 
 CheckIPRoute()
 {
     ipconf=0
     IPRouteCheck_count=0
-    echo "`Timestamp` CheckIPRoute Waiting for Route Config $ROUTE_FLAG file"
+    swupdateLog "CheckIPRoute Waiting for Route Config $ROUTE_FLAG file"
     while [ ! -f $ROUTE_FLAG ]
     do
         sleep 15
         let "IPRouteCheck_count+=1"
-        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-            if [ $IPRouteCheck_count == $ROUTE_FLAG_MAX_CHECK ]
-            then
-                echo " Maintenance cannot wait in a indefinit loop - So exiting !!"
+        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+            if [ $IPRouteCheck_count == $ROUTE_FLAG_MAX_CHECK ]; then
+                swupdateLog "Maintenance cannot wait in a indefinit loop - So exiting !!"
                 break;
             fi
         fi
     done
 
     if [ -f $ROUTE_FLAG ]; then
-        echo "`Timestamp` CheckIPRoute Received Route Config $ROUTE_FLAG file"
+        swupdateLog "CheckIPRoute Received Route Config $ROUTE_FLAG file"
         if [ -f $GATEWAYIP_FILE ]; then
-            echo "`Timestamp` CheckIPRoute Ensure ping is working on the default router Link Local IP"
+            swupdateLog "CheckIPRoute Ensure ping is working on the default router Link Local IP"
             while IFS= read -r line; do
                 IPMODE=`echo $line | awk -F " " '{print $1}'`
                 IPADDR=`echo $line | awk -F " " '{print $2}'`
                 if [ "$IPMODE" = "$AF_INET" ]; then
                     $PING -4 -c 3 $IPADDR  > /dev/null
                     if [ $? -eq 0 ]; then
-                       echo "`Timestamp` CheckIPRoute ping to link local address $IPADDR success"
+                       swupdateLog "CheckIPRoute ping to link local address $IPADDR success"
                        ipconf=1
                     fi
                 elif [ "$IPMODE" = "$AF_INET6" ]; then
                    $PING -6 -c 3 "$IPADDR"  > /dev/null
                    if [ $? -eq 0 ]; then
-                      echo "`Timestamp` CheckIPRoute ping to link local address $IPADDR success"
+                      swupdateLog "CheckIPRoute ping to link local address $IPADDR success"
                       ipconf=1
                    fi
                 fi
             done < $GATEWAYIP_FILE
         else
-            echo "`Timestamp` CheckIPRoute GatewayIP: $GATEWAYIP_FILE file not found"
+            swupdateLog "CheckIPRoute GatewayIP: $GATEWAYIP_FILE file not found"
         fi
     else
-        echo "`Timestamp` CheckIPRoute Route Config: $ROUTE_FLAG file not found"
+        swupdateLog "CheckIPRoute Route Config: $ROUTE_FLAG file not found"
     fi
 
     return $ipconf
@@ -2133,25 +2125,25 @@ checkDNS_NameServers()
     if  [ -f "$RESOLV_FILE" ] && [[ $(grep "nameserver" $RESOLV_FILE) ]]; then
         DNSSERVER=`cat $RESOLV_FILE | grep "nameserver"`
         dnsconf=1
-        echo "`Timestamp` checkDNS_NameServers List of nameservers received in $RESOLV_FILE:${DNSSERVER}"
+        swupdateLog "checkDNS_NameServers List of nameservers received in $RESOLV_FILE:${DNSSERVER}"
     else
         dnsconf=0
-        echo "`Timestamp` checkDNS_NameServers DNS $RESOLV_FILE file missing or nameservers not found"
+        swupdateLog "checkDNS_NameServers DNS $RESOLV_FILE file missing or nameservers not found"
     fi
     
     return $dnsconf
 }
 
-sendXCONFTLSRequest () {
-
+sendXCONFTLSRequest () 
+{
     ret=1
     http_code="000"
-    echo "`Timestamp` Trying to communicate with XCONF server"
+    swupdateLog "Trying to communicate with XCONF server"
     sendTLSRequest "XCONF"
     curl_result=$TLSRet
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
     ret=$?
-    echo "`Timestamp` curl_ret = $curl_result, ret=$ret, http_code: $http_code for XCONF communication"
+    swupdateLog "curl_ret = $curl_result, ret=$ret, http_code: $http_code for XCONF communication"
     if [ $curl_result -ne 0 ]; then
         updateFWDownloadStatus "" "Failure" "" "Network Communication Error" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
     elif [ $curl_result -eq 0 ] && [ "$http_code" = "404" ]; then
@@ -2161,32 +2153,31 @@ sendXCONFTLSRequest () {
     return $curl_result
 }
 
-sendXCONFCodebigRequest () {
+sendXCONFCodebigRequest () 
+{
     http_code="000"
     buildType=$(getBuildType)
     request_type=2
     if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $buildType != "prod" ]; then
-
         domain_name=`echo $CLOUD_URL | cut -d / -f 3`
         getRequestType $domain_name
         request_type=$?
     fi
 
     if [ "$request_type" != "0" ]; then
-        echo "`Timestamp` Trying to communicate with CodeBig server"
+        swupdateLog "Trying to communicate with CodeBig server"
         createJsonString
         if [ "$BUILD_TYPE" != "prod" ]; then
-            echo "`Timestamp` JSONSTR: $JSONSTR"
+            swupdateLog "JSONSTR: $JSONSTR"
         else
-            echo ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo
+            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         SIGN_CMD="GetServiceUrl $request_type \"$JSONSTR\""
         eval $SIGN_CMD > /tmp/.signedRequest
-        if [ -s /tmp/.signedRequest ]
-        then
-            echo "GetServiceUrl success"
+        if [ -s /tmp/.signedRequest ]; then
+            swupdateLog "GetServiceUrl success"
         else
-            echo "GetServiceUrl failed"
+            swupdateLog "GetServiceUrl failed"
             exit 1
         fi
         CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
@@ -2196,14 +2187,14 @@ sendXCONFCodebigRequest () {
         curl_result=$TLSRet
         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
         ret=$?
-        echo "`Timestamp` curl_ret = $curl_result, ret=$ret, http_code: $http_code for XCONF communication from Open internet"
+        swupdateLog "curl_ret = $curl_result, ret=$ret, http_code: $http_code for XCONF communication from Open internet"
         if [ $curl_result -eq 0 ] && [ "$http_code" = "404" ] ; then
             exitForXconf404response
         elif [ $curl_result -ne 0 ]; then
             updateFWDownloadStatus "" "Failure" "" "Network Communication Error" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
         fi
     else
-        echo "`Timestamp` sendXCONFCodebigRequest skipped: request_type=$request_type, domain_name=$domain_name"
+        swupdateLog "sendXCONFCodebigRequest skipped: request_type=$request_type, domain_name=$domain_name"
     fi
 
     return $curl_result
@@ -2216,7 +2207,7 @@ sendXCONFRequest()
     xconfcbretry=0
 
     if [ $UseCodebig -eq 1 ]; then
-        echo "`Timestamp` sendXCONFRequest Codebig is enabled UseCodebig=$UseCodebig"
+        swupdateLog "sendXCONFRequest Codebig is enabled UseCodebig=$UseCodebig"
         if [ "$DEVICE_TYPE" = "mediaclient" ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
@@ -2224,11 +2215,11 @@ sendXCONFRequest()
             if [ $skipcodebig -eq 0 ]; then
                 while [ $xconfcbretry -le $CB_RETRY_COUNT ]
                 do
-                    echo "`Timestamp` sendXCONFRequest Using Codebig Image upgrade connection"
+                    swupdateLog "sendXCONFRequest Using Codebig Image upgrade connection"
                     sendXCONFCodebigRequest
                     ret=$?
                     if [ "$http_code" = "200" ]; then
-                       echo "`Timestamp` sendXCONFRequest Codebig Image upgrade  Success: ret=$ret httpcode=$http_code"
+                       swupdateLog "sendXCONFRequest Codebig Image upgrade  Success: ret=$ret httpcode=$http_code"
                        IsDirectBlocked
                        skipDirect=$?
                        if [ $skipDirect -eq 0 ]; then
@@ -2236,75 +2227,75 @@ sendXCONFRequest()
                        fi
                        break
                     elif [ "$http_code" = "404" ]; then
-                        echo "`Timestamp` sendXCONFRequest Received 404 response for Codebig Image upgrade from xconf, Retry logic not needed"
+                        swupdateLog "sendXCONFRequest Received 404 response for Codebig Image upgrade from xconf, Retry logic not needed"
                         break
                     fi
-                    echo "`Timestamp` sendXCONFRequest Codebig Image upgrade  return: retry=$xconfcbretry ret=$ret httpcode=$http_code"
+                    swupdateLog "sendXCONFRequest Codebig Image upgrade  return: retry=$xconfcbretry ret=$ret httpcode=$http_code"
                     xconfcbretry=`expr $xconfcbretry + 1`
                     sleep $cbretryDelay
                 done	
             fi
 
-            if [ "$http_code" = "000" ] ; then
-                echo "`Timestamp` sendXCONFRequest Codebig Image upgrade failed: httpcode=$http_code, Switching direct"
+            if [ "$http_code" = "000" ]; then
+                swupdateLog "sendXCONFRequest Codebig Image upgrade failed: httpcode=$http_code, Switching direct"
                 UseCodebig=0
                 sendXCONFTLSRequest 
                 ret=$?
                 if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                    echo "`Timestamp` sendXCONFRequest Direct image upgrade failover request failed return=$ret, http code=$http_code"
+                    swupdateLog "sendXCONFRequest Direct image upgrade failover request failed return=$ret, http code=$http_code"
                 else
-                    echo "`Timestamp` sendXCONFRequest Direct image upgrade failover request received return=$ret, http code=$http_code" 
+                    swupdateLog "sendXCONFRequest Direct image upgrade failover request received return=$ret, http code=$http_code" 
                 fi
                 IsCodeBigBlocked
                 skipDirect=$?
                 if [ $skipDirect -eq 0 ]; then
-                    echo "`Timestamp` sendXCONFRequest Codebig blocking is released" 
+                    swupdateLog "sendXCONFRequest Codebig blocking is released" 
                 fi
             elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then 
-                echo "`Timestamp` sendXCONFRequest Codebig Image upgrade failed with httpcode=$http_code"
+                swupdateLog "sendXCONFRequest Codebig Image upgrade failed with httpcode=$http_code"
             fi 
         else
-            echo "`Timestamp` sendXCONFRequest Codebig Image upgrade is not supported"
+            swupdateLog "sendXCONFRequest Codebig Image upgrade is not supported"
         fi
     else
-        echo "`Timestamp` sendXCONFRequest Codebig is disabled UseCodebig=$UseCodebig"
+        swupdateLog "sendXCONFRequest Codebig is disabled UseCodebig=$UseCodebig"
         # Use direct connection connection for 3 failures with appropriate backoff/timeout,.
         IsDirectBlocked
         skipdirect=$?
         if [ $skipdirect -eq 0 ]; then
             while [ $xconfretry -lt $RETRY_COUNT ]
             do 
-                echo "`Timestamp` sendXCONFRequest Using Direct Image upgrade connection"
+                swupdateLog  "sendXCONFRequest Using Direct Image upgrade connection"
                 sendXCONFTLSRequest 
                 ret=$?
-                if [ "$http_code" = "200" ];then
-                    echo "`Timestamp` sendXCONFRequest Direct Image upgrade connection success: ret=$ret httpcode=$http_code"
+                if [ "$http_code" = "200" ]; then
+                    swupdateLog "sendXCONFRequest Direct Image upgrade connection success: ret=$ret httpcode=$http_code"
                     break
                 elif [ "$http_code" = "404" ]; then
-                    echo "`Timestamp` sendXCONFRequest Received 404 response Direct Image upgrade from xconf, Retry logic not needed"
+                    swupdateLog "sendXCONFRequest Received 404 response Direct Image upgrade from xconf, Retry logic not needed"
                     break
                 elif [ "$DEVICE_TYPE" = "mediaclient" ] && [ "$http_code" = "000" ]; then
-                    echo "`Timestamp` sendXCONFRequest Direct Image upgrade connection return: ret=$ret httpcode=$http_code"
+                    swupdateLog "sendXCONFRequest Direct Image upgrade connection return: ret=$ret httpcode=$http_code"
                     if [ "$ret" == "28" ] || [ "$ret" == "6" ]; then
-    			echo "`Timestamp` sendXCONFRequest Checking IP and Route configuration"
+    			swupdateLog "sendXCONFRequest Checking IP and Route configuration"
                         CheckIPRoute
                         foundroute=$?
-                        if [ $foundroute -eq 1 ];then
-                            echo "`Timestamp` sendXCONFRequest IP and Route configuration found"
-    			    echo "`Timestamp` sendXCONFRequest Checking DNS Nameserver configuration"
+                        if [ $foundroute -eq 1 ]; then
+                            swupdateLog "sendXCONFRequest IP and Route configuration found"
+    			    swupdateLog "sendXCONFRequest Checking DNS Nameserver configuration"
                             checkDNS_NameServers
                             founddnsservers=$?
-                            if [ $founddnsservers -eq 1 ];then
-                                echo "`Timestamp` sendXCONFRequest DNS Nameservers are available"
+                            if [ $founddnsservers -eq 1 ]; then
+                                swupdateLog "sendXCONFRequest DNS Nameservers are available"
                             else
-                                echo "`Timestamp` sendXCONFRequest DNS Nameservers missing..!!"
+                                swupdateLog "sendXCONFRequest DNS Nameservers missing..!!"
                             fi
                         else
-                            echo "`Timestamp` sendXCONFRequest IP and Route configuration not found...!!"
+                            swupdateLog "sendXCONFRequest IP and Route configuration not found...!!"
                         fi
                     fi
                 fi
-                echo "`Timestamp` sendXCONFRequest Direct Image upgrade  connection return: retry=$xconfretry ret=$ret httpcode=$http_code" 
+                swupdateLog "sendXCONFRequest Direct Image upgrade  connection return: retry=$xconfretry ret=$ret httpcode=$http_code" 
                 xconfretry=`expr $xconfretry + 1`
                 sleep $retryDelay
             done
@@ -2312,47 +2303,47 @@ sendXCONFRequest()
     
         if [ "$http_code" = "000" ]; then
             if [ "$DEVICE_TYPE" = "mediaclient" ]; then
-                echo "`Timestamp` sendXCONFRequest Direct Image upgrade Failed: httpcode=$http_code attempting codebig" 
+                swupdateLog "sendXCONFRequest Direct Image upgrade Failed: httpcode=$http_code attempting codebig" 
                 # Use Codebig connection connection on XI platforms
                 IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
                     while [ $xconfcbretry -le $CB_RETRY_COUNT ] 
                     do 
-                        echo "`Timestamp` sendXCONFRequest Using Codebig Image upgrade connection" 
+                        swupdateLog "sendXCONFRequest Using Codebig Image upgrade connection" 
                         sendXCONFCodebigRequest
                         ret=$?
                         if [ "$http_code" = "200" ]; then
-                            echo "`Timestamp` sendXCONFRequest Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
+                            swupdateLog "sendXCONFRequest Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                 touch $DIRECT_BLOCK_FILENAME
-                                echo "`Timestamp` sendXCONFRequest Use CodeBig and Blocking Direct attempts for 24hrs"
+                                swupdateLog "sendXCONFRequest Use CodeBig and Blocking Direct attempts for 24hrs"
                             fi
                             break
                         elif [ "$http_code" = "404" ]; then
-                            echo "`Timestamp` sendXCONFRequest Received 404 response Codebig Image upgrade from xconf, Retry logic not needed"
+                            swupdateLog "sendXCONFRequest Received 404 response Codebig Image upgrade from xconf, Retry logic not needed"
                             break
                         fi
-                        echo "`Timestamp` sendXCONFRequest Codebig Image upgrade return: retry=$xconfcbretry ret=$ret httpcode=$http_code" 
+                        swupdateLog "sendXCONFRequest Codebig Image upgrade return: retry=$xconfcbretry ret=$ret httpcode=$http_code" 
                         xconfcbretry=`expr $xconfcbretry + 1`
                         sleep $cbretryDelay
                     done
 
                     if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                        echo "`Timestamp` sendXCONFRequest Codebig Image upgrade failed: ret=$ret httpcode=$http_code"
+                        swupdateLog "sendXCONFRequest Codebig Image upgrade failed: ret=$ret httpcode=$http_code"
                         UseCodebig=0
                         if [ ! -f $CB_BLOCK_FILENAME ]; then
                             touch $CB_BLOCK_FILENAME
-                            echo "`Timestamp` sendXCONFRequest Switch Direct and Blocking Codebig for 30mins"
+                            swupdateLog "sendXCONFRequest Switch Direct and Blocking Codebig for 30mins"
                         fi
                     fi
                 fi
             else
-                echo "`Timestamp` sendXCONFRequest Codebig Image upgrade is not supported"
+                swupdateLog "sendXCONFRequest Codebig Image upgrade is not supported"
             fi
         elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-            echo "`Timestamp` sendXCONFRequest Direct Image upgrade Failed: ret=$ret httpcode=$http_code"
+            swupdateLog "sendXCONFRequest Direct Image upgrade Failed: ret=$ret httpcode=$http_code"
         fi 
     fi
     curl_result=$TLSRet
@@ -2366,7 +2357,7 @@ sendJsonRequestToCloud()
     FILENAME=$1
     JSONSTR=""
     createJsonString
-    echo "`Timestamp` JSONSTR: $JSONSTR"
+    swupdateLog "JSONSTR: $JSONSTR"
     runtime=`date -u +%F' '%T`    
 
     ## CloudURL to be formed as follows:
@@ -2375,7 +2366,7 @@ sendJsonRequestToCloud()
     ## Cloud URL http://$XRE_HOST/firmware/$BUILD/parker/stb/rng210n/version.json
     CLOUD_URL=$(getServURL)
     CLOUD_URL=`echo $CLOUD_URL | sed "s/http:/https:/g"`
-    if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ] ; then
+    if [ -f $PERSISTENT_PATH/swupdate.conf ] && [ $BUILD_TYPE != "prod" ]; then
         CURL_OPTION="-gw"
     fi
 
@@ -2385,20 +2376,20 @@ sendJsonRequestToCloud()
     ret=$?    
 
     resp=1
-    if [ $ret -ne 0 ] || [ "$http_code" != "200" ] ; then
-        echo "`Timestamp` HTTPS request failed"
+    if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
+        swupdateLog "HTTPS request failed"
         
         if [ $curl_result -eq 0 ]; then
             updateFWDownloadStatus "" "Failure" "" "Invalid Request" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
             eventManager $FirmwareStateEvent $FW_STATE_FAILED
         fi
     else
-        echo "`Timestamp` HTTPS request success. Processing response.."
+        swupdateLog "HTTPS request success. Processing response.."
         processJsonResponse $FILENAME
         resp=$?
-        echo "`Timestamp` processJsonResponse returned $resp"
-        if [ $resp -ne 0 ] ; then
-            echo "`Timestamp` processing response failed"    
+        swupdateLog "processJsonResponse returned $resp"
+        if [ $resp -ne 0 ]; then
+            swupdateLog "processing response failed"    
         fi
     fi
     return $resp    
@@ -2439,25 +2430,25 @@ if [ -d $DIFW_PATH ]; then
 fi
 
 # current FW version from version
-echo "`Timestamp` version = $(getFWVersion)"
-echo "`Timestamp` buildtype = $(getBuildType)"
-echo "`Timestamp` partnerId = $(getPartnerId)"
+swupdateLog "version = $(getFWVersion)"
+swupdateLog "buildtype = $(getBuildType)"
+swupdateLog "partnerId = $(getPartnerId)"
 
 if [ ! -f $WAREHOUSE_ENV ]; then
     getTimeZone
 fi
 
 if [ "$(getModel)" != "RPI" ]; then
-while [ ! -f /tmp/stt_received ]
-do
-    echo "Waiting for STT"
-    sleep 2
-done
-echo "`Timestamp` Received STT flag"
+    while [ ! -f /tmp/stt_received ]
+    do
+        swupdateLog "Waiting for STT"
+        sleep 2
+    done
+    swupdateLog "Received STT flag"
 fi
 
 UseCodebig=0
-echo "`Timestamp` Check Codebig flag..."
+swupdateLog "Check Codebig flag..."
 IsDirectBlocked
 UseCodebig=$?
 
@@ -2474,16 +2465,15 @@ do
     
     rm -f $FILENAME $HTTP_CODE
     if [ $cdlRet != 0 ]; then
-        echo "`Timestamp` sendJsonRequestToCloud failed with httpcode: $http_code Ret: $cdlRet"
+        swupdateLog "sendJsonRequestToCloud failed with httpcode: $http_code Ret: $cdlRet"
         maintenance_error_flag=1
         sleep 5
 
-#update state red status
+        #update state red status
         if [ $triggerType -eq 6 ]; then
             unsetStateRed
-            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-               then
-                 eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
             fi
             exit 1
         else
@@ -2491,16 +2481,15 @@ do
             forceStateRed
         fi
 
-        if [ "$http_code" == "404" ];then
-            echo "`Timestamp` Giving up all retries as received $http_code response..."
-            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-               then
-                 eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+        if [ "$http_code" == "404" ]; then
+            swupdateLog  "Giving up all retries as received $http_code response..."
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
             fi
             exit 1
         fi
     else
-        echo "`Timestamp` sendJsonRequestToCloud succeeded with httpcode: $http_code Ret: $cdlRet"
+        swupdateLog "sendJsonRequestToCloud succeeded with httpcode: $http_code Ret: $cdlRet"
         unsetStateRed
         maintenance_error_flag=0
     fi
@@ -2510,7 +2499,7 @@ do
         abort_flag=`cat /opt/maintenance_mgr_record.conf | cut -d "=" -f2`
         if [ "x$abort_flag" == "xtrue" ]
         then
-           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
+           eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
 	   exit 1
         fi
     fi
@@ -2521,20 +2510,15 @@ done
 #clear file lock before posting event if not cleared previously
 rm -f /tmp/DIFD.pid
 
-
 if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
     trap - SIGABRT
 fi
 
-
-
-if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-  then
-     if [ "$maintenance_error_flag" -eq 1 ]
-        then
-            eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
-        else
-            eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_COMPLETE
-        fi
+if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    if [ "$maintenance_error_flag" -eq 1 ]; then
+         eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
+    else
+         eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_COMPLETE
+    fi
 fi
 

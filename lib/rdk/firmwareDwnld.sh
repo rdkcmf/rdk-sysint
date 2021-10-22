@@ -18,8 +18,6 @@
 # limitations under the License.
 ##############################################################################
 
-## get eSTB mac address 
-
 . /etc/include.properties
 . /etc/device.properties
 . $RDK_PATH/utils.sh
@@ -28,6 +26,7 @@ if [ -f $RDK_PATH/rfcOverrides.sh ]; then
     . $RDK_PATH/rfcOverrides.sh
 fi
 
+IPDL_LOG_FILE="$LOG_PATH/ipdllogfile.txt"
 httpServerConf="/opt/httpServer.conf"
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
@@ -45,21 +44,25 @@ httpURL=""
 ImageDownloadURL=""
 DnldURLvalue="/opt/.dnldURL"
 TLS="--tlsv1.2"
-
 # File to save http code
 HTTP_CODE="/tmp/rcdl_curl_httpcode"
-rm -rf $HTTP_CODE
 
 export LD_LIBRARY_PATH=/lib:/usr/local/lib:
+rm -rf $HTTP_CODE
 
 PRODCDL_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Sysint.PRODCDLUrl  2>&1)
 if [ -z "$PRODCDL_URL" ]; then
     PRODCDL_URL="https://prodcdlserver.ae.ccp.xcal.tv/Images"
 fi
 
+swupdateLog()
+{
+    echo "`/bin/timestamp`: $0: $*" >> $IPDL_LOG_FILE
+}
+
 getMocaMacAddress()
 {
-  ifconfig  | grep -w $MOCA_INTERFACE |  grep -w -v $MOCA_INTERFACE:0 | tr -s ' ' | cut -d ' ' -f5
+    ifconfig  | grep -w $MOCA_INTERFACE |  grep -w -v $MOCA_INTERFACE:0 | tr -s ' ' | cut -d ' ' -f5
 }
 
 ## FW version from version 
@@ -103,7 +106,7 @@ updateFWDownloadStatusLog()
     numberOfArgs=$#
     # Check to avoid error in status due error in argument count during logging
     if [ "$numberOfArgs" -ne "7" ]; then
-        echo "Error in number of args for logging status in fwdnldstatus.txt"
+        swupdateLog "Error in number of args for logging status in fwdnldstatus.txt"
     fi
 
     echo "Method|http" > $STATUS_FILE
@@ -120,9 +123,7 @@ updateFWDownloadStatusLog()
 
 }
 
-
 # identifies whether it is a VBN or PROD build
-
 getBuildType()
 {
     if [ ! -n "$BUILD_TYPE" ] || [ "$BUILD_TYPE" == "" ] ; then
@@ -132,7 +133,6 @@ getBuildType()
     fi
 }
 
-
 getHTTPaddr()
 {
     httpURL="$PRODCDL_URL"
@@ -140,13 +140,13 @@ getHTTPaddr()
         httpURL=`grep -v '^[[:space:]]*#' $httpServerConf`
         echo "$httpURL" | grep -q -i "^http.*://"
         if [ $? -ne 0 ]; then
-            echo "`Timestamp` Device configured with an invalid overriden URL : $httpURL !!! Using default URL"
+            swupdateLog "Device configured with an invalid overriden URL : $httpURL !!! Using default URL"
             httpURL="$PRODCDL_URL"
         fi
     fi
 
     httpURL=`echo $httpURL | sed "s/http:/https:/g"`
-    echo "URL:$httpURL"
+    swupdateLog "URL:$httpURL"
 }
 
 downloadImage()
@@ -157,7 +157,7 @@ downloadImage()
      imageHTTPURL="$httpURL/$UPGRADE_FILE"
      ImageDownloadURL=$imageHTTPURL
      echo "$imageHTTPURL" > $DnldURLvalue
-     echo  "PROTO: HTTP , IMAGE URL= $imageHTTPURL" >> $LOG_PATH/ipdllogfile.txt
+     swupdateLog "PROTO: HTTP , IMAGE URL= $imageHTTPURL"
      ret=1
      retryCount=0
      while [ $ret -ne 0 ]
@@ -172,9 +172,9 @@ downloadImage()
          curl $TLS -fgLo $DIFW_PATH/$UPGRADE_FILE $imageHTTPURL > $HTTP_CODE
          ret=$?
          if [ $ret -ne 0 ]; then
-               echo "Local image Download Failed..Retrying" >> $LOG_PATH/ipdllogfile.txt
+               swupdateLog "Local image Download Failed..Retrying"
                if [ $retryCount -ge $RETRY_COUNT ] ; then
-                    echo "$RETRY_COUNT tries failed. Giving up local download" >> $LOG_PATH/ipdllogfile.txt
+                    swupdateLog "$RETRY_COUNT tries failed. Giving up local download"
                fi
          else
              break
@@ -194,8 +194,8 @@ updateTargetImage()
      http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
 
      if [ $resp -ne 0 ] || [ "$http_code" != "200" ]; then
-          echo "Check the image in the CDL server" >> /opt/logs/ipdllogfile.txt
-          echo "`Timestamp` Failed to download image with ret:$resp, httpcode:$http_code" >> $LOG_PATH/ipdllogfile.txt
+          swupdateLog "Check the image in the CDL server"
+          swupdateLog "Failed to download image with ret:$resp, httpcode:$http_code"
           if [ "$DEVICE_TYPE" == "mediaclient" ]; then
              if [ "x$http_code" = "x000" ]; then
                 failureReason="Image Download Failed - Unable to connect"
@@ -217,17 +217,17 @@ updateTargetImage()
      fi
 
      updateFWDownloadStatusLog "Flashing In Progress" " " " " "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
-     echo "$UPGRADE_FILE Flashing In Progress"
+     swupdateLog "$UPGRADE_FILE Flashing In Progress"
      if [ -f /lib/rdk/imageFlasher.sh ];then
           /lib/rdk/imageFlasher.sh 2 $ImageDownloadURL $DIFW_PATH $dnldImageName
           ret=$?
      else
-          echo "imageFlasher.sh is missing"
+          swupdateLog "imageFlasher.sh is missing"
      fi
-     echo "Completing the image flash wait..!"
+     swupdateLog "Completing the image flash wait..!"
      sync
      if [ $ret -eq 0 ] ; then
-         echo "IP download is complete, Rebooting the box now\n" >> /opt/logs/ipdllogfile.txt
+         swupdateLog "IP download is complete, Rebooting the box now\n"
          echo "$dnldFileName" > $FLASH_FILE_NAME
          updateFWDownloadStatusLog "Success" " " "$(getServerImageName)" "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
      else 
@@ -241,7 +241,7 @@ updateTargetImage()
 
 getServerImageName()
 {
-	cat $DIFW_PATH/$(getMocaMacAddress).conf
+    cat $DIFW_PATH/$(getMocaMacAddress).conf
 }
 
 ### main app
@@ -265,80 +265,77 @@ runtime=`date -u +%F' '%T`
 # wait for the box to acquire IP address
 while [ "$estbIp" = "" ] ; 
 do         
-   sleep 1                                  
-   estbIp=`getIPAddress`
-   echo "sleeping for ip "
+    sleep 1                                  
+    estbIp=`getIPAddress`
+    swupdateLog "sleeping for ip"
 done;
 
 
 if [ "$estbIp" != "" ] ; then
-         echo --------- $interface got an ip $estbIp
- 	 ## collect the following data
-	 # current FW version from version
-	 echo version = $(getFWVersion)
+    swupdateLog "--------- $interface got an ip $estbIp"
+    ## collect the following data
+    # current FW version from version
+    swupdateLog "version = $(getFWVersion)"
+    ###echo xreHost = $(getXREHost)
+    swupdateLog "buildtype = $(getBuildType)"
+    mocaMacAddr=$(getMocaMacAddress)
+    swupdateLog "macAddr= $mocaMacAddr"
+    getHTTPaddr
+    rm -rf $DIFW_PATH/$mocaMacAddr.conf
+    getBuildType
+    swupdateLog "URL=$httpURL"
+    swupdateLog "getting the macadress.conf file from http server"
 
-	 ###echo xreHost = $(getXREHost)
-         echo buildtype = $(getBuildType)
-         mocaMacAddr=$(getMocaMacAddress)
-         echo "macAddr= $mocaMacAddr"
-         getHTTPaddr
-	 rm -rf $DIFW_PATH/$mocaMacAddr.conf
-         getBuildType
-         echo URL=$httpURL >> $LOG_PATH/ipdllogfile.txt
-         echo "getting the macadress.conf file from http server"
-
-         retry=1
-         ret=1
-         while [ $ret -ne 0 ] && [ $retry -ne 3 ]; do
-             echo "Local image name download using MAC address Config, retry:$retry" >> $LOG_PATH/ipdllogfile.txt
-             curl $TLS -fgLo $DIFW_PATH/$mocaMacAddr.conf $httpURL/$SVR_MAC_ADDRESS_LOCATION/$mocaMacAddr.conf
-             ret=$?
-             retry=`expr $retry + 1`
-             echo "ret=$ret" >> $LOG_PATH/ipdllogfile.txt
-         done
-         if [ $ret -ne 0 ]; then
-             echo "Local image name download using MAC address Config Failed on retry Giving up local download" >> $LOG_PATH/ipdllogfile.txt
-             exit 0
-         fi
-         echo "Local image name download using MAC address Config Completed" >> $LOG_PATH/ipdllogfile.txt
-
-	 sync
-	 sleep 10
-         echo $(getServerImageName)
-         fileName=$(getServerImageName)
-         dnldFileName="$fileName.bin"
-         echo get server image version= $(getServerImageName)
-         echo get box image version= $(getFWVersion)
-         echo get box previous downloaded image version= $(getPreviousDnldFWVersion)
-         ## Check if firmware download triggered by other means is in progress
-	 if [ -f $STATUS_FILE ]; then
-		 status=`cat $STATUS_FILE | grep "Status" | cut -d '|' -f2`
-		 ## Check whether status is false status persisted during power cycle in between download.
-		 ## Other means of image ugrade may need to create this flag to check for power cycle between download state
-		 if [ "$status" == "$UPGRADE_IN_PROGRESS_STRING1" ] || [  "$status" == "$UPGRADE_IN_PROGRESS_STRING2" ]; then
-		     if [ -f $dnldInProgressFlag ]; then
-			 echo "Previous initiated firmware upgrade in progress."
-                         updateFWDownloadStatusLog "Failure" "Previous Upgrade In Progress" " " "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
-			 exit 0
-		     fi
-		 fi
+    retry=1
+    ret=1
+    while [ $ret -ne 0 ] && [ $retry -ne 3 ]; do
+        swupdateLog "Local image name download using MAC address Config, retry:$retry"
+        curl $TLS -fgLo $DIFW_PATH/$mocaMacAddr.conf $httpURL/$SVR_MAC_ADDRESS_LOCATION/$mocaMacAddr.conf
+        ret=$?
+        retry=`expr $retry + 1`
+        swupdateLog "ret=$ret"
+    done
+    if [ $ret -ne 0 ]; then
+        swupdateLog "Local image name download using MAC address Config Failed on retry Giving up local download"
+        exit 0
+    fi
+    swupdateLog "Local image name download using MAC address Config Completed"
+    sync
+    sleep 10
+    swupdateLog "$(getServerImageName)"
+    fileName=$(getServerImageName)
+    dnldFileName="$fileName.bin"
+    swupdateLog "get server image version= $(getServerImageName)"
+    swupdateLog "get box image version= $(getFWVersion)"
+    swupdateLog "get box previous downloaded image version= $(getPreviousDnldFWVersion)"
+    ## Check if firmware download triggered by other means is in progress
+    if [ -f $STATUS_FILE ]; then
+        status=`cat $STATUS_FILE | grep "Status" | cut -d '|' -f2`
+	## Check whether status is false status persisted during power cycle in between download.
+	## Other means of image ugrade may need to create this flag to check for power cycle between download state
+	if [ "$status" == "$UPGRADE_IN_PROGRESS_STRING1" ] || [  "$status" == "$UPGRADE_IN_PROGRESS_STRING2" ]; then
+	    if [ -f $dnldInProgressFlag ]; then
+	        swupdateLog "Previous initiated firmware upgrade in progress."
+                updateFWDownloadStatusLog "Failure" "Previous Upgrade In Progress" " " "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
+    	        exit 0
+	    fi
 	 fi
+    fi
 
-	 # Send query to the cloud - retry 3 times in case of failure
-	 if [ "$fileName" != "" ] ; then
-         	if [ "$(getServerImageName)" !=  "$(getFWVersion)" ] && [ "$(getServerImageName)" !=  "$(getPreviousDnldFWVersion)" ] ; then
-                        updateFWDownloadStatusLog "Download In Progress" " " " " "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
- 			updateTargetImage $fileName
-         	else
-			echo "FW Versions or previous downloaded versions are same, no need to download" >> $LOG_PATH/ipdllogfile.txt
-                        updateFWDownloadStatusLog "Failure" "Versions Match" "$(getServerImageName)" "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName"
-                        rm -f $dnldInProgressFlag 
-         	fi
-	else
-		echo "EMpty image name from CDL server" >> $LOG_PATH/ipdllogfile.txt
-                updateFWDownloadStatusLog "Failure" "Empty image name from CDL server" "$(getServerImageName)" "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
-                rm -f $dnldInProgressFlag
-	fi
-	
+     # Send query to the cloud - retry 3 times in case of failure
+    if [ "$fileName" != "" ] ; then
+        if [ "$(getServerImageName)" !=  "$(getFWVersion)" ] && [ "$(getServerImageName)" !=  "$(getPreviousDnldFWVersion)" ] ; then
+            updateFWDownloadStatusLog "Download In Progress" " " " " "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
+ 	    updateTargetImage $fileName
+        else
+	    swupdateLog "FW Versions or previous downloaded versions are same, no need to download"
+            updateFWDownloadStatusLog "Failure" "Versions Match" "$(getServerImageName)" "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName"
+            rm -f $dnldInProgressFlag 
+     	fi
+    else
+	swupdateLog "Empty image name from CDL server"
+        updateFWDownloadStatusLog "Failure" "Empty image name from CDL server" "$(getServerImageName)" "$dnldFileName" "$runtime" "$(getFWVersion)" "$currentFlashedFileName" 
+        rm -f $dnldInProgressFlag
+    fi	
 fi
 

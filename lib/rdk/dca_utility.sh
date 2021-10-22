@@ -55,7 +55,7 @@ TELEMETRY_PATH="/opt/.telemetry"
 TELEMETRY_PATH_TEMP="$TELEMETRY_PATH/tmp"
 
 RTL_LOG_FILE="$LOG_PATH/dcmscript.log"
-
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 RTL_TEMP_LOG_FILE="$RAMDISK_PATH/.rtl_temp.log"
 
 # Files required to be generated once per boot-up session
@@ -93,8 +93,11 @@ MAX_UPLOAD_ATTEMPTS=3
 RETRY_DELAY=60
 
 dcaLog() {
-    timestamp=`/bin/timestamp`
-    echo "$timestamp $0: $*" >> $RTL_LOG_FILE
+    echo "`/bin/timestamp`: $0: $*" >> $RTL_LOG_FILE
+}
+
+tlsLog() { 
+    echo "`/bin/timestamp`: $0: $*" >> $TLS_LOG_FILE
 }
 
 if [ $# -ne 2 ]; then
@@ -427,7 +430,7 @@ sendDirectTelemetryRequest()
     EnableOCSPStapling="/tmp/.EnableOCSPStapling"
     EnableOCSP="/tmp/.EnableOCSPCA"
 
-    dcaLog "Attempting $TLS direct connection to telemetry service"
+    dcaLog "dca$2: Attempting $TLS direct connection to telemetry service"
     
     if [ "$mTlsDCMUpload" == "true" ]; then
         dcaLog "Log Upload requires Mutual Authentication"
@@ -458,11 +461,11 @@ sendDirectTelemetryRequest()
         TLSRet=$?
     fi
  
-    dcaLog "CURL_CMD: $CURL_CMD"
+    dcaLog "dca$2: CURL_CMD: $CURL_CMD"
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            dcaLog "HTTPS $TLS failed to connect to telemetry service with curl error code $TLSRet"
+            tlsLog "dca$2: HTTPS $TLS failed to connect to telemetry service with curl error code $TLSRet"
 	    ;;
     esac
     dcaLog  "Curl return code : $TLSRet"

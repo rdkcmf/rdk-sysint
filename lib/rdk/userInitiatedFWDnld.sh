@@ -37,7 +37,7 @@ if [ -f $RDK_PATH/rfcOverrides.sh ]; then
 fi
 
 LOG_FILE=$LOG_PATH/"swupdate.log"
-THIS_SCRIPT=`basename "$0"`
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 
 IARM_EVENT_BINARY_LOCATION=/usr/bin
 if [ ! -f /etc/os-release ]; then
@@ -105,9 +105,15 @@ REQUEST_TYPE_FOR_CODEBIG_URL=14
 
 FOUR_CMDLINE_PARAMS=4
 
-log ()
+#Use log framework to pring timestamp and source script name
+swupdateLog()
 {
-    echo "`Timestamp` $THIS_SCRIPT: $*" >> "$LOG_FILE"
+    echo "`/bin/timestamp`: $0: $*" >> $LOG_FILE
+}
+
+tlsLog()
+{
+    echo "`/bin/timestamp`: $0: $*" >> $TLS_LOG_FILE
 }
 
 #Cert ops STB Red State recovery RDK-30717
@@ -157,18 +163,18 @@ checkAndEnterStateRed()
     isInStateRed
     stateRedflagset=$?
     if [ $stateRedflagset -eq 1 ]; then
-        log "checkAndEnterStateRed: Device State Red Recovery Flag already set"
+        swupdateLog "checkAndEnterStateRed: Device State Red Recovery Flag already set"
         stateRedRecoveryUrl=$recoveryURL
         return
     fi
 
-#Enter state red on ssl or cert errors
+    #Enter state red on ssl or cert errors
     case $curlReturnValue in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
         rm -f $DIRECT_BLOCK_FILENAME
         rm -f $CB_BLOCK_FILENAME
         touch $stateRedFlag
-        log "checkAndEnterStateRed: Curl SSL/TLS error ($curlReturnValue). Set state Red and Exit" >> $LOG_PATH/tlsError.log
+        tlsLog "checkAndEnterStateRed: Curl SSL/TLS error ($curlReturnValue). Set state Red and Exit"
         exit 1
     ;;
     esac
@@ -182,10 +188,10 @@ IsDirectBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
         remtime=$(($modtime/3600))
         if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
-            log "userInitiatedFWDnld: Last direct failed blocking is still valid for $remtime hrs, preventing direct"
+            swupdateLog "Last direct failed blocking is still valid for $remtime hrs, preventing direct"
             directret=1
         else
-            log "userInitiatedFWDnld: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
+            swupdateLog "Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct"
             rm -f $DIRECT_BLOCK_FILENAME
         fi
     fi
@@ -199,10 +205,10 @@ IsCodeBigBlocked()
         modtime=$(($(date +%s) - $(date +%s -r $CB_BLOCK_FILENAME)))
         cbremtime=$(($modtime/60))
         if [ "$modtime" -le "$CB_BLOCK_TIME" ]; then
-            log "userInitiatedFWDnld: Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig"
+            swupdateLog "Last Codebig failed blocking is still valid for $cbremtime mins, preventing Codebig"
             codebigret=1
         else
-            log "userInitiatedFWDnld: Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig"
+            swupdateLog "Last Codebig failed blocking has expired, removing $CB_BLOCK_FILENAME, allowing Codebig"
             rm -f $CB_BLOCK_FILENAME
         fi
     fi
@@ -220,9 +226,9 @@ getCodebigUrl()
     eval $sign_cmd > /tmp/.signedRequest
     if [ -s /tmp/.signedRequest ]
     then
-        echo "GetServiceUrl success"
+        swupdateLog "GetServiceUrl success"
     else
-        echo "GetServiceUrl failed"
+        swupdateLog "GetServiceUrl failed"
         exit 1
     fi
     cb_signed_request=`cat /tmp/.signedRequest`
@@ -239,16 +245,16 @@ eventManager()
     if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ]; then
         $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
     else
-        echo "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
+        swupdateLog "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
     fi
 }
 
 Trigger_RebootPendingNotify()
 {
     #Trigger RebootPendingNotification prior to device reboot for all software managed types of reboots
-    echo "RDKV_REBOOT : Setting RebootPendingNotification before reboot"
+    swupdateLog "RDKV_REBOOT : Setting RebootPendingNotification before reboot"
     tr181 -s -v $REBOOT_PENDING_DELAY Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification
-    echo "RDKV_REBOOT  : RebootPendingNotification SET succeeded"
+    swupdateLog "RDKV_REBOOT  : RebootPendingNotification SET succeeded"
 }
 
 ## Function to update firmware download status
@@ -306,32 +312,32 @@ sendTLSRequest()
     EnableOCSP="/tmp/.EnableOCSPCA"
 
     if [ $CodebigFlag -eq 1 ]; then
-       log "sendTLSRequest: Using $TLS codebig connection"
+       swupdateLog "sendTLSRequest: Using $TLS codebig connection"
        if [ -f $EnableOCSPstaple ] || [ -f $EnableOCSP ]; then
           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -o \"$DIFW_PATH/$UPGRADE_FILE\" \"$imageHTTPURL\""
-          log "Codebig enabled ==> CURL_CMD: $CURL_CMD"
+          swupdateLog "Codebig enabled ==> CURL_CMD: $CURL_CMD"
        else
           CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -o \"$DIFW_PATH/$UPGRADE_FILE\" \"$imageHTTPURL\""
-          log "Codebig enabled ==> CURL_CMD: $CURL_CMD"
+          swupdateLog "Codebig enabled ==> CURL_CMD: $CURL_CMD"
        fi
     else
-       log "sendTLSRequest: Using $TLS direct connection"
+       swupdateLog "sendTLSRequest: Using $TLS direct connection"
        if [ -f $EnableOCSPstaple ] || [ -f $EnableOCSP ]; then
           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLO \"$imageHTTPURL\""
-          log "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
+          swupdateLog "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
        else
           CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLO \"$imageHTTPURL\""
-          log "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
+          swupdateLog "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
        fi
     fi
     eval $CURL_CMD > $HTTP_CODE
 
     TLSRet=$?
-    log "Curl return code : $TLSRet"
+    swupdateLog "Curl return code : $TLSRet"
     
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-            log "HTTPS $TLS failed to connect to server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
+            tlsLog "HTTPS $TLS failed to connect to server with curl error code $TLSRet"
         ;;
 
     esac
@@ -345,19 +351,19 @@ sendTLSRequest()
 ## trigger image download to the box
 imageDownloadToLocalServer ()
 {
-    log "imageDownloadToLocalServer: Triggering the Image CDL ..."
+    swupdateLog "imageDownloadToLocalServer: Triggering the Image CDL ..."
 
     UPGRADE_LOCATION=$1
-    log "UPGRADE_LOCATION = $UPGRADE_LOCATION"
+    swupdateLog "UPGRADE_LOCATION = $UPGRADE_LOCATION"
 
     #Enforce https
     UPGRADE_LOCATION=`echo $UPGRADE_LOCATION | sed "s/http:/https:/g"`
 
     UPGRADE_FILE=$2
-    log "UPGRADE_FILE = $UPGRADE_FILE"
+    swupdateLog "UPGRADE_FILE = $UPGRADE_FILE"
 
     CodebigFlag=$3
-    log "DIFW_PATH = $DIFW_PATH"
+    swupdateLog "DIFW_PATH = $DIFW_PATH"
 
     if [ ! -d $DIFW_PATH ]; then
          mkdir -p $DIFW_PATH
@@ -370,7 +376,7 @@ imageDownloadToLocalServer ()
         # Change to support whether full http URL
         imageHTTPURL="$UPGRADE_LOCATION/$UPGRADE_FILE"
     fi
-    log "imageHTTPURL = $imageHTTPURL"
+    swupdateLog "imageHTTPURL = $imageHTTPURL"
     echo "$imageHTTPURL" > $DnldURLvalue
 
     ret=1
@@ -379,21 +385,21 @@ imageDownloadToLocalServer ()
     rm -f $FILE_EXT
 
     updateFWDnldStatus "$cloudProto" "ESTB in progress" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Downloading"
-    log "imageDownloadToLocalServer: Started image download ..."
+    swupdateLog "imageDownloadToLocalServer: Started image download ..."
 
     #Set FirmwareDownloadStartedNotification before starting of firmware download
     if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
         current_time=`date +%s`
-        echo "current_time calculated as $current_time"
+        swupdateLog "current_time calculated as $current_time"
         tr181 -s -v $current_time  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification
-        echo "FirmwareDownloadStartedNotification SET succeeded"
+        swupdateLog "FirmwareDownloadStartedNotification SET succeeded"
     fi
     if [ "$Protocol" = "usb" ]; then
 	DEFER_REBOOT=1
 	# Overwrite the path to program directly from the USB
         DIFW_PATH=$UPGRADE_LOCATION
         if [ ! -f $DIFW_PATH/$UPGRADE_FILE ]; then
-	    log "Error: $DIFW_PATH/$UPGRADE_FILE not found"
+	    swupdateLog "Error: $DIFW_PATH/$UPGRADE_FILE not found"
             http_code="404"
         else
             ret=0
@@ -406,7 +412,7 @@ imageDownloadToLocalServer ()
     fi
 
     if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
-        log "Local image Download Failed ret:$ret, httpcode:$http_code, Retrying"
+        swupdateLog "Local image Download Failed ret:$ret, httpcode:$http_code, Retrying"
         failureReason="ESTB Download Failure"
         if [ "$DEVICE_TYPE" == "mediaclient" ]; then
             if [ "x$http_code" = "x000" ]; then
@@ -425,21 +431,21 @@ imageDownloadToLocalServer ()
         if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
             tr181 -s -v false  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification
-            echo "FirmwareDownloadCompletedNotification SET to false succeeded"
+            swupdateLog "FirmwareDownloadCompletedNotification SET to false succeeded"
         fi
         return $ret
     else
-        log "Local image Download Success ret:$ret"
+        swupdateLog "Local image Download Success ret:$ret"
         updateFWDnldStatus "$cloudProto" "Flashing In Progress" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Download complete"
         eventManager $FirmwareStateEvent $FW_STATE_DOWNLOAD_COMPLETE
 
         if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
             #Set FirmwareDownloadCompletedNotification after firmware download
             tr181 -s -v true  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification
-            echo "FirmwareDownloadCompletedNotification SET to true succeeded"
+            swupdateLog "FirmwareDownloadCompletedNotification SET to true succeeded"
         fi
     fi
-    log "$UPGRADE_FILE Local Image Download Completed with status=$ret!"
+    swupdateLog "$UPGRADE_FILE Local Image Download Completed with status=$ret!"
 
     # Set reboot flag to true
     REBOOT_FLAG=1
@@ -454,7 +460,7 @@ imageDownloadToLocalServer ()
         ret=$?
         if [ "$ret" -ne 0 ]; then
             updateFWDnldStatus "$cloudProto" "Failure" "Flashing failed" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
-             eventManager $FirmwareStateEvent $FW_STATE_FAILED
+            eventManager $FirmwareStateEvent $FW_STATE_FAILED
         else
             updateFWDnldStatus "$cloudProto" "Success" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Validation complete"
 	    eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
@@ -463,10 +469,10 @@ imageDownloadToLocalServer ()
 		eventManager $FirmwareStateEvent $FW_STATE_PREPARING_TO_REBOOT
                 rm -rf /opt/.gstreamer
                 if [ "${isMmgbleNotifyEnabled}" == "true" ]; then
-                    echo "Trigger RebootPendingNotification in background"
+                    swupdateLog "Trigger RebootPendingNotification in background"
                     Trigger_RebootPendingNotify &
                 fi
-                echo "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
+                swupdateLog "sleep for $REBOOT_PENDING_DELAY sec to send reboot pending notification"
                 (sleep $REBOOT_PENDING_DELAY; /rebootNow.sh -s ImageUpgrade_"`basename $0`" -o "Rebooting the box after RCDL Image Upgrade...") & # reboot explicitly. imageFlasher.sh only flashes, will not reboot device.
             fi
         fi
@@ -476,7 +482,7 @@ imageDownloadToLocalServer ()
         fi
     else
         imagePath="\"$DIFW_PATH/"$UPGRADE_FILE"\""
-        log "imagePath = $imagePath"
+        swupdateLog "imagePath = $imagePath"
         if [ "$CPU_ARCH" == "x86" ]; then
              updateFWDnldStatus "$cloudProto" "Triggered ECM download" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" ""
         fi
@@ -516,7 +522,7 @@ ProcessImageUpgradeRequest()
         currentFile=$myFWFile
         myFWFile=`echo $myFWFile | tr '[A-Z]' '[a-z]'`
     fi
-    log "myFWFile = $myFWFile"
+    swupdateLog "myFWFile = $myFWFile"
 
     if [ -f /opt/cdl_flashed_file_name ]
     then
@@ -524,93 +530,93 @@ ProcessImageUpgradeRequest()
         lastDnldFileName=$lastDnldFile
         lastDnldFile=`echo $lastDnldFile | tr '[A-Z]' '[a-z]'`
     fi
-    log "lastDnldFile = $lastDnldFile "
+    swupdateLog "lastDnldFile = $lastDnldFile "
 
     if [ "$Protocol" = "usb" ]; then
         imageDownloadToLocalServer $UpgradeLocation $UpgradeFile 0
         resp=$?
     elif [ "$myFWFile" = "$dnldFile" ]; then
-        log "FW version of the active image and the image to be upgraded are the same. No upgrade required."
+        swupdateLog "FW version of the active image and the image to be upgraded are the same. No upgrade required."
         updateFWDnldStatus "$cloudProto" "No upgrade needed" "Versions Match" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "No upgrade needed"
     elif [ "$lastDnldFile" = "$dnldFile" ]; then
-        log "FW version of the standby image and the image to be upgraded are the same. No upgrade required."
+        swupdateLog "FW version of the standby image and the image to be upgraded are the same. No upgrade required."
         updateFWDnldStatus "$cloudProto" "No upgrade needed" "Versions Match" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "No upgrade needed"
     else
         if [ $CodebigFlag -eq 1 ]; then
-            log "ProcessImageUpgradeRequest: Codebig is enabled UseCodebig=$CodebigFlag"
-                # Use Codebig connection connection on XI platforms
-                # When codebig is set, use the DAC15 signed codebig URL for firmware download
-                IsCodeBigBlocked
-                skipcodebig=$?
-                if [ $skipcodebig -eq 0 ]; then
-                    while [ "$cbretries" -le $CB_RETRY_COUNT ]
-                    do
-                        log "ProcessImageUpgradeRequest: Attempting Codebig firmware download"
-                        getCodebigUrl
-                        imageDownloadToLocalServer $cb_signed_request $UpgradeFile $CodebigFlag
-                        resp=$?
-                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                        if [ "$http_code" = "200" ]; then
-                            log "ProcessImageUpgradeRequest: Codebig firmware download Success - ret:$resp, httpcode:$http_code"
-                            IsDirectBlocked
-                            skipDirect=$?
-                            if [ $skipDirect -eq 0 ]; then
-                                CodebigFlag=0
-                            fi
-                            break
-                        elif [ "$http_code" = "404" ]; then
-                            log "ProcessImageUpgradeRequest: Received 404 response for Codebig firmware download, Retry logic not needed"
-                            break
+            swupdateLog "ProcessImageUpgradeRequest: Codebig is enabled UseCodebig=$CodebigFlag"
+            # Use Codebig connection connection on XI platforms
+            # When codebig is set, use the DAC15 signed codebig URL for firmware download
+            IsCodeBigBlocked
+            skipcodebig=$?
+            if [ $skipcodebig -eq 0 ]; then
+                while [ "$cbretries" -le $CB_RETRY_COUNT ]
+                do
+                    swupdateLog "ProcessImageUpgradeRequest: Attempting Codebig firmware download"
+                    getCodebigUrl
+                    imageDownloadToLocalServer $cb_signed_request $UpgradeFile $CodebigFlag
+                    resp=$?
+                    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                    if [ "$http_code" = "200" ]; then
+                        swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download Success - ret:$resp, httpcode:$http_code"
+                        IsDirectBlocked
+                        skipDirect=$?
+                        if [ $skipDirect -eq 0 ]; then
+                            CodebigFlag=0
                         fi
-                        log "ProcessImageUpgradeRequest: Codebig firmware download return - retry:$cbretries, ret:$resp, httpcode:$http_code"
-                        cbretries=`expr $cbretries + 1`
-                        sleep 10
-                    done
-                fi
+                        break
+                    elif [ "$http_code" = "404" ]; then
+                        swupdateLog "ProcessImageUpgradeRequest: Received 404 response for Codebig firmware download, Retry logic not needed"
+                        break
+                    fi
+                    swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download return - retry:$cbretries, ret:$resp, httpcode:$http_code"
+                    cbretries=`expr $cbretries + 1`
+                    sleep 10
+                done
+            fi
 
-                if [ "$http_code" = "000" ]; then
-                    IsDirectBlocked
-                    skipdirect=$?
-                    if [ $skipdirect -eq 0 ]; then
-                        log "ProcessImageUpgradeRequest: Codebig firmware download failed - httpcode:$http_code, Using Direct"
-                        CodebigFlag=0
-                        imageDownloadToLocalServer $UpgradeLocation $UpgradeFile $CodebigFlag
-                        resp=$?
-                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                        if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                            log "ProcessImageUpgradeRequest: Direct failover firmware download failed - ret:$resp, httpcode:$http_code"
-                        else
-                            log "ProcessImageUpgradeRequest: Direct failover firmware download received- ret:$resp, httpcode:$http_code"
-                        fi
+            if [ "$http_code" = "000" ]; then
+                IsDirectBlocked
+                skipdirect=$?
+                if [ $skipdirect -eq 0 ]; then
+                    swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download failed - httpcode:$http_code, Using Direct"
+                    CodebigFlag=0
+                    imageDownloadToLocalServer $UpgradeLocation $UpgradeFile $CodebigFlag
+                    resp=$?
+                    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                    if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+                        swupdateLog "ProcessImageUpgradeRequest: Direct failover firmware download failed - ret:$resp, httpcode:$http_code"
+                    else
+                        swupdateLog "ProcessImageUpgradeRequest: Direct failover firmware download received- ret:$resp, httpcode:$http_code"
                     fi
-                    IsCodeBigBlocked
-                    skipCodeBig=$?
-                    if [ $skipCodeBig -eq 0 ]; then
-                        log "ProcessImageUpgradeRequest: Codebig block released"
-                    fi
-                elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                    log "ProcessImageUpgradeRequest: Codebig firmware download failed with httpcode:$http_code"
                 fi
+                IsCodeBigBlocked
+                skipCodeBig=$?
+                if [ $skipCodeBig -eq 0 ]; then
+                    swupdateLog "ProcessImageUpgradeRequest: Codebig block released"
+                fi
+            elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+                swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download failed with httpcode:$http_code"
+            fi
         else
-            log "ProcessImageUpgradeRequest: Codebig is disabled UseCodebig=$CodebigFlag"
+            swupdateLog "ProcessImageUpgradeRequest: Codebig is disabled UseCodebig=$CodebigFlag"
             IsDirectBlocked
             skipdirect=$?
             if [ $skipdirect -eq 0 ]; then
                 while [ "$retries" -lt $RETRY_COUNT ]
                 do
-                    log "ProcessImageUpgradeRequest: Attempting Direct firmware download"
+                    swupdateLog "ProcessImageUpgradeRequest: Attempting Direct firmware download"
                     CodebigFlag=0
                     imageDownloadToLocalServer $UpgradeLocation $UpgradeFile $CodebigFlag
                     resp=$?
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                     if [ "$http_code" = "200" ];then
-                       log "ProcessImageUpgradeRequest: Direct firmware download success - ret:$resp, httpcode:$http_code"
+                       swupdateLog "ProcessImageUpgradeRequest: Direct firmware download success - ret:$resp, httpcode:$http_code"
                        break
                     elif [ "$http_code" = "404" ]; then
-                       log "ProcessImageUpgradeRequest: Received 404 response for Direct firmware download, Retry logic not needed"
+                       swupdateLog "ProcessImageUpgradeRequest: Received 404 response for Direct firmware download, Retry logic not needed"
                        break
                     fi
-                    log "ProcessImageUpgradeRequest: Direct firmware download return - retry:$retries, ret:$resp, httpcode:$http_code"
+                    swupdateLog "ProcessImageUpgradeRequest: Direct firmware download return - retry:$retries, ret:$resp, httpcode:$http_code"
                     retries=`expr $retries + 1`
                     sleep 60
                 done
@@ -618,66 +624,66 @@ ProcessImageUpgradeRequest()
 
             if [ "$http_code" = "000" ]; then
                 if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-                    log "ProcessImageUpgradeRequest: Direct firmware download failed - httpcode:$http_code, attempting Codebig"
+                    swupdateLog "ProcessImageUpgradeRequest: Direct firmware download failed - httpcode:$http_code, attempting Codebig"
                     IsCodeBigBlocked
                     skipcodebig=$?
                     if [ $skipcodebig -eq 0 ]; then
                         while [ $cbretries -le $CB_RETRY_COUNT ]
                         do
-                            log "ProcessImageUpgradeRequest: Attempting Codebig firmware download"
+                            swupdateLog "ProcessImageUpgradeRequest: Attempting Codebig firmware download"
                             CodebigFlag=1
                             getCodebigUrl
                             imageDownloadToLocalServer $cb_signed_request $UpgradeFile $CodebigFlag
                             resp=$?
                             http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                             if [ "$http_code" = "200" ]; then
-                                log "ProcessImageUpgradeRequest: Codebig firmware download success - ret:$resp, httpcode:$http_code"
+                                swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download success - ret:$resp, httpcode:$http_code"
                                 CodebigFlag=1
                                 if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
                                     touch $DIRECT_BLOCK_FILENAME
-                                    log "ProcessImageUpgradeRequest: Use Codebig and Block Direct for 24 hrs "
+                                    swupdateLog "ProcessImageUpgradeRequest: Use Codebig and Block Direct for 24 hrs "
                                 fi
                                 break
                             elif [ "$http_code" = "404" ]; then
-                                log "ProcessImageUpgradeRequest: Received 404 response for Codebig firmware download, Retry logic not needed"
+                                swupdateLog "ProcessImageUpgradeRequest: Received 404 response for Codebig firmware download, Retry logic not needed"
                                 break
                             fi
-                            log "ProcessImageUpgradeRequest: Codebig firmware download return - retry:$cbretries, ret:$resp, httpcode:$http_code"
+                            swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download return - retry:$cbretries, ret:$resp, httpcode:$http_code"
                             cbretries=`expr $cbretries + 1`
                             sleep 10
                         done
 
                         if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                            log "ProcessImageUpgradeRequest: Codebig firmware download failed - ret:$resp, httpcode:$http_code"
+                            swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download failed - ret:$resp, httpcode:$http_code"
                             CodebigFlag=0
                             if [ ! -f $CB_BLOCK_FILENAME ]; then
                                 touch $CB_BLOCK_FILENAME
-                                log "ProcessImageUpgradeRequest: Switch Direct and Blocking Codebig for 30mins"
+                                swupdateLog "ProcessImageUpgradeRequest: Switch Direct and Blocking Codebig for 30mins"
                             fi
                         fi
                     fi
                 else
-                    log "ProcessImageUpgradeRequest: Codebig firmware download is not supported"
+                    swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download is not supported"
                 fi
             elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-                log "ProcessImageUpgradeRequest: Direct firmware download failed - ret:$resp, httpcode:$http_code"
+                swupdateLog "ProcessImageUpgradeRequest: Direct firmware download failed - ret:$resp, httpcode:$http_code"
             fi
         fi
 
-        log "ProcessImageUpgradeRequest: firmware upgrade codebig:$CodebigFlag method returned $resp httpcode:$http_code"
+        swupdateLog "ProcessImageUpgradeRequest: firmware upgrade codebig:$CodebigFlag method returned $resp httpcode:$http_code"
 
         if [ $resp = 0 ] && [ "$http_code" = "404" ]; then
-            log "ProcessImageUpgradeRequest: doCDL failed with HTTPS 404 Response from Xconf Server"
-            log "Exiting from Image Upgrade process..!"
+            swupdateLog "ProcessImageUpgradeRequest: doCDL failed with HTTPS 404 Response from Xconf Server"
+            swupdateLog "Exiting from Image Upgrade process..!"
             exit 0
         elif [ $resp != 0 ] || [ "$http_code" != "200" ]; then
-            log "ProcessImageUpgradeRequest: doCDL failed"
+            swupdateLog "ProcessImageUpgradeRequest: doCDL failed"
         else
-            log "ProcessImageUpgradeRequest: doCDL success"
+            swupdateLog "ProcessImageUpgradeRequest: doCDL success"
             if [ "$DEFER_REBOOT" = "1" ];then
-                log "ProcessImageUpgradeRequest: Deferring reboot after firmware download."
+                swupdateLog "ProcessImageUpgradeRequest: Deferring reboot after firmware download."
             else
-                log "ProcessImageUpgradeRequest: Rebooting after firmware download."
+                swupdateLog "ProcessImageUpgradeRequest: Rebooting after firmware download."
             fi
             ret=0
         fi
@@ -689,20 +695,20 @@ ProcessImageUpgradeRequest()
 IsWebpacdlEnabledForProd()
 {
     if [ "$Protocol" = "usb" ]; then
-        log "USB S/W upgrade, skipping check for webPA CDL RFC value"
+        swupdateLog "USB S/W upgrade, skipping check for webPA CDL RFC value"
     else
         #For PROD images, RFC(Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable) should be TRUE
-        log "Check for webPA CDL RFC value"
+        swupdateLog "Check for webPA CDL RFC value"
         if [ -f /usr/bin/tr181 ]; then
             WebPACDL=`/usr/bin/tr181 -g $WEBPACDL_TR181_NAME 2>&1 > /dev/null`
         else
-            log "tr181 BIN is not available at this time, setting WebPACDL to Default value(False)."
+            swupdateLog "tr181 BIN is not available at this time, setting WebPACDL to Default value(False)."
             WebPACDL=false
         fi
-        log "WebPACDL=$WebPACDL"
+        swupdateLog "WebPACDL=$WebPACDL"
         Build_type=`echo $ImageName | grep -i "_PROD_" | wc -l`
         if [ "$Build_type" -ne 0 ] && [ "$WebPACDL" != "true" ]; then
-            log "Exiting!!! Either Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable is FALSE or RFC sync not completed yet."
+            swupdateLog "Exiting!!! Either Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.NonPersistent.WebPACDL.Enable is FALSE or RFC sync not completed yet."
             exit 1
         fi
     fi
@@ -714,36 +720,36 @@ estbIp=`getIPAddress`
 # Checking number of cmd line params passed to script file
 
 if [ $# -lt $FOUR_CMDLINE_PARAMS ]; then
-     log "Error: minimum $FOUR_CMDLINE_PARAMS params needed, so Exiting !!!"
-     log "USAGE: <Path to userInitiatedFWDnld.sh file> <protocol> <ImageServer_URL> <Image_Name> <Codebig_Flag> <Defer_Reboot>(To enable set 1, To disable set 0)"
-     log "Example (For Non-Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 0 0"
-     log "Example (For Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 1 1"
-exit 1
+     swupdateLog "Error: minimum $FOUR_CMDLINE_PARAMS params needed, so Exiting !!!"
+     swupdateLog "USAGE: <Path to userInitiatedFWDnld.sh file> <protocol> <ImageServer_URL> <Image_Name> <Codebig_Flag> <Defer_Reboot>(To enable set 1, To disable set 0)"
+     swupdateLog "Example (For Non-Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 0 0"
+     swupdateLog "Example (For Cogent network): /lib/rdk/userInitiatedFWDnld.sh http <ImageServer_URL> <Image_Name> 1 1"
+     exit 1
 fi
 
 cleanup()
 {
-    log "cleanup..."
+    swupdateLog "cleanup..."
     if [ -f $HTTP_CODE ]; then
-        log "http code file removed"
+        swupdateLog "http code file removed"
         rm -f $HTTP_CODE
     fi
     if [ -f $RCDL_FLAG ]; then
-        log "Lock removed"
+        swupdateLog "Lock removed"
         rm -f $RCDL_FLAG
     fi
 }
 
 if [ "$estbIp" = "$DEFAULT_IP" ]; then
-    log "waiting for IP ..."
+    swupdateLog "waiting for IP ..."
     sleep 15
 else
-    log "--------- $interface got an ip $estbIp"
+    swupdateLog "--------- $interface got an ip $estbIp"
 
     ## Initialize the DIFD status/log file
     runtime=`date -u +%F' '%T`
 
-    log " Using script arguments $2 and $3 to download..."
+    swupdateLog "Using script arguments $2 and $3 to download..."
 
     CodebigFlag=$4
     ImageName=$3
@@ -755,16 +761,16 @@ else
         DEFER_REBOOT=0;
     fi
 
-    log "ImageName = $ImageName"
-    log "ImagePath = $ImagePath"
-    log "DEFER_REBOOT = $DEFER_REBOOT"
+    swupdateLog "ImageName = $ImageName"
+    swupdateLog "ImagePath = $ImagePath"
+    swupdateLog "DEFER_REBOOT = $DEFER_REBOOT"
 
     if [ -f $RCDL_FLAG ]; then
-	log "Image download already in progress, exiting!"
+	swupdateLog "Image download already in progress, exiting!"
 	exit 1
     elif [ ! -z "$ImageName" ] && [ ! -z "$ImagePath" ]; then
         IsWebpacdlEnabledForProd
-        log "Found download details, triggering download..."
+        swupdateLog "Found download details, triggering download..."
         touch $RCDL_FLAG
         trap cleanup EXIT #Remove Lock upon exit
         dnldVersion=`echo $ImageName | sed  's/-signed.bin//g' | sed  's/.bin//g'`
@@ -773,7 +779,7 @@ else
         ProcessImageUpgradeRequest $ImagePath $ImageName $CodebigFlag
         exit $?
     else
-        log "rcdlUpgradeFile or rcdlUpgradeFilePath is empty. Exiting !!!"
+        swupdateLog "rcdlUpgradeFile or rcdlUpgradeFilePath is empty. Exiting !!!"
         exit 1
     fi
 fi
