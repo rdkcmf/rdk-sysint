@@ -77,3 +77,13 @@ if [ -f "$RDK_PATH/runSdvAgent.sh" ];then
 else
     echo "$RDK_PATH/runSdvAgent.sh file not found."
 fi
+
+echo "Initiating reprovisioning on partnerId change"
+THUNDER_SEC_ENABLED=$(curl -s http://127.0.0.1:9998/Service/Controller/Configuration/Controller | grep Security | wc -l)
+if [ "$THUNDER_SEC_ENABLED" = "1" ]; then
+  export TOKEN;
+  TOKEN=$(/usr/bin/WPEFrameworkSecurityUtility | grep token | cut -f4 -d "\"")
+  curl -H "Content-Type: application/json"  -H "Authorization: Bearer $TOKEN" -X POST -d '{"jsonrpc":"2.0","id":"3","method": "com.comcast.DeviceProvisioning.1.reprovision", "params": {"provisionType": "HARDWARE"}}' http://127.0.0.1:9998/jsonrpc > /dev/null 2>&1 &
+else
+  curl -H "Content-Type: application/json" -X POST -d '{"jsonrpc":"2.0","id":"3","method": "com.comcast.DeviceProvisioning.1.reprovision", "params": {"provisionType": "HARDWARE"}}' http://127.0.0.1:9998/jsonrpc > /dev/null 2>&1 &
+fi
