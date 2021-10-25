@@ -101,6 +101,7 @@ FW_STATE_FAILED=3
 FW_STATE_DOWNLOAD_COMPLETE=4
 FW_STATE_VALIDATION_COMPLETE=5
 FW_STATE_PREPARING_TO_REBOOT=6
+FW_STATE_CRITICAL_REBOOT=8
 
 #maintaince states
 MAINT_FWDOWNLOAD_COMPLETE=8
@@ -167,6 +168,7 @@ pdriFwVerInfo=""
 ##RDKALL-966 Variables
 DelayDownloadXconf=0
 REBOOT_PENDING_DELAY=2
+CRITICAL_REBOOT_DELAY=600
 
 ## Hour and Minute of the New Cron Jod for Delay Download
 NewCronHr=0
@@ -1380,12 +1382,12 @@ imageDownloadToLocalServer ()
     swupdateLog "Triggering the Image Download ..."
     UPGRADE_LOCATION=$1
     UPGRADE_FILE=$2
-    REBOOT_FLAG=$3
+    REBOOT_IMMEDIATE_FLAG=$3
     UPGRADE_PROTO=$4
     PDRI_UPGRADE=$5
     swupdateLog "Upgrade Location = $UPGRADE_LOCATION"
     swupdateLog "Upgrade File = $UPGRADE_FILE"
-    swupdateLog "Upgrade Reboot Flag = $REBOOT_FLAG"
+    swupdateLog "Upgrade Reboot Flag = $REBOOT_IMMEDIATE_FLAG"
     swupdateLog "Upgrade protocol = $UPGRADE_PROTO"
     swupdateLog "PDRI Flag  = $PDRI_UPGRADE"
      
@@ -1511,14 +1513,21 @@ postFlash ()
 
     if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
         swupdateLog "Reboot Not Needed after PDRI Upgrade..!"
-    else  
-       if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-         then 
-            echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
-	    eventManager "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
-       else    
+    else
+       if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+           echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
+           eventManager "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
+           if [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
+               echo "`Timestamp` Send notification to reboot in 10mins due to critical upgrade"
+               eventManager "FirmwareStateEvent" $FW_STATE_CRITICAL_REBOOT
+               echo "`Timestamp` Sleeping for $CRITICAL_REBOOT_DELAY sec before rebooting the STB"
+               sleep $CRITICAL_REBOOT_DELAY
+               echo "`Timestamp` Application Reboot Timer of $CRITICAL_REBOOT_DELAY expired, Rebooting from RDK"
+               sh /rebootNow.sh -s UpgradeReboot_"`basename $0`" -o "Rebooting the box from RDK for Pending Critical Firmware Upgrade..."
+           fi
+       else
              echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
-             if [ $REBOOT_FLAG -eq 1 ]; then
+             if [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
                  swupdateLog "Download is complete. Rebooting the box now..."
                  swupdateLog "Trigger RebootPendingNotification in background"
                  if [ "${isMmgbleNotifyEnabled}" = "true" ]; then
@@ -1542,12 +1551,12 @@ invokeImageFlasher ()
     ret=0
     UPGRADE_SERVER=$1
     UPGRADE_FILE=$2
-    REBOOT_FLAG=$3
+    REBOOT_IMMEDIATE_FLAG=$3
     UPGRADE_PROTO=$4
     PDRI_UPGRADE=$5
     swupdateLog "Upgrade Server = $UPGRADE_SERVER "
     swupdateLog "Upgrade File = $UPGRADE_FILE "
-    swupdateLog "Reboot Flag = $REBOOT_FLAG "
+    swupdateLog "Reboot Flag = $REBOOT_IMMEDIATE_FLAG "
     swupdateLog "Upgrade protocol = $UPGRADE_PROTO "
     swupdateLog "PDRI Upgrade = $PDRI_UPGRADE "
 
@@ -1559,8 +1568,8 @@ invokeImageFlasher ()
         eventManager $ImageDwldEvent $IMAGE_FWDNLD_FLASH_INPROGRESS
     fi
 
-    if [ -f /lib/rdk/imageFlasher.sh ]; then
-        /lib/rdk/imageFlasher.sh $UPGRADE_PROTO $UPGRADE_SERVER $DIFW_PATH $UPGRADE_FILE $REBOOT_FLAG $PDRI_UPGRADE
+    if [ -f /lib/rdk/imageFlasher.sh ];then
+        /lib/rdk/imageFlasher.sh $UPGRADE_PROTO $UPGRADE_SERVER $DIFW_PATH $UPGRADE_FILE $REBOOT_IMMEDIATE_FLAG $PDRI_UPGRADE
         ret=$?
     else
         swupdateLog "imageFlasher.sh is missing"
