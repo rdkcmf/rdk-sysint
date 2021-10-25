@@ -419,7 +419,7 @@ if [ "$SOC" = "AMLOGIC" ];then
     logunit "-u tvserver" ${log_prefix}/tvservice.log
     logunit "-u pqserver" ${log_prefix}/pqserver.log
     logcat -v time -d -f ${log_prefix}/dolby_ms12.log
-    logcat -c
+    logcat -C
 fi
 
 if [ "$DEVICE_NAME" = "PLATCO" ]; then
