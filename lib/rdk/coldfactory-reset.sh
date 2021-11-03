@@ -88,6 +88,7 @@ if [ -f /opt/gzdisabled ];then rm -rf /opt/gzdisabled ; fi
 if [ -f /opt/enable_delia_dual ];then rm -rf /opt/enable_delia_dual ; fi
 if [ -f /opt/hddEnable ];then rm -rf /opt/hddEnable ; fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+if [ -f /opt/continuewatching.json ];then rm -rf /opt/continuewatching.json ; fi
 
 if [ -f /opt/secure/Apparmor_blocklist ];then rm -rf /opt/secure/Apparmor_blocklist ; fi
 

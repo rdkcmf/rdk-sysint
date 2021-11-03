@@ -167,6 +167,7 @@ if [ -f /opt/uploadSTBLogs.out ]; then rm -f /opt/uploadSTBLogs.out;fi
 if [ -d /opt/upnp ]; then rm -rf /opt/upnp/*;fi
 if [ -L /opt/www/htmldiag ]; then rm -f /opt/www/htmldiag;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+if [ -f /opt/continuewatching.json ];then rm -rf /opt/continuewatching.json ; fi
 
 if [ -f /opt/secure/Apparmor_blocklist ];then rm -rf /opt/secure/Apparmor_blocklist ; fi
 

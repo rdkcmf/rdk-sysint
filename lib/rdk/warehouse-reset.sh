@@ -108,6 +108,7 @@ if [ -d /opt/.gstreamer ]; then rm -rf /opt/.gstreamer; fi
 if [ -d /opt/persistent/dvr ]; then rm -rf /opt/persistent/dvr; fi
 if [ -d /opt/etc ];then rm -rf /opt/etc;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+if [ -f /opt/continuewatching.json ];then rm -rf /opt/continuewatching.json ; fi
 if [ -d /opt/certs ];then rm -rf /opt/certs; fi
 
 if [ -f /opt/secure/Apparmor_blocklist ];then rm -rf /opt/secure/Apparmor_blocklist ; fi
