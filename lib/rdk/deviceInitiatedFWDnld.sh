@@ -247,36 +247,34 @@ if [ -z $LOG_PATH ]; then
     LOG_PATH="/opt/logs/"
 fi
 
-if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-   if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
-      #For Placto & LLAMA devices
-      STREAMING=`grep "enabled" /sys/class/tsync/enable | awk -F':' '{printf $2}'`
-   elif [ "$DEVICE_NAME" = "XiOne" ]; then
-      #For Xione device
-      STREAMING=`redis-cli get video.codec`
-   else
-      #For other media-client devices
-      STREAMING=`grep "pts" /proc/brcm/video_decoder`
-   fi
-
-   VIDEO=$STREAMING
-
-   LOWSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.LowSpeed 2>&1 > /dev/null)
-   if [ $LOWSPEED -eq 0 ]; then
-      LOWSPEED=12800
-   fi
-
-   ## Throttle Enabled Variables
-   if [ ! -z "$VIDEO" ] && [ "$VIDEO" != "None" ]; then
-      isThrottleEnabled=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.Enable 2>&1 > /dev/null)
-      echo "isThrottleEnabled:$isThrottleEnabled"
-      TOPSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.TopSpeed 2>&1 > /dev/null)
-      if [ $TOPSPEED -eq 0 ]; then
-         TOPSPEED=1280000
-      elif [ $LOWSPEED -gt $TOPSPEED ]; then
-         LOWSPEED=12800
+isThrottleEnabled="false"
+VIDEO=""
+if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
+   isThrottleEnabled=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.Enable 2>&1 > /dev/null)
+   if [ "$isThrottleEnabled" = "true" ]; then
+      echo "Throttle is enabled"
+      if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
+         #For Placto & LLAMA devices
+         STREAMING=`grep "frame width" /sys/class/vdec/vdec_status | awk -F':' '{printf $1}'`
+      elif [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
+         #For Xione Realtek SOC device
+         STREAMING=`/usr/bin/redis-cli get video.codec`
+      else
+         #For other media-client devices
+         STREAMING=`grep "pts" /proc/brcm/video_decoder`
       fi
-  fi
+
+      VIDEO=$STREAMING
+      ## Throttle Enabled Variables
+      if [ ! -z "$VIDEO" ] && [ "$VIDEO" != "None" ]; then
+         TOPSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.TopSpeed 2>&1 > /dev/null)
+         if [ $TOPSPEED -eq 0 ]; then
+            TOPSPEED=1280000
+         fi
+      fi
+   else
+      echo "Throttle is disabled"
+   fi
 fi
 
 if [ "$DEVICE_TYPE" != "mediaclient" ]; then
@@ -809,35 +807,25 @@ sendTLSCodebigRequest()
     elif [ "$1" == "SSR" ]; then
         echo "Attempting $TLS connection to Codebig SSR server"
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
-           if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-              if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" != "true" ]; then
-                 echo "Throttle is enabled and Video is Streaming"
-                 CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --speed-limit $LOWSPEED --limit-rate $TOPSPEED > $HTTP_CODE"
-              else
-                 if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" = "true" ]; then
-                    echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                    echo "Continuing with the Unthrottle mode"
-                 else
-                    echo "Throttle is disabled"
-                 fi
-                 CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --speed-limit $LOWSPEED > $HTTP_CODE"
+           if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
+	      if [ "$cloudImmediateRebootFlag" != "true" ]; then
+                 echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                 CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --limit-rate $TOPSPEED > $HTTP_CODE"
+	      else
+                 echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+		 CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
               fi
            else
               CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
            fi
         else
-           if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-              if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" != "true" ]; then
-                  echo "Throttle is enabled and Video is Streaming"
-                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --speed-limit $LOWSPEED --limit-rate $TOPSPEED > $HTTP_CODE"
+           if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then 
+	      if [ "$cloudImmediateRebootFlag" != "true" ]; then
+                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --limit-rate $TOPSPEED > $HTTP_CODE"
               else
-                 if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" = "true" ]; then
-                    echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                    echo "Continuing with the Unthrottle mode"
-                 else
-                    echo "Throttle is disabled"
-                 fi
-                 CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --speed-limit $LOWSPEED > $HTTP_CODE"
+                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
               fi
            else
               CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' > $HTTP_CODE"
@@ -862,19 +850,12 @@ sendTLSCodebigRequest()
         rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
-        if [ $TLSRet -eq 28 ]; then
-                # Curl returns 28 if speed is less than 100 kbit/sec
-                # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
-                echo "CDL is suspended because speed is below 100 kbit/second"
-        elif [ $TLSRet -eq 22 ]; then
-                t2CountNotify "swdl_failed"
-                echo "CDL is suspended due to Curl $TLSRet Error"
-        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
-                t2CountNotify "swdl_failed_$TLSRet"
-                echo "CDL is suspended due to Curl $TLSRet Error"
-        else
-                echo "CDL is suspended due to Curl $TLSRet Error"
+        if [ $TLSRet -eq 22 ]; then
+           t2CountNotify "swdl_failed"
+	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+           t2CountNotify "swdl_failed_$TLSRet"
         fi
+        echo "CDL is suspended due to Curl $TLSRet Error"
     fi
     
     case $TLSRet in
@@ -990,35 +971,25 @@ sendTLSRequest()
                     GetConfigFile $ID
                 fi
             fi
-            if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-               if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" != "true" ]; then
-                   echo "Throttle is enabled and Video is Streaming"
-                   CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --speed-limit $LOWSPEED --limit-rate $TOPSPEED > $HTTP_CODE"
+            if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
+	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
+                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
-                  if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" = "true" ]; then
-                     echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                     echo "Continuing with the Unthrottle mode"
-                  else
-                     echo "Throttle is disabled"
-                  fi
-                  CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --speed-limit $LOWSPEED > $HTTP_CODE"
+                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
-                CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+               CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
             fi
         else
-            if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-               if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" != "true" ]; then
-                   echo "Throttle is enabled and Video is Streaming"
-                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --speed-limit $LOWSPEED --limit-rate $TOPSPEED > $HTTP_CODE"
+            if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
+	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
+                  echo "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
+                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
-                  if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$cloudImmediateRebootFlag" = "true" ]; then
-                     echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                     echo "Continuing with the Unthrottle mode"
-                  else
-                     echo "Throttle is disabled"
-                  fi
-                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --speed-limit $LOWSPEED > $HTTP_CODE"
+                  echo "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
+                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
                CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
@@ -1049,19 +1020,12 @@ sendTLSRequest()
         rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
-        if [ $TLSRet -eq 28 ]; then
-                # Curl returns 28 if speed is less than 100 kbit/sec
-                # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
-                echo "CDL is suspended because speed is below 100 kbit/second"
-        elif [ $TLSRet -eq 22 ]; then
-                t2CountNotify "swdl_failed"
-                echo "CDL is suspended due to Curl $TLSRet Error"
-        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
-                t2CountNotify "swdl_failed_$TLSRet"
-                echo "CDL is suspended due to Curl $TLSRet Error"
-        else
-                echo "CDL is suspended due to Curl $TLSRet Error"
+        if [ $TLSRet -eq 22 ]; then
+           t2CountNotify "swdl_failed"
+	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+           t2CountNotify "swdl_failed_$TLSRet"
         fi
+        echo "CDL is suspended due to Curl $TLSRet Error"
     fi
  
     case $TLSRet in

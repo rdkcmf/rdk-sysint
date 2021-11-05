@@ -100,38 +100,6 @@ fi
 
 CURL_TLS_TIMEOUT=30
 
-if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-   if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "PLATCO" ]; then
-      #For Placto & LLAMA devices
-      STREAMING=`grep "enabled" /sys/class/tsync/enable | awk -F':' '{printf $2}'`
-   elif [ "$DEVICE_NAME" = "XiOne" ]; then
-      #For Xione device
-      STREAMING=`redis-cli get video.codec`
-   else
-      #For other media-client devices
-      STREAMING=`grep "pts" /proc/brcm/video_decoder`
-   fi
-
-   VIDEO=$STREAMING
-
-   LOWSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.LowSpeed 2>&1 > /dev/null)
-   if [ $LOWSPEED -eq 0 ]; then
-      LOWSPEED=12800
-   fi
-
-   ## Throttle Enabled Variables
-   if [ ! -z "$VIDEO" ] && [ "$VIDEO" != "None" ]; then
-      isThrottleEnabled=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.Enable 2>&1 > /dev/null)
-      echo "isThrottleEnabled:$isThrottleEnabled"
-      TOPSPEED=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.SWDLSpLimit.TopSpeed 2>&1 > /dev/null)
-      if [ $TOPSPEED -eq 0 ]; then
-         TOPSPEED=1280000
-      elif [ $LOWSPEED -gt $TOPSPEED ]; then
-         LOWSPEED=12800
-      fi
-  fi
-fi
-
 #Support for firmware download via codebig
 REQUEST_TYPE_FOR_CODEBIG_URL=14
 
@@ -337,96 +305,30 @@ sendTLSRequest()
     EnableOCSPstaple="/tmp/.EnableOCSPStapling"
     EnableOCSP="/tmp/.EnableOCSPCA"
 
-    # Set reboot flag to true
-    REBOOT_FLAG=1
-    if [ "$DEFER_REBOOT" = "1" ];then
-        REBOOT_FLAG=0
-    fi
-
     if [ $CodebigFlag -eq 1 ]; then
        log "sendTLSRequest: Using $TLS codebig connection"
        if [ -f $EnableOCSPstaple ] || [ -f $EnableOCSP ]; then
           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -o \"$DIFW_PATH/$UPGRADE_FILE\" \"$imageHTTPURL\""
-          if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" != "1" ]; then
-                echo "Throttle is enabled and Video is Streaming"
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED --limit-rate $TOPSPEED"
-             else
-                if [ "$isThrottleEnabled" = "true" ] && [ "$REBOOT_FLAG" = "1" ]; then
-                   echo "Throttle is enabled but cloudImmediateRebootFlag is true"
-                   echo "Continuing with the Unthrottle mode"
-                else
-                   echo "Throttle is disabled"
-                fi
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED"
-             fi
-          fi
           log "Codebig enabled ==> CURL_CMD: $CURL_CMD"
        else
           CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -o \"$DIFW_PATH/$UPGRADE_FILE\" \"$imageHTTPURL\""
-          if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" != "1" ]; then
-                echo "Throttle is enabled and Video is Streaming"
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED --limit-rate $TOPSPEED"
-             else
-                if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" = "1" ]; then
-                   echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                   echo "Continuing with the Unthrottle mode"
-                else
-                   echo "Throttle is disabled"
-                fi
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED"
-             fi
-          fi
           log "Codebig enabled ==> CURL_CMD: $CURL_CMD"
        fi
     else
        log "sendTLSRequest: Using $TLS direct connection"
        if [ -f $EnableOCSPstaple ] || [ -f $EnableOCSP ]; then
           CURL_CMD="curl $TLS --cert-status --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLO \"$imageHTTPURL\""
-          if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" != "1" ]; then
-                echo "Throttle is enabled and Video is Streaming"
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED --limit-rate $TOPSPEED"
-             else
-                if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" = "1" ]; then
-                   echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                   echo "Continuing with the Unthrottle mode"
-                else
-                   echo "Throttle is disabled"
-                fi
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED"
-             fi
-          fi
           log "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
        else
           CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLO \"$imageHTTPURL\""
-          if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" != "1" ]; then
-                echo "Throttle is enabled and Video is Streaming"
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED --limit-rate $TOPSPEED"
-             else
-                if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ] && [ "$REBOOT_FLAG" = "1" ]; then
-                   echo "Throttle is enabled and Video is Streaming but cloudImmediateRebootFlag is true"
-                   echo "Continuing with the Unthrottle mode"
-                else
-                   echo "Throttle is disabled"
-                fi
-                CURL_CMD="$CURL_CMD --speed-limit $LOWSPEED"
-             fi
-          fi
           log "Codebig not enabled ==> CURL_CMD: $CURL_CMD"
        fi
     fi
     eval $CURL_CMD > $HTTP_CODE
 
     TLSRet=$?
-    if [ $TLSRet -eq 28 ]; then
-       # Curl returns 28 if speed is less than 100 kbit/sec
-       # curl: (28) Operation too slow. Less than 12800 bytes/sec transferred the last 30 seconds
-       echo "CDL is suspended because speed is below 100 kbit/second"
-    fi
-
+    log "Curl return code : $TLSRet"
+    
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
             log "HTTPS $TLS failed to connect to server with curl error code $TLSRet" >> $LOG_PATH/tlsError.log
