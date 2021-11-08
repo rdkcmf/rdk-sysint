@@ -36,20 +36,18 @@ eventSender()
 }
 
 # exit if an instance is already running
-if [ ! -f /etc/os-release ];then
-    if [ ! -f /tmp/.log-upload.pid ];then
-        # store the PID
-        echo $$ > /tmp/.log-upload.pid
-    else
-        pid=`cat /tmp/.log-upload.pid`
-        if [ -d /proc/$pid ];then
-           if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-           then
-                MAINT_LOGUPLOAD_INPROGRESS=16
-                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
-           fi
-            exit 0
+if [ ! -f /tmp/.log-upload.pid ];then
+    # store the PID
+    echo $$ > /tmp/.log-upload.pid
+else
+    pid=`cat /tmp/.log-upload.pid`
+    if [ -d /proc/$pid ];then
+        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
+        then
+            MAINT_LOGUPLOAD_INPROGRESS=16
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
         fi
+        exit 0
     fi
 fi
 
@@ -79,6 +77,7 @@ DCM_FLAG=$3
 UploadOnReboot=$4
 UploadProtocol=$5
 UploadHttpLink=$6
+TriggerType=$7
 
 # initialize the variables
 MAC=`getMacAddressOnly`
@@ -107,7 +106,15 @@ encryptionEnable=false
 if [ -f /etc/os-release ]; then
     encryptionEnable=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.EncryptCloudUpload.Enable 2>&1 > /dev/null`
 fi
-NUM_UPLOAD_ATTEMPTS=3
+# we limit the attempt to 1 when called
+# as a part of logupload before deepsleep
+if [ "$TriggerType" != "1" ]; then
+    NUM_UPLOAD_ATTEMPTS=3
+    uploadLog "Called with $NUM_UPLOAD_ATTEMPTS attempts"
+else
+    NUM_UPLOAD_ATTEMPTS=1
+    uploadLog "Called from Plugin with $NUM_UPLOAD_ATTEMPTS attempt"
+fi
 CB_NUM_UPLOAD_ATTEMPTS=1
 DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_upl"
 CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_upl"
@@ -115,7 +122,11 @@ PREVIOUS_REBOOT_INFO="/opt/secure/reboot/previousreboot.info"
 UNSCHEDULEDREBOOT_TR181_NAME='Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UploadLogsOnUnscheduledReboot.Disable'
 DCM_LOG_FILE="$LOG_PATH/dcmscript.log"
 
-if [ $# -ne 6 ]; then 
+if [ ! -z "$TriggerType" ]; then
+    if [ $# -ne 7 ];then
+        uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink> <TriggerType>"
+    fi
+elif [ $# -ne 6 ];then
     uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink>"
 fi
 
@@ -798,7 +809,7 @@ uploadLogOnReboot()
          if [ ! $ret ]; then 
                if [ ! -f /etc/os-release ];then pidCleanup;fi
                MAINT_LOGUPLOAD_ERROR=5
-               eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR 
+               eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
                exit 1
          fi
     fi
@@ -949,15 +960,13 @@ if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
 fi
 
 
-if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-        if [ "$maintenance_error_flag" -eq 1 ]
-        then
-            MAINT_LOGUPLOAD_ERROR=5
-            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-        else
-            MAINT_LOGUPLOAD_COMPLETE=4
-            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
-        fi
+if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+    if [ "$maintenance_error_flag" -eq 1 ]; then
+        MAINT_LOGUPLOAD_ERROR=5
+        eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
+    else
+        MAINT_LOGUPLOAD_COMPLETE=4
+        eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+    fi
 fi
 
