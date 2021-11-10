@@ -30,13 +30,18 @@ getAccountId()
 {
     accountId=`/usr/bin/tr181 -g $ACCOUNT_ID_TR181_NAME 2>&1 > /dev/null`
     accountIdLen=${#accountId}
-        
+
+    # Added a command to identify the Parent Process
+    echo "Parent Process INFO" >> $ACCOUNT_ID_LOG
+    echo "$PPID : `cat /proc/$PPID/cmdline`" >> $ACCOUNT_ID_LOG
+    echo "$$ : `cat /proc/$$/cmdline`" >> $ACCOUNT_ID_LOG
+
     if [ "$accountId" != "" ] ; then
         if [ "$accountIdLen" -lt "$KEY_LEN" ] && [ `expr "$accountId" : ".*[a-zA-Z0-9_-].*"` -gt 0 ] &&  [ `expr "$accountId" : ".*[!@#\$%^\&*()_+].*"` -eq 0 ];  then
             echo "`/bin/timestamp`: accountId is valid and value retrieved from tr181 param." >> $ACCOUNT_ID_LOG
             echo "$accountId"
         else
-            echo "`/bin/timestamp`: accountId is invalid as contains special characters or larger than max $KEY_LEN characters." >> $ACCOUNT_ID_LOG
+            echo "`/bin/timestamp`: accountId is invalid (Id: \"$accountId\" Len:$accountIdLen) as contains special characters or larger than max $KEY_LEN characters." >> $ACCOUNT_ID_LOG
             echo "Unknown"
         fi
 
