@@ -135,7 +135,13 @@ CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
 
-if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+if [ "$DEVICE_TYPE" = "broadband" ]; then
+    dycredpath="/nvram/lxy"
+else
+    dycredpath="/opt/lxy"
+fi
+
+if [ -d $dycredpath ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
     useXpkiMtlsLogupload="true"
 else
     useXpkiMtlsLogupload="false"

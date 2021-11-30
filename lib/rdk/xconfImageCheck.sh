@@ -109,8 +109,13 @@ CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_cdl_thunder"
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
+if [ "$DEVICE_TYPE" = "broadband" ]; then
+    dycredpath="/nvram/lxy"
+else
+    dycredpath="/opt/lxy"
+fi
 
-if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+if [ -d $dycredpath ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
     useXpkiMtlsLogupload="true"
 else
     useXpkiMtlsLogupload="false"

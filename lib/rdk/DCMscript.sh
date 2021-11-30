@@ -169,7 +169,13 @@ checkon_reboot=$5
 useXpkiMtlsLogupload=false
 checkXpkiMtlsBasedLogUpload()
 {
-    if [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ] && [ "$MODEL_NUM" != "SX022AN" ]; then
+    if [ "$DEVICE_TYPE" = "broadband" ]; then
+        dycredpath="/nvram/lxy"
+    else
+        dycredpath="/opt/lxy"
+    fi
+
+    if [ -d $dycredpath ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ] && [ "$MODEL_NUM" != "SX022AN" ]; then
         useXpkiMtlsLogupload="true"
     else
         useXpkiMtlsLogupload="false"
