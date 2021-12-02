@@ -1523,7 +1523,7 @@ postFlash ()
        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
            echo "$UPGRADE_FILE" > /opt/cdl_flashed_file_name
            eventManager "MaintenanceMGR" $MAINT_REBOOT_REQUIRED
-           if [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
+           if [ "x$DEVICE_NAME" = "xPLATCO" ] && [ $REBOOT_IMMEDIATE_FLAG -eq 1 ]; then
                echo "`Timestamp` Send notification to reboot in 10mins due to critical upgrade"
                eventManager "FirmwareStateEvent" $FW_STATE_CRITICAL_REBOOT
                echo "`Timestamp` Sleeping for $CRITICAL_REBOOT_DELAY sec before rebooting the STB"
