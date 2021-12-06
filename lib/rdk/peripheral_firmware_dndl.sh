@@ -304,6 +304,8 @@ getPeripheralFirmwares()
     UseCodebig=$3
     count=1
     currentversions=`cat $CURRENT_PERIPHERAL_VERSION`
+    cloud_fw_is_lower_version=0
+    cloud_and_current_fw_versions_same=0
     if [ -f $DOWNLOADED_PERIPHERAL_VERSION ]; then
         previous_downloadversions=`cat $DOWNLOADED_PERIPHERAL_VERSION`
     fi
@@ -341,11 +343,33 @@ getPeripheralFirmwares()
         if [ "$previous_downloadversions" != "" ]; then
             swupdateLog "getPeripheralFirmwares(): PrevDownload Version = $previous_downloadversions"
             downloaded_version=`echo $previous_downloadversions | tr "," "\n" | grep "$peripheral_device_type" | grep "$peripheral_version_type"`
-            if [ "$downloaded_version" == "$firmware_version.tgz" ] ; then
+            if [[ "$downloaded_version" == "$firmware_version.tgz" ]] ; then
                 swupdateLog "getPeripheralFirmwares: Prev Downloaded FW($downloaded_version) and Cur FW($firmware_version) are Same"
                 trigger_download=0
+                cloud_and_current_fw_versions_same=1
             fi
         fi
+
+        peripheral_version_number=`echo $firmware_version | cut -d "_" -f3`
+        current_version_number=`echo $currentversions | tr "," "\n" | grep "$peripheral_device_type" | grep "$peripheral_version_type" | grep -v "$firmware_version"`
+        current_version_number=`echo $current_version_number | cut -d "_" -f3`
+        current_version_number=echo ${current_version_number%.*}
+        peripheral_version_digit=0
+        current_version_digit=0
+        version_digit_count=1
+        while [[ "$peripheral_version_digit" != "" && "$current_version_digit" != "" && $trigger_download -ne 0 ]]
+        do
+          peripheral_version_digit=`echo $peripheral_version_number | cut -d "." -f$version_digit_count`
+          current_version_digit=`echo $current_version_number | cut -d "." -f$version_digit_count`
+          if [[ $peripheral_version_digit -gt $current_version_digit ]]; then
+               break
+          elif [[ $peripheral_version_digit -lt $current_version_digit ]]; then
+               trigger_download=0
+               cloud_fw_is_lower_version=1
+               break
+          fi
+          version_digit_count=`expr $version_digit_count + 1`
+        done
 
         if [ $trigger_download -eq 1 ] ; then
             ret=1
@@ -471,8 +495,10 @@ getPeripheralFirmwares()
                     swupdateLog "getPeripheralFirmwares: Direct firmware download failed: httpcode=$http_code"
                 fi
             fi
-        else
+        elif [ $trigger_download -eq 0 ] && [ $cloud_and_current_fw_versions_same -eq 1 ]; then
             swupdateLog "getPeripheralFirmwares: Skipping download of $firmware_version, as current/downloaded image and cloud image are same"
+        elif [ $trigger_download -eq 0 ] && [ $cloud_fw_is_lower_version -eq 1 ]; then
+            swupdateLog "`/bin/timestamp`getPeripheralFirmwares: Skipping download of $firmware_version, as cloud fw image is lower version than current/downloaded fw image"
         fi
 
         if [ "$http_code" == "404" ] ; then
