@@ -1609,6 +1609,12 @@ invokeImageFlasher ()
         updateUpgradeFlag "remove"
     elif [ "$DEVICE_TYPE" == "mediaclient" ]; then
         swupdateLog "Image Flashing is success"
+        if [ "x$ENABLE_MAINTENANCE" = "xtrue" ];then
+            if [ "$isCriticalUpdate" = "true" ];then
+                eventManager "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
+                swupdateLog "Posting Critical update"
+            fi
+        fi
         postFlash
     fi
     if [ "$DEVICE_TYPE" == "mediaclient" ]; then
@@ -1873,7 +1879,6 @@ checkForUpgrades ()
                 then
                     #if the Reboot immediate flag is true only then its a critical update.
                     if [ "$cloudImmediateRebootFlag" = "true" ]; then
-                        eventManager "MaintenanceMGR" $MAINT_CRITICAL_UPDATE
                         isCriticalUpdate=true
                     fi
                     #  set from the OEM recipe
@@ -1888,7 +1893,7 @@ checkForUpgrades ()
                             eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ABORTED
                             exit 1
                         elif [ "x$OptOut" = "xENFORCE_OPTOUT" ]; then
-                            #if triggered from updateFrimware() we dont sent the consent
+                            #if triggered from updateFirmware() we dont sent the consent
                             # we proceed with the download.
                             if [ $triggerType -ne 4 ]; then
                                 #send event on hold for optout
