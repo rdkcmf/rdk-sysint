@@ -1,0 +1,12 @@
+[Unit]
+Description=Get inet6 address
+After=network-online.target network.target
+Requires=network-online.target network.target
+
+[Service]
+Type=forking
+ExecStart=/bin/sh -c '/lib/rdk/getlocalinet6Ip.sh;'
+
+
+[Install]
+WantedBy=multi-user.target
