@@ -39,8 +39,9 @@ sendInformation=$2
 LOCKFILE=/tmp/`basename $0`.lock
 if [ -e ${LOCKFILE} ] && kill -0 `cat ${LOCKFILE}`; then
     echo "$0 is already running"
-    flag = 1
-    if ["$sendInformation" != 2] ; then
+    flag=1
+    if [ "$sendInformation" != "2" ]; then
+        echo "$0 Exiting dca_utility.DeepSleep triggered"
         exit 0;
     fi
 fi
@@ -113,7 +114,7 @@ fi
 dcaLog "sleep_time = $sleep_time"
 
 
-if [ "$sendInformation" -ne 1 ] ; then
+if [ "$sendInformation" != "1" ]; then
    TELEMETRY_PROFILE_PATH=$TELEMETRY_PROFILE_RESEND_PATH
 else
    TELEMETRY_PROFILE_PATH=$TELEMETRY_PROFILE_DEFAULT_PATH
@@ -677,21 +678,23 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
         
         echo $outputJson >> $RTL_LOG_FILE
         
-        if [ "$sendInformation" != 1 ] ; then
-           if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
-              dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
-           else
-              echo $outputJson >> $TELEMETRY_RESEND_FILE
-	      dcaLog "resend : Storing data to resend"
-	      if ["$flag" == 1] ; then
-                  kill `ps h -o pid -C dca_utility.sh`
-                  exit 0
-              fi
-              if ["$sendInformation" == 2 ] ;then
-                  exit 0
-              fi
+        if [ "$sendInformation" != "1" ]; then
+            if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
+                dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
+            else
+                echo $outputJson >> $TELEMETRY_RESEND_FILE
+                dcaLog "resend : Storing data to resend"
+                if [ "$flag" = "1" ]; then
+                    kill `ps h -o pid -C dca_utility.sh`
+                    dcaLog "Exiting dca_utility."
+                    exit 0
+                fi
+                if [ "$sendInformation" = "2" ]; then
+                    dcaLog "Exiting dca_utlity.Deep sleep triggered"
+                    exit 0
+                fi
 
-           fi
+            fi
         else
            dcaLog "sleeping $sleep_time seconds"
            sleep $sleep_time
