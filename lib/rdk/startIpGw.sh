@@ -44,7 +44,7 @@ fi
 while true; 
 do
 	echo "`/bin/timestamp` starting the ipsetup and gateway setup "   >> $logsFile
-	sh $RDK_PATH/ipSetup.sh
+        [ ! -f /etc/os-release ]  && sh $RDK_PATH/ipSetup.sh
 	sleep 15
 	if [ ! -f /etc/os-release ]; then
 		# We dont need this script in yocto since by the

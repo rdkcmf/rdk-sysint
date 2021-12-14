@@ -57,29 +57,6 @@ fi
 ip_event=$2
 iface=$1
 
-enable_interface()
-{
-    iface=$1
-    iface_status="down"
-    count=0
-    max_retry=5
-    timeout=3
-    while [ true ]
-    do
-        if [ -f $NET_SYS_PATH/$iface/operstate ];then
-            iface_status=`cat $NET_SYS_PATH/$iface/operstate`
-        fi
-        
-        if [ "$iface_status" = "up" ] || [ $count -ge $max_retry ];then
-            break
-        fi
-        /sbin/ip link set dev $iface up
-        count=`expr $count + 1`
-        sleep $timeout
-    done
-    echo "$iface_status"
-}
-
 get_interface_type()
 {
     iface=$1
@@ -134,7 +111,7 @@ if [ "$RFC_ENABLE_WEBKIT_INSPECTOR" == "true" ] || [ "$BUILD_TYPE" != "prod" ]; 
                 rfcLogging " $IPV6_BIN not found. Not applying ipv6 firewall rules"
             fi
         else
-           iface_status=$(enable_interface $iface)
+           [ -f $NET_SYS_PATH/$iface/operstate ] && iface_status=`cat $NET_SYS_PATH/$iface/operstate` || iface_status="down"
            rfcLogging "[$0]:Interface = $iface Status = $iface_status"
            if [ "$iface_status" = "up" ] && [ "$ip_event" = "add" ];then
                 rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR add!!"
