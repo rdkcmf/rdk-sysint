@@ -349,6 +349,16 @@ if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "$DEVICE_NA
    fi
 fi
 
+isIncrementalCDLEnabled="false"
+if [ "$DEVICE_NAME" = "PLATCO" ]; then
+   isIncrementalCDLEnabled=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.IncrementalCDL.Enable 2>&1 > /dev/null)
+   swupdateLog "IncrementalCDL is $isIncrementalCDLEnabled"
+   maxtime=7200
+   retryTime=10
+   #If there is a total loss of connection, and no new data is received, device should try up to 2 more times
+   PARTIAL_RETRY_COUNT=2
+fi
+
 if [ "$DEVICE_TYPE" != "mediaclient" ]; then
     setSNMPEnv
     snmpCommunityVal=`head -n 1 /tmp/snmpd.conf | awk '{print $4}'`
@@ -815,7 +825,7 @@ sendTLSCodebigRequest()
         fi
         eval $CURL_CMD > $HTTP_CODE
         TLSRet=$?
-        if [ $TLSRet -eq 6 ]; then 
+        if [ $TLSRet -eq 6 ]; then
             t2CountNotify "xconf_couldnt_resolve"
         fi
     elif [ "$1" == "SSR" ]; then
@@ -834,7 +844,7 @@ sendTLSCodebigRequest()
            fi
         else
            if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then 
-	      if [ "$cloudImmediateRebootFlag" != "true" ]; then
+              if [ "$cloudImmediateRebootFlag" != "true" ]; then
                   swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
                   CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT  -H '$2' -w '%{http_code}\n' -fgLo $DIFW_PATH/$UPGRADE_FILE '$serverUrl' --limit-rate $TOPSPEED > $HTTP_CODE"
               else
@@ -859,15 +869,16 @@ sendTLSCodebigRequest()
             eval $CURL_CMD &> $CURL_PROGRESS
         fi
         TLSRet=$?
-        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
+        
     fi
     if [ -f $CURL_PROGRESS ]; then
+        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
         rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
         if [ $TLSRet -eq 22 ]; then
            t2CountNotify "swdl_failed"
-	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
            t2CountNotify "swdl_failed_$TLSRet"
         fi
         swupdateLog "CDL is suspended due to Curl $TLSRet Error"
@@ -962,7 +973,7 @@ sendTLSRequest()
            t2CountNotify "xconf_couldnt_resolve" 
         fi
     elif [ "$1" == "SSR" ]; then
-        swupdateLog "Attempting $TLS connection to SSR server" 
+        swupdateLog "Attempting $TLS connection to SSR server"
         if [ "$mTlsXConfDownload" == "true" ]; then
             swupdateLog "Fetching MTLS credential for SSR"
             MTLSCMD=""
@@ -973,29 +984,31 @@ sendTLSRequest()
             fi
             swupdateLog "MTLS creds for SSR fetched"
 
+            COMMON_CURL_PARAMS="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT"
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
-	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
+               if [ "$cloudImmediateRebootFlag" != "true" ]; then
                   swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
-                  CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
+                  CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
                   swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
-                  CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+                  CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
-               CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+               CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
             fi
 
         else
+            COMMON_CURL_PARAMS="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT"
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
-	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
+               if [ "$cloudImmediateRebootFlag" != "true" ]; then
                   swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
-                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
+                  CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
                   swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
-                  CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+                  CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
-               CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+               CURL_CMD="$COMMON_CURL_PARAMS $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
             fi
         fi
 
@@ -1009,29 +1022,61 @@ sendTLSRequest()
         else
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
-        if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-            eval $CURL_CMD &> $CURL_PROGRESS &
-            echo "$!" > $CURL_PID_FILE
-            CurlPid=`cat $CURL_PID_FILE`
-            wait $CurlPid
+        # store the original curl command to trigger full image download when curl returns 33 or 36
+        FULL_IMG_CURL_CMD="$CURL_CMD"
+        if [ "x$PDRI_UPGRADE" != "xpdri" ] && [ "$isIncrementalCDLEnabled" = "true" ] && ( ls $chunkFile*.bin || ls "$UPGRADE_FILE" ) &> /dev/null; then
+                ChunkDownload
         else
-            eval $CURL_CMD &> $CURL_PROGRESS
-        fi 
+            if ( ls $chunkFile*.bin ) &> /dev/null; then
+                rm -rf $DIFW_PATH/$chunkFile*
+            fi
+            if [ -f $DIFW_PATH/$UPGRADE_FILE ]; then
+                rm -rf $DIFW_PATH/$UPGRADE_FILE
+            fi
+            if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+               eval $CURL_CMD &> $CURL_PROGRESS &
+               echo "$!" > $CURL_PID_FILE
+               CurlPid=`cat $CURL_PID_FILE`
+               wait $CurlPid
+            else
+               eval $CURL_CMD &> $CURL_PROGRESS
+            fi
+        fi
         TLSRet=$?
-        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
     fi
     if [ -f $CURL_PROGRESS ]; then
+        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
         rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
         if [ $TLSRet -eq 22 ]; then
            t2CountNotify "swdl_failed"
-	elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
+        elif [ $TLSRet -eq 18 ] || [ $TLSRet -eq 7 ]; then
            t2CountNotify "swdl_failed_$TLSRet"
         fi
         swupdateLog "CDL is suspended due to Curl $TLSRet Error"
+        if [ "x$PDRI_UPGRADE" != "xpdri" ] && [ "$isIncrementalCDLEnabled" = "true" ] && [ "$1" != "XCONF" ]; then
+           #Retry download when curl returns 28 or 18 (PARTIAL DOWNLOAD)
+           if  [ $TLSRet -eq 28 -o $TLSRet -eq 18 ]; then
+               ChunkDownload
+               TLSRet=$Ret
+               #When curl returns 33 (RANGE_ERROR) or 36 (BAD_DOWNLOAD_RESUME) trigger a full download of the image
+               if [ $TLSRet -eq 33 ] || [ $TLSRet -eq 36 ]; then
+                   #Remove the chunks if any as we are trying a full image download
+                   if ( ls $chunkFile*.bin ) &> /dev/null; then
+                       rm -rf $DIFW_PATH/$chunkFile*
+                   fi
+                   if ( ls $UPGRADE_FILE ) &> /dev/null; then
+                       rm -rf $DIFW_PATH/$UPGRADE_FILE
+                   fi
+                   swupdateLog "Trigger full image download as curl returned $TLSRet"
+                   swupdateLog "CURL_CMD: `echo "$FULL_IMG_CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
+                   eval $FULL_IMG_CURL_CMD >> $FWDL_LOG_FILE 2>&1
+                   TLSRet=$?
+               fi
+           fi
+        fi
     fi
- 
     case $TLSRet in
     35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
         tlsLog "HTTPS $TLS failed to connect to $1 server with curl error code $TLSRet"
@@ -1043,6 +1088,116 @@ sendTLSRequest()
     fi
 }
 
+ChunkDownload () {
+    Ret=$TLSRet
+    Original_FILE_SIZE=0
+    filesize=0
+    partial_retry=0
+    count=0
+    chunk_ext1="chunk_1.bin"
+    chunk_ext2="chunk_2.bin"
+    CURL_HEADERS="/tmp/.chunk_download_curl_headers"
+    CURL_SI="$COMMON_CURL_PARAMS -o $CURL_HEADERS -sI -fgL \"$imageHTTPURL\""
+    swupdateLog "Fetching headers from server to determine content length"
+    eval $CURL_SI
+    Ret_SI=$?
+    if [ -f $CURL_HEADERS ]; then
+        cat $CURL_HEADERS >> $FWDL_LOG_FILE
+        Original_FILE_SIZE=`cat $CURL_HEADERS | grep -i Content-Length | awk '{print $2}'`
+        Original_FILE_SIZE="${Original_FILE_SIZE//[$'\t\r\n ']}"
+        rm -rf $CURL_HEADERS
+    fi
+    if [ ! -z $Original_FILE_SIZE ] && [ $Original_FILE_SIZE -gt 0 ]; then
+        swupdateLog "Curl returned $Ret_SI. Content-length fetched from server is $Original_FILE_SIZE"
+    else
+        swupdateLog "Curl returned $Ret_SI. Unable to fetch content-length from server"
+        return $Ret_SI
+    fi
+
+    if ls $chunkFile*.bin &> /dev/null; then
+        if  ls "$UPGRADE_FILE"  &> /dev/null; then
+            # In ideal scenarios, we expect only chunk1 & upgrade_file to be present
+            # worst case, if chunk2 is also present then it will be overwritten
+            swupdateLog "ChunkDownload: Upgrade file found. Renaming it to $chunkFile$chunk_ext2"
+            mv $UPGRADE_FILE $chunkFile$chunk_ext2
+        fi
+        ConcatenateFile
+    fi
+
+    filesize=`stat -c %s $UPGRADE_FILE`
+    swupdateLog "Downloaded $UPGRADE_FILE of size $filesize"
+
+    if [ $filesize -eq $Original_FILE_SIZE ]; then
+        Ret=0
+        echo "200" > $HTTP_CODE
+        return $Ret
+    fi
+
+    if [ $Ret -eq 28 ] || [ $Ret -eq 1 ] || [ $Ret -eq 18 ]; then
+        while [ $filesize -lt $Original_FILE_SIZE ]
+        do
+               RetryDownload $filesize
+               Ret=$?
+               swupdateLog "ChunkDownload: Curl returned $Ret"
+               if [ $Ret -eq 28 ] || [ $Ret -eq 0 ] || [ $Ret -eq 18 ]; then
+                   ConcatenateFile
+                   if ls "$UPGRADE_FILE" &> /dev/null; then
+                       filesize1=`stat -c %s $UPGRADE_FILE`
+                       if [ $filesize -eq $filesize1 ]; then
+                           if [ $partial_retry -lt $PARTIAL_RETRY_COUNT ]; then
+                               partial_retry=`expr $partial_retry + 1`
+                           else
+                               swupdateLog "ChunkDownload: $partial_retry partial_retry count has been reached"
+                               return -1
+                           fi
+                       else
+                            filesize=$filesize1
+                       fi
+                       swupdateLog "ChunkDownload: Current image size is $filesize"
+                   fi
+               else
+                   # If curl return value is not 18/28/0, discard the last downloaded chunk
+                   swupdateLog "ChunkDownload: Removing the last downloaded chunk"
+                   if ls "${chunkFile}${chunk_ext2}" &> /dev/null; then
+                       rm -rf $chunkFile$chunk_ext2
+                   fi
+                   return $Ret
+               fi
+        done
+    fi
+    return $Ret
+}
+
+RetryDownload () {
+    if ls "$UPGRADE_FILE" &> /dev/null; then
+        mv $UPGRADE_FILE $chunkFile$chunk_ext1
+    fi
+    if [ "$cloudImmediateRebootFlag" != "true" ]; then
+        sleep $retryTime
+    fi
+    
+    CURL_CMD="$CURL_CMD --max-time $maxtime --range $filesize- "
+    swupdateLog "RetryDownload: Downloading image with range starting from $filesize"
+    eval $CURL_CMD >> $FWDL_LOG_FILE 2>&1
+    Ret=$?
+    
+    if ls "$UPGRADE_FILE" &> /dev/null; then
+        mv $UPGRADE_FILE $chunkFile$chunk_ext2
+    fi
+    return $Ret
+}
+
+ConcatenateFile () {
+    if ls ${chunkFile}*.bin &> /dev/null; then
+        swupdateLog "ConcatenateFile: Linking the available chunks - $(ls ${chunkFile}* | xargs)"
+        cat $chunkFile* > $UPGRADE_FILE
+        rm -rf $chunkFile*
+    fi
+}
+
+# The http code 206 check in the below function is applicable only when isIncrementalCDLEnabled RFC is enabled 
+# Http Code 206 status response indicates it downloaded the requested ranges of data successfully , 
+# as given in the curl command using --range
 httpTLSDownload () {
     ret=1
     http_code="000"
@@ -1055,8 +1210,8 @@ httpTLSDownload () {
     if [ $ret -ne 0 ]; then
         rm -rf $DIFW_PATH/$UPGRADE_FILE
     fi
-
-    if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
+   
+    if [ $ret -ne 0 ] || [ "$http_code" != "200" -a "$http_code" != "206" ] ; then
        swupdateLog "Failed to download image from normal SSR code download server with ret:$ret, httpcode:$http_code"
        if [ "$DEVICE_TYPE" == "mediaclient" ]; then
           if [ "x$http_code" = "x000" ]; then
@@ -1082,6 +1237,9 @@ httpTLSDownload () {
     return $ret
 }
 
+# The http code 206 check in the below function is applicable only when isIncrementalCDLEnabled RFC is enabled 
+# Http Code 206 status response indicates it downloaded the requested ranges of data successfully , 
+# as given in the curl command using --range
 httpCodebigDownload () {        
     domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
     imagedownloadHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
@@ -1116,13 +1274,16 @@ httpCodebigDownload () {
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
     swupdateLog "httpCodebigDownload: SSR Codebig Image download ret : $ret"
 
-    if [ "$http_code" != "200" ]; then
+    if [ "$http_code" != "200" ] && [ "$http_code" != "206" ] ; then
         rm -rf $DIFW_PATH/$UPGRADE_FILE
     fi 
 
     return $ret
 }
 
+# The http code 206 check in the below function is applicable only when isIncrementalCDLEnabled RFC is enabled 
+# Http Code 206 status response indicates it downloaded the requested ranges of data successfully , 
+# as given in the curl command using --range
 httpDownload ()
 {
     http_code="000"
@@ -1141,7 +1302,7 @@ httpDownload ()
                     swupdateLog "httpDownload: Using Codebig Image upgrade connection"
                     httpCodebigDownload
                     ret=$?
-                    if [ "$http_code" = "200" ]; then
+                    if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                        swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                        IsDirectBlocked
                        skipDirect=$?
@@ -1167,7 +1328,7 @@ httpDownload ()
                 if [ $skipdirect -eq 0 ]; then 
                     httpTLSDownload
                     ret=$?
-                    if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+                    if [ "$http_code" != "200" ] && [ "$http_code" != "206" ] && [ "$http_code" != "404" ]; then
                         swupdateLog "httpDownload: Direct image upgrade failover request failed return=$ret, httpcode=$http_code"
                     else
                         swupdateLog "httpDownload: Direct image upgrade failover request received return=$ret, httpcode=$http_code"
@@ -1178,7 +1339,7 @@ httpDownload ()
                 if [ $skipcodebig -eq 0 ]; then
                     swupdateLog "httpDownload: Codebig Blocking is released"
                 fi
-            elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+            elif [ "$http_code" != "200" ] && [ "$http_code" != "206" ] && [ "$http_code" != "404" ]; then
                 swupdateLog "httpDownload: Codebig Image upgrade failed with httpcode=$http_code"
             fi
         else
@@ -1195,7 +1356,7 @@ httpDownload ()
                 swupdateLog "httpDownload: Using Direct Image upgrade connection"
                 httpTLSDownload
                 ret=$?
-                if [ "$http_code" = "200" ]; then
+                if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                     swupdateLog "httpDownload: Direct Image upgrade Success: ret=$ret httpcode=$http_code"
                     break
                 elif [ "$http_code" = "404" ]; then
@@ -1220,7 +1381,7 @@ httpDownload ()
                         swupdateLog "httpDownload: Using Codebig Image upgrade connection"
                         httpCodebigDownload
                         ret=$?
-                        if [ "$http_code" = "200" ]; then
+                        if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                             swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
@@ -1237,7 +1398,7 @@ httpDownload ()
                         sleep $cbretryDelay
                     done
 
-                    if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+                    if [ "$http_code" != "200" ] && [ "$http_code" != "206" ] && [ "$http_code" != "404" ]; then
                         swupdateLog "httpDownload: Codebig Image upgrade failed: ret=$ret httpcode=$http_code"
                         UseCodebig=0
                         if [ ! -f $CB_BLOCK_FILENAME ]; then
@@ -1249,7 +1410,7 @@ httpDownload ()
             else
                 swupdateLog "httpDownload: Codebig Image upgrade is not supported"
             fi
-        elif [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
+        elif [ "$http_code" != "200" ] && [ "$http_code" != "206" ] && [ "$http_code" != "404" ]; then
             swupdateLog "httpDownload: Direct Image upgrade Failed: ret=$ret httpcode=$http_code"
         fi
     fi
@@ -1413,12 +1574,14 @@ imageDownloadToLocalServer ()
 
     #Delete already existing files from download folder
     model_num=$(getModel)
-    if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
-        rm $model_num*PDRI*.bin
-        swupdateLog "PDRI Download in Progress for $UPGRADE_FILE "
-    else
-        rm $model_num*.bin
-        swupdateLog "PCI Download in Progress for $UPGRADE_FILE "
+    if [ "$isIncrementalCDLEnabled" != "true" ]; then
+       if [ "x$PDRI_UPGRADE" == "xpdri" ]; then
+          rm $model_num*PDRI*.bin
+          swupdateLog "PDRI Download in Progress for $UPGRADE_FILE "
+       else
+          rm $model_num*.bin
+          swupdateLog "PCI Download in Progress for $UPGRADE_FILE "
+       fi
     fi
 
     status=$DOWNLOAD_IN_PROGRESS
@@ -1453,7 +1616,7 @@ imageDownloadToLocalServer ()
     fi
 
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-    if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
+    if [ $ret -ne 0 ] || [ "$http_code" != "206" -a "$http_code" != "200" ]; then
         updateUpgradeFlag remove
         failureReason="ESTB Download Failure"
         if [ "$DEVICE_TYPE" == "mediaclient" ]; then
@@ -1496,8 +1659,10 @@ imageDownloadToLocalServer ()
         if [ "$CPU_ARCH" != "x86" ]; then
             eventManager $ImageDwldEvent $IMAGE_FWDNLD_DOWNLOAD_COMPLETE
         fi    
-        filesize=`ls -l $UPGRADE_FILE |  awk '{ print $5}'`
+        filesize=`stat -c %s $UPGRADE_FILE`
         swupdateLog "Downloaded $UPGRADE_FILE of size $filesize"
+        checksum=`md5sum $DIFW_PATH/$UPGRADE_FILE`
+        echo "md5sum of $UPGRADE_FILE : $checksum"
     fi    
     return $ret
 }
@@ -1622,14 +1787,20 @@ invokeImageFlasher ()
                 swupdateLog "Posting Critical update"
             fi
         fi
+
+        if [ -f $DIFW_PATH/$UPGRADE_FILE ]; then
+            rm -rf $DIFW_PATH/$UPGRADE_FILE
+        fi
         postFlash
     fi
     if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-        rm -rf $DIFW_PATH/$UPGRADE_FILE
+         if [ -f $DIFW_PATH/$UPGRADE_FILE ]; then
+              rm -rf $DIFW_PATH/$UPGRADE_FILE
+         fi
         updateUpgradeFlag "remove"
-    fi    
+    fi 
     return $ret
-}     
+}
 
 ## get Server URL
 getServURL()
@@ -1729,7 +1900,7 @@ checkAndTriggerPDRIUpgrade ()
         fi
         imageDownloadToLocalServer $cloudFWLocation $cloudPDRIVersion $rebootFlag $protocol "pdri"
         ret=$?
-        if [ $ret -eq 0 ] && [ "$http_code" = "200" ]; then
+        if [ $ret -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
             invokeImageFlasher $cloudFWLocation $cloudPDRIVersion $rebootFlag $protocol "pdri"
             ret=$?
         fi
@@ -1789,7 +1960,7 @@ triggerPCIUpgrade ()
         imageDownloadToLocalServer $cloudFWLocation $cloudFWFile $rebootFlag $protocol
         resp=$?
     fi
-    if [ $resp -eq 0 ] && [ "$http_code" = "200" ]; then
+    if [ $resp -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
         invokeImageFlasher $cloudFWLocation $cloudFWFile $rebootFlag $protocol
         resp=$?
     fi  
@@ -1880,6 +2051,7 @@ checkForUpgrades ()
             updateFWDownloadStatus "$cloudProto" "Failure" "$cloudImmediateRebootFlag" "Cloud FW Version is empty" "$dnldVersion" "$cloudFWFile" "$runtime" "Failed" "$DelayDownloadXconf"
             eventManager $FirmwareStateEvent $FW_STATE_FAILED
         else
+            chunkFile="${cloudFWVersion}_"
             checkForValidPCIUpgrade
             if [ $pci_upgrade -eq 1 ]; then
                 if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
@@ -2489,9 +2661,11 @@ fi
 if [ -d $DIFW_PATH ]; then
     PWD=`pwd`
     cd $DIFW_PATH
-    #Delete already existing files from download folder
-    FILE_EXT=$MODEL_NUM*.bin
-    rm -f $FILE_EXT
+    if [ "$isIncrementalCDLEnabled" != "true" ]; then
+        #Delete already existing files from download folder
+        FILE_EXT=$MODEL_NUM*.bin
+        rm -f $FILE_EXT
+    fi
     cd $PWD
 fi
 
