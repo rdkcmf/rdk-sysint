@@ -116,7 +116,7 @@ mountdaemonlist=(nvram prepare-nvram common-attach opt-attach disk-check)
 mountlogname="${log_prefix}/mount_log.txt"
 
 if [ "$SOC" = "RTK" ];then
-    rtkservicelist=(hdmiservice)
+    rtkservicelist=(rtk-audio hdmiservice)
     rtkservicelogname="${log_prefix}/rtk_service.log"
 fi
 
