@@ -303,6 +303,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
         logRotateFramework $xwrebootInfoLog $logRotateGenericCount $xwrebootInfoLogRotateSize
         logRotateFramework $coreDumpLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $xw3systeminfo $logRotateGenericCount $xw3systeminfoSize
+        logRotateFramework $accessmanagerLog $logRotateGenericCount $accessmanagerLogRotateSize
 else
 	logRotateFramework $receiverLog $receiverLogRotatCount $receiverLogRotatSize
 	logRotateFramework $ttsLog $ttsLogRotatCount $ttsLogRotatSize
