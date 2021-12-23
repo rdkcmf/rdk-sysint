@@ -97,10 +97,10 @@ if [ "$HDD_ENABLED" = "false" ]; then
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
         if [ "$DEVICE_NAME" = "XiOne" ] && [ "$SOC" = "RTK" ]; then
             #For Xione Realtek SOC device
-            find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -iname "*.bin*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+            find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -iname "*.bin*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
         else
             #For other media-client devices
-            find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+	    find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
         fi
     elif [ ! `ls $PREV_LOG_PATH/$sysLogBAK1` ]; then
         # box reboot within 8 minutes after reboot
@@ -130,7 +130,7 @@ if [ "$HDD_ENABLED" = "false" ]; then
     find $LOG_PATH -name "*-*-*-*-*M-" -exec rm -rf {} \;
 else
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
-       find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
+       find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
        if [ -f /etc/os-release ];then
            /bin/touch $PREV_LOG_PATH/last_reboot
        else
@@ -141,7 +141,7 @@ else
        timestamp=`date "+%m-%d-%y-%I-%M-%S%p"`
        LogFilePathPerm="$PREV_LOG_PATH/logbackup-$timestamp"
        mkdir -p $LogFilePathPerm
-       find $LOG_PATH -maxdepth 1 -mindepth 1 -type f \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \)  -exec mv '{}' $LogFilePathPerm \;
+       find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \)  -exec mv '{}' $LogFilePathPerm \;
        if [ -f /etc/os-release ];then
            /bin/touch "$LogFilePathPerm"/last_reboot 
        else
