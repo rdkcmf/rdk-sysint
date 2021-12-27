@@ -23,7 +23,9 @@
 if [ "$DEVICE_TYPE" != "mediaclient" ]; then
      . /lib/rdk/commonUtils.sh
 fi
-
+if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+     . /lib/rdk/utils.sh
+fi
 if [ -f /etc/mount-utils/getConfigFile.sh ];then
       mkdir -p /tmp/.dropbear
       . /etc/mount-utils/getConfigFile.sh
@@ -59,49 +61,57 @@ checkForInterface()
   fi
 }
 
+#RFC check for MOCA SSH enable/not.
+isMOCASSHEnable=$(/usr/bin/tr181Set -d  Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MOCASSH.Enable 2>&1 > /dev/null)
+
+echo "RFC_ENABLE_MOCASSH:$isMOCASSHEnable"
+
 loop=1
 address=""
 # mediaclient code
 if [ "$DEVICE_TYPE" = "mediaclient" ]; then
       while [ $loop -eq 1 ]
       do
-           checkForInterface "$MOCA_INTERFACE"
-           if [ "$ipAddress" ]; then
-                 loop=0
-           fi
            if [ "$WIFI_INTERFACE" ] && [ ! "$ipAddress" ];then
-                 checkForInterface "$WIFI_INTERFACE"
-                 if [ "$ipAddress" ]; then
-                      loop=0
-                 fi
-           fi
-
-           if [ ! "$ipAddress" ];then
-                 if [ -f /tmp/estb_ipv4 ];then
-                       checkForInterface "$ETHERNET_INTERFACE:0"
+                 if [ -f /tmp/estb_ipv6 ];then
+                       checkForInterface "$WIFI_INTERFACE"
                  else
-                       checkForInterface "$ETHERNET_INTERFACE"
+                       checkForInterface "$WIFI_INTERFACE:0"
                  fi
-
                  if [ "$ipAddress" ]; then
                       loop=0
                  fi
            fi
-
+           Interface=`getMoCAInterface`
+           if [ ! "$ipAddress" ];then
+                 if [ -f /tmp/estb_ipv6 ];then
+                       checkForInterface "$Interface"
+                 else
+                       checkForInterface "$Interface:0"
+                 fi
+                 if [ "$ipAddress" ]; then
+                      loop=0
+                 fi
+           fi
+           if [ "$isMOCASSHEnable" = "true" ];then
+               ipAddress+=" "
+               ipAddress+=`ifconfig $MOCA_INTERFACE |grep 169.254.* |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
+           fi
            sleep 5
      done
-
+     #Concatenating all ip addresses
+     IP_ADDRESS_PARAM=""
+     for i in $ipAddress;
+     do
+          IP_ADDRESS_PARAM+="-p $i:22 "
+     done
      if [ -e /sbin/dropbear ] || [ -e /usr/sbin/dropbear ] ; then
           if [ -f /etc/os-release ];then
-              if [ "$DEVICE_TYPE" = "mediaclient" ] && [ "x$stbInWild" != "xtrue" ] ; then
-                  ## Enable SSH on both IPv4 and IPv6 address for root causing DELIA-18463 in field
-                  ipAddress=""
-                  /bin/systemctl set-environment DROPBEAR_PARAMS_1=$DROPBEAR_PARAMS_1
-                  /bin/systemctl set-environment DROPBEAR_PARAMS_2=$DROPBEAR_PARAMS_2
-              fi
-              /bin/systemctl set-environment IP_ADDRESS=$ipAddress
+                /bin/systemctl set-environment DROPBEAR_PARAMS_1=$DROPBEAR_PARAMS_1
+                /bin/systemctl set-environment DROPBEAR_PARAMS_2=$DROPBEAR_PARAMS_2
+                /bin/systemctl set-environment IP_ADDRESS_PARAM="$IP_ADDRESS_PARAM"
           else
-              dropbear -s -b /etc/sshbanner.txt -s -a -r $DROPBEAR_PARAMS_1 -r $DROPBEAR_PARAMS_2 -p $ipAddress:22 &
+              dropbear -s -b /etc/sshbanner.txt -s -a -r $DROPBEAR_PARAMS_1 -r $DROPBEAR_PARAMS_2 $IP_ADDRESS_PARAM &
           fi
      fi
      exit 0

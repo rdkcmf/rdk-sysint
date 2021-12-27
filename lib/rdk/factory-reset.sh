@@ -22,6 +22,7 @@
 . /etc/device.properties
 
 echo "Factory Reset:Clearing Remote Pairing Data"
+touch /tmp/Dropbear_restart_disabled
 # clear pairing data
 if [ -f /usr/bin/ctrlmTestApp ]; then
     ctrlmTestApp -n all -f ;                  # unpair controllers
