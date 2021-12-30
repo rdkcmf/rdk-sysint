@@ -152,13 +152,6 @@ if [ -f /tmp/.dcm_success ]; then
     rm /tmp/.dcm_success
 fi
 
-mTlsDCMUpload=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.MTLS.mTlsDCMUpload.Enable 2>&1 > /dev/null`
-
-if [ "$FORCE_MTLS" == "true" ]; then
-    dcaLog "MTLS prefered, force mTlsDCMUpload to true"
-    mTlsDCMUpload=true
-fi
-
 #get telemetry opt out status
 getOptOutStatus()
 {
@@ -193,18 +186,6 @@ ObfuscateMAC()
     echo "$ofcmac"
 }
 
-getMTLSTelemetryEndpointURL() {
-    if [ "$mTlsDCMUpload" = "true" ] || [ "$mTLS_RPI" == "true" ]; then
-        #Sky endpoints dont use /secure extenstion;
-       if [ "$FORCE_MTLS" != "true"  ]; then
-           DCA_UPLOAD_URL=`echo $DCA_UPLOAD_URL | sed 's/$/\/secure/'`
-       fi
-       dcaLog "MTLS Telemetry Logupload URL:$DCA_UPLOAD_URL"
-    else
-       dcaLog "DCA Log Upload Telemetry URL:$DCA_UPLOAD_URL"
-    fi
-}
-
 TelemetryNewEndpointAvailable=0
 getTelemetryEndpoint() {
     DEFAULT_DCA_UPLOAD_URL="$DCA_UPLOAD_URL"
@@ -233,7 +214,13 @@ getTelemetryEndpoint() {
 }
 
 getTelemetryEndpoint
-getMTLSTelemetryEndpointURL
+
+#Sky endpoints dont use /secure extenstion;
+if [ "$FORCE_MTLS" != "true"  ]; then
+    DCA_UPLOAD_URL=`echo $DCA_UPLOAD_URL | sed 's/$/\/secure/'`
+    dcaLog "MTLS Telemetry Logupload URL:$DCA_UPLOAD_URL"
+fi
+
 dcaLog "dca upload url : $DCA_UPLOAD_URL"
 
 PrevFileName=''
@@ -433,20 +420,22 @@ sendDirectTelemetryRequest()
 
     dcaLog "dca$2: Attempting $TLS direct connection to telemetry service"
     
-    if [ "$mTlsDCMUpload" == "true" ]; then
-        dcaLog "Log Upload requires Mutual Authentication"
-	    if [ -d /etc/ssl/certs ]; then
-                if [ ! -f /usr/bin/GetConfigFile ];then
-                dcaLog "Error: GetConfigFile Not Found"
-                exit 127
-                fi
-                ID="/tmp/geyoxnweddys"
-                GetConfigFile $ID
-            fi
-            cert=" --key $ID --cert /etc/ssl/certs/dcm-cpe-clnt.xcal.tv.cert.pem"
-    else 
-            cert=""
+    dcaLog "Log Upload requires Mutual Authentication"
+    if [ -d /etc/ssl/certs ]; then
+        if [ ! -f /usr/bin/GetConfigFile ];then
+            dcaLog "Error: GetConfigFile Not Found"
+            exit 127
+        fi
+        ID="/tmp/geyoxnweddys"
+        if [ ! -f "$ID" ]; then
+            GetConfigFile $ID
+        fi
+        if [ ! -f "$ID" ]; then
+            dcaLog "Error: Getconfig file failed"
+            exit 128
+        fi
     fi
+    cert=" --key $ID --cert /etc/ssl/certs/dcm-cpe-clnt.xcal.tv.cert.pem"
     
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="curl $TLS$cert -w '%{http_code}\n' -H \"Accept: application/json\" -H \"Content-type: application/json\" -X POST -d '$1' -o \"$HTTP_FILENAME\" \"$DCA_UPLOAD_URL\" --cert-status --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT"
