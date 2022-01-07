@@ -152,6 +152,10 @@ if [ -f /tmp/.dcm_success ]; then
     rm /tmp/.dcm_success
 fi
 
+if [ -f $RDK_PATH/mtlsUtils.sh ]; then
+    . $RDK_PATH/mtlsUtils.sh
+fi
+
 #get telemetry opt out status
 getOptOutStatus()
 {
@@ -419,24 +423,13 @@ sendDirectTelemetryRequest()
     EnableOCSP="/tmp/.EnableOCSPCA"
 
     dcaLog "dca$2: Attempting $TLS direct connection to telemetry service"
-    
     dcaLog "Log Upload requires Mutual Authentication"
-    if [ -d /etc/ssl/certs ]; then
-        if [ ! -f /usr/bin/GetConfigFile ];then
-            dcaLog "Error: GetConfigFile Not Found"
-            exit 127
-        fi
-        ID="/tmp/geyoxnweddys"
-        if [ ! -f "$ID" ]; then
-            GetConfigFile $ID
-        fi
-        if [ ! -f "$ID" ]; then
-            dcaLog "Error: Getconfig file failed"
-            exit 128
-        fi
+    if [ "$LONG_TERM_CERT" == "true" ]; then
+        cert=`getMtlsCreds dca_utility.sh /etc/ssl/certs/dcm-cpe-clnt.xcal.tv.cert.pem /tmp/geyoxnweddys`
+    else
+        cert=`getMtlsCreds dca_utility.sh`
     fi
-    cert=" --key $ID --cert /etc/ssl/certs/dcm-cpe-clnt.xcal.tv.cert.pem"
-    
+    dcaLog "MTLS creds for Log Upload fetched"
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="curl $TLS$cert -w '%{http_code}\n' -H \"Accept: application/json\" -H \"Content-type: application/json\" -X POST -d '$1' -o \"$HTTP_FILENAME\" \"$DCA_UPLOAD_URL\" --cert-status --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT"
         HTTP_CODE=`curl $TLS$cert -w '%{http_code}\n' -H "Accept: application/json" -H "Content-type: application/json" -X POST -d  "$1" -o "$HTTP_FILENAME" "$DCA_UPLOAD_URL" --cert-status --connect-timeout $CURL_TIMEOUT -m $CURL_TIMEOUT`
@@ -451,7 +444,7 @@ sendDirectTelemetryRequest()
         TLSRet=$?
     fi
  
-    dcaLog "dca$2: CURL_CMD: $CURL_CMD"
+    dcaLog "dca$2: CURL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<masked> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<masked> -w#g'`"
 
     case $TLSRet in
         35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)

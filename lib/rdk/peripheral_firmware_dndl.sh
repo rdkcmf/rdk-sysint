@@ -45,6 +45,10 @@ if [ -z $LOG_PATH ]; then
     LOG_PATH="/opt/logs/"
 fi
 
+if [ -f $RDK_PATH/mtlsUtils.sh ]; then
+    . $RDK_PATH/mtlsUtils.sh
+fi
+
 #Define variable for the peripheral image upgrade
 TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 peripheral_json_file="$RAMDISK_PATH/rc-proxy-params.json"
@@ -222,15 +226,12 @@ sendTLSRequestForImageDownload()
         #RDK-32180: Use mTLS for Xconf/SSR Interaction for BLE Remote Control Firmware Upgrade
         if [ "$mTlsXConfDownload" == "true" ]; then
             swupdateLog "Peripheral Upgrade requires Mutual Authentication"
-            if [ -d /etc/ssl/certs ]; then
-                if [ ! -f /usr/bin/GetConfigFile ];then
-                    swupdateLog "Error: GetConfigFile Not Found"
-                    exit 127
-                fi
-                ID="/tmp/uydrgopwxyem"
-                GetConfigFile $ID
+            if [ "$LONG_TERM_CERT" == "true" ]; then
+                CERT=`getMtlsCreds deviceInitiatedFWDnld.sh /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem /tmp/uydrgopwxyem`
+            else
+                CERT=`getMtlsCreds deviceInitiatedFWDnld.sh`
             fi
-            CERT=" --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem"
+            swupdateLog "Peripheral Upgrade MTLS creds fetched"
             cmd="curl $TLS$CERT --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLo $DIFW_PATH/$firmware_version.tgz \"$URL\""
         else
             cmd="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT -w '%{http_code}\n' -fgLo $DIFW_PATH/$firmware_version.tgz \"$URL\""
@@ -240,7 +241,7 @@ sendTLSRequestForImageDownload()
             cmd="$cmd  --cert-status"
         fi    
     fi
-    swupdateLog "Download URL: $cmd"
+    swupdateLog "Download URL: `echo "$cmd" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<masked> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<masked> -w#g'`"
 
     eval $cmd > $HTTP_CODE
     TLSRet=$?

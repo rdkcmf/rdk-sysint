@@ -82,6 +82,10 @@ if [ -z $LOG_PATH ]; then
     LOG_PATH="/opt/logs/"
 fi
 
+if [ -f $RDK_PATH/mtlsUtils.sh ]; then
+    . $RDK_PATH/mtlsUtils.sh
+fi
+
 STATE_RED_LOG_FILE=$LOG_PATH/"swupdate.log"
 TLS_LOG_FILE="$LOG_PATH/tlsError.log"
 
@@ -922,36 +926,25 @@ sendTLSRequest()
             sh /lib/rdk/logMilestone.sh "CONNECT_TO_XCONF_CDL"
         fi
 
+        MTLSCMD=""
         if [ "$mTLS_RPI" == "true" ] ; then
-            CURL_CMD="curl -vv --cert-type pem --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem --key /tmp/xconf-file.tmp -w '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" --connect-timeout 10 -m 10"
+            MTLSCMD=" -vv --cert-type pem --cert /etc/ssl/certs/refplat-xconf-cpe-clnt.xcal.tv.cert.pem --key /tmp/xconf-file.tmp"
         else
-            if [ $useXpkiMtlsLogupload == "true" ]; then
-                CURL_CMD="curl $TLS --cert-type P12 --cert /opt/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"    
-            else    
-                if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ]; then
-                    if [ ! -f /usr/bin/GetConfigFile ]; then
-                        swupdateLog "Error: GetConfigFile Not Found"
-                        exit 127
-                    fi
-                    ID="/tmp/.cfgStaticxpki"
-                    if [ ! -f "$ID" ]; then
-                        GetConfigFile $ID
-                    fi
-                    if [ ! -f "$ID" ]; then
-                        swupdateLog "Error: Getconfig file failed"
-                    fi
-                    CURL_CMD="curl $TLS --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
-                else
-                    CURL_CMD="curl $TLS --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
-                fi
+            swupdateLog "Fetching MTLS credential for Xconf"
+            if [ "$LONG_TERM_CERT" == "true" ]; then
+                MTLSCMD=`getMtlsCreds deviceInitiatedFWDnld.sh /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem /tmp/uydrgopwxyem`
+            else
+                MTLSCMD=`getMtlsCreds deviceInitiatedFWDnld.sh`
             fi
+            swupdateLog "MTLS creds for Xconf fetched"
         fi
+        CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
         if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
         if [ "$BUILD_TYPE" != "prod" ]; then
-           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
+           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
         else 
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
@@ -963,27 +956,27 @@ sendTLSRequest()
     elif [ "$1" == "SSR" ]; then
         swupdateLog "Attempting $TLS connection to SSR server" 
         if [ "$mTlsXConfDownload" == "true" ]; then
-            if [ -d /etc/ssl/certs ]; then
-                if [ ! -f /usr/bin/GetConfigFile ];then
-                    swupdateLog "Error: GetConfigFile Not Found"
-                    exit 127
-                fi
-                ID="/tmp/uydrgopwxyem"
-                if [ ! -f "$ID" ]; then
-                    GetConfigFile $ID
-                fi
+            swupdateLog "Fetching MTLS credential for SSR"
+            MTLSCMD=""
+            if [ "$LONG_TERM_CERT" == "true" ]; then
+                MTLSCMD=`getMtlsCreds deviceInitiatedFWDnld.sh /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem /tmp/uydrgopwxyem`
+            else
+                MTLSCMD=`getMtlsCreds deviceInitiatedFWDnld.sh`
             fi
+            swupdateLog "MTLS creds for SSR fetched"
+
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
 	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
                   swupdateLog "Video is Streaming. Hence, Setting the limit-rate to $TOPSPEED"
-                  CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
+                  CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" --limit-rate $TOPSPEED > $HTTP_CODE"
                else
                   swupdateLog "Video is Streaming but cloudImmediateRebootFlag is true. Continuing with the Unthrottle mode"
-                  CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+                  CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
                fi
             else
-               CURL_CMD="curl $TLS --key /tmp/uydrgopwxyem --cert /etc/ssl/certs/cpe-clnt.xcal.tv.cert.pem --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+               CURL_CMD="curl $TLS$MTLSCMD --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
             fi
+
         else
             if [ "$isThrottleEnabled" = "true" ] && [ ! -z "$VIDEO" ]; then
 	       if [ "$cloudImmediateRebootFlag" != "true" ]; then
@@ -1002,9 +995,9 @@ sendTLSRequest()
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
-        swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
+        swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
         if [ "$BUILD_TYPE" != "prod" ]; then
-           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<hidden key>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<hidden key>--connect/'`"
+           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
         else
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
