@@ -108,6 +108,7 @@ if [ -d /opt/.gstreamer ]; then rm -rf /opt/.gstreamer; fi
 if [ -d /opt/persistent/dvr ]; then rm -rf /opt/persistent/dvr; fi
 if [ -d /opt/etc ];then rm -rf /opt/etc;fi
 if [ -f /opt/tmtryoptout ];then rm -rf /opt/tmtryoptout ; fi
+if [ -d /opt/certs ];then rm -rf /opt/certs; fi
 
 if [ -e /lib/rdk/device-specific-reset.sh ]; then
     echo "Warehouse Reset: Clean configs specific to the device"
