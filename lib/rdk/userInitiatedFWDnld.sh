@@ -44,6 +44,7 @@ if [ ! -f /etc/os-release ]; then
     IARM_EVENT_BINARY_LOCATION=/usr/local/bin
 fi
 
+#Firmware Download states
 IMAGE_FWDNLD_UNINITIALIZED=0
 IMAGE_FWDNLD_DOWNLOAD_INPROGRESS=1
 IMAGE_FWDNLD_DOWNLOAD_COMPLETE=2
@@ -65,7 +66,8 @@ FirmwareStateEvent="FirmwareStateEvent"
 ImageDwldEvent="ImageDwldEvent"
 
 ## Flag to indicate RCDL is in progress
-RCDL_FLAG="/tmp/device_initiated_rcdl_in_progress"
+RCDL_FLAG="/tmp/device_initiated_rcdl_in_progress"       # Used for XG platforms 
+DNDL_INPROGRESS_FLAG="/tmp/.imageDnldInProgress"         # Used for XI platforms  
 
 # File to save http code
 HTTP_CODE="/tmp/rcdl_curl_httpcode"
@@ -765,7 +767,8 @@ else
     swupdateLog "ImagePath = $ImagePath"
     swupdateLog "DEFER_REBOOT = $DEFER_REBOOT"
 
-    if [ -f $RCDL_FLAG ]; then
+    # Added flag to confirm Xconf Upgrade is not running to perform Webpa CDL
+    if [ -f $RCDL_FLAG ] || [ -f $DNDL_INPROGRESS_FLAG ]; then
 	swupdateLog "Image download already in progress, exiting!"
 	exit 1
     elif [ ! -z "$ImageName" ] && [ ! -z "$ImagePath" ]; then
