@@ -134,7 +134,7 @@ FILENAME="$PERSISTENT_PATH/response.txt"
 
 ## File to save http code and curl progress
 HTTP_CODE="$PERSISTENT_PATH/xconf_curl_httpcode"
-CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
+FWDL_LOG_FILE="$LOG_PATH/swupdate.log"
 
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
@@ -438,10 +438,6 @@ else
         eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
     fi
     exit 0
-fi
-
-if [ -f $CURL_PROGRESS ]; then
-    rm $CURL_PROGRESS
 fi
 
 #isStateRedSupported; check if state red supported
@@ -838,17 +834,14 @@ sendTLSCodebigRequest()
             swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ]  || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-            eval $CURL_CMD &> $CURL_PROGRESS &
+            eval $CURL_CMD >> $FWDL_LOG_FILE 2>&1 &
             echo "$!" > $CURL_PID_FILE
             CurlPid=`cat $CURL_PID_FILE`
             wait $CurlPid
         else
-            eval $CURL_CMD &> $CURL_PROGRESS
+            eval $CURL_CMD
         fi
         TLSRet=$?
-    fi
-    if [ -f $CURL_PROGRESS ]; then
-        rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
         if [ $TLSRet -eq 22 ]; then
@@ -1007,17 +1000,14 @@ sendTLSRequest()
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
         if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-            eval $CURL_CMD &> $CURL_PROGRESS &
+            eval $CURL_CMD >> $FWDL_LOG_FILE 2>&1 &
             echo "$!" > $CURL_PID_FILE
             CurlPid=`cat $CURL_PID_FILE`
             wait $CurlPid
         else
-            eval $CURL_CMD &> $CURL_PROGRESS
+            eval $CURL_CMD
         fi 
         TLSRet=$?
-    fi
-    if [ -f $CURL_PROGRESS ]; then
-        rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
         if [ $TLSRet -eq 22 ]; then
