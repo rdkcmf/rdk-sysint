@@ -1515,6 +1515,9 @@ postFlash ()
     updateFWDownloadStatus "$cloudProto" "Success" "$cloudImmediateRebootFlag" "" "$dnldVersion" "$cloudFWFile" "$runtime" "Validation complete" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_VALIDATION_COMPLETE
     eventManager $ImageDwldEvent $IMAGE_FWDNLD_FLASH_COMPLETE
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" = "xtrue" ]; then
+        eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_COMPLETE
+    fi
     sleep 5
     sync
     eventManager $FirmwareStateEvent $FW_STATE_PREPARING_TO_REBOOT
