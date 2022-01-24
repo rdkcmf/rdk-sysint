@@ -20,7 +20,7 @@
 [Unit]
 Description=DCM Log Service
 
-After=local-fs.target nvram.service previous-log-backup.service network-online.target systemd-timesyncd.service dump-log.service tr69hostif.service
+After=local-fs.target nvram.service previous-log-backup.service network-online.target systemd-timesyncd.service tr69hostif.service
 Requires=network-online.target
 
 [Service]
