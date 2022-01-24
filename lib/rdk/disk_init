@@ -98,7 +98,13 @@ start_function()
      # So it formats the App partition on seeing error code returned from e2fsck.
      # This two commands workaround this issue by mounting and umounting the partition. This should be removed 
      # once the impacted devices Samsung XG2v2 and Pace XG2v2 have fixed their systemd-timesyncd.
-     mount $SD_CARD_APP_PART $SD_CARD_APP_MOUNT_PATH
+
+     # PaceXi3V2 or PaceXiD boxes
+     if [ "$MODEL_NUM" = "PX032ANI" ] || [ "$MODEL_NUM" = "PXD01ANI" ]; then
+         mount -t ext4 $SD_CARD_APP_PART $SD_CARD_APP_MOUNT_PATH
+     else
+         mount $SD_CARD_APP_PART $SD_CARD_APP_MOUNT_PATH
+     fi
 
      touch $SD_CARD_APP_MOUNT_PATH/testFile
      if [ $? -ne 0 ]; then
