@@ -40,7 +40,8 @@ eventManager()
 }
 
 # restart WebPA client to pick up new partner id
-systemctl restart parodus &
+#systemctl restart parodus &
+touch /tmp/authservice_parodus_restart
 
 if [ $# -ne 1 ]
 then
