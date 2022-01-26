@@ -111,7 +111,7 @@ provision_v1() {
   BOOTUP_MARKER=/tmp/$BINFILE-bootup
   if [ -f $BOOTUP_MARKER ] && [ -z $CMDLINE ]; then
     # In legacy or rt.v1 mode, the app starts only at system startup or when called with additional parameters like --reprovision. Periodical invokations ignored"
-    echo "Not launching $BINFILE on timer because RT V2 provisioning protocol is either disabled or not supported."
+    echo "Not launching $BINFILE. Only boot-up-time invocation is supported in RT V1 mode."
     exit 0
   else
     touch $BOOTUP_MARKER
@@ -147,21 +147,37 @@ provision_v1() {
     # Do a retry by increasing the interval by 1 sec upto 60 seconds.
 
     isFKPSReachable
-    timeFKPSwait=1
-    while [ $FKPS_IS_REACHABLE -eq 0 ]; do
+#   FKPS Reachability test will be performed not more than ATTEMPTS_MAX times with a Fibonacci delay capped to FKPS_WAIT_MAX_SEC seconds
+#   e.g, 1, 2, 3, 5, ..., FKPS_WAIT_MAX_SEC, FKPS_WAIT_MAX_SEC, FKPS_WAIT_MAX_SEC ... (ATTEMPTS_MAX attempts in total)
+    ATTEMPTS_MAX=8
+    FKPS_WAIT_MAX_SEC=55
+    timeFKPSwait0=1
+    timeFKPSwait=2
+    attempt=0
+    while [ $FKPS_IS_REACHABLE -eq 0 ]  && [ $attempt -lt $ATTEMPTS_MAX ]; do
       if [ ! -f /etc/os-release ]; then
-        echo "FKPS is unreachable, waiting $timeFKPSwait more sec..." >>$SOCPROVSTARTLOG
+        echo "FKPS is unreachable, waiting for secs: $timeFKPSwait" >>$SOCPROVSTARTLOG
       else
-        echo "FKPS is unreachable, waiting $timeFKPSwait more sec..."
+        echo "FKPS is unreachable, waiting for secs: $timeFKPSwait"
       fi
       sleep $timeFKPSwait
-
-      if [ $timeFKPSwait -lt 60 ]; then
-        timeFKPSwait=$((timeFKPSwait + 1))
+      if [ $timeFKPSwait -lt $FKPS_WAIT_MAX_SEC ]; then
+        tmpFKPSwait=$timeFKPSwait
+        timeFKPSwait=$((timeFKPSwait + timeFKPSwait0))
+        timeFKPSwait0=$tmpFKPSwait
       fi
-
+      attempt=$((attempt + 1))
       isFKPSReachable
     done
+
+    if [ $FKPS_IS_REACHABLE -eq 0 ]; then
+      echo "Stopping FKPS retries"
+    fi
+
+    printf "FKPS reachability test:"
+    printf " server is ";  [ $FKPS_IS_REACHABLE -eq 0 ] && printf "unreachable" || printf "reachable"
+    printf "; wait attempts: %d out of %d" $attempt $ATTEMPTS_MAX
+    echo ""
 
     if [ ! -f /etc/os-release ]; then
       $SOC_PROVISION_BIN $CMDLINE 2>>$SOCPROVSTARTLOG >>$SOCPROVSTARTLOG
@@ -170,11 +186,9 @@ provision_v1() {
     fi
 
     ret=$?
-    EX_UNAVAILABLE=69
-    EX_NOHOST=68
     EX_DATAERR=65
-    time1=1
-    time2=1
+    EX_NOHOST=68
+    EX_UNAVAILABLE=69
 
     status_check=false
     for i in $*; do
@@ -191,18 +205,30 @@ provision_v1() {
     # SocProv reports EX_UNAVAILABLE for errors related to internal processing from FKPS-RT server.
     # All EX_UNAVAILABLE & EX_NOHOST errors will have a fibanocci series retry interval (1,2,3,5,8... seconds)
     # This is to ensure STBs don't hammer the FKPS-RT servers.
-
-    while [ ! -f $PACKAGE_VERSION_FILE ] || [ $ret -eq $EX_UNAVAILABLE ] || [ $ret -eq $EX_NOHOST ] || [ $ret -eq $EX_DATAERR ]; do
+    ATTEMPTS_MAX=8
+    attempt=1
+    time1=2
+    time2=3
+    while [ $attempt -lt $ATTEMPTS_MAX ] && ([ ! -f $PACKAGE_VERSION_FILE ] || [ $ret -eq $EX_UNAVAILABLE ] || [ $ret -eq $EX_NOHOST ] || [ $ret -eq $EX_DATAERR ]); do
       if [ $status_check = true ]; then
         break
       fi
+
+      temp=$((time1 + time2))
+      time1=$time2
+      time2=$temp
+      attempt=$((attempt + 1))
 
       # if it's EX_DATAERR because of bad input data like model number or clock not set,
       # then retry every 2 seconds.
       if [ $ret -eq $EX_DATAERR ]; then
         time1=2
       fi
-
+      if [ ! -f /etc/os-release ]; then
+        echo "Program terminated with code $ret, waiting for secs: $time1 (attempt $attempt out of $ATTEMPTS_MAX)" >>$SOCPROVSTARTLOG
+      else
+        echo "Program terminated with code $ret, waiting for secs:  $time1 (attempt $attempt out of $ATTEMPTS_MAX)"
+      fi
       sleep $time1
       if [ ! -f /etc/os-release ]; then
         $SOC_PROVISION_BIN $CMDLINE 2>>$SOCPROVSTARTLOG >>$SOCPROVSTARTLOG
@@ -210,10 +236,14 @@ provision_v1() {
         $SOC_PROVISION_BIN $CMDLINE -c log/path -
       fi
       ret=$?
-      temp=$((time1 + time2))
-      time1=$time2
-      time2=$temp
     done
+
+    if [ $ret -ne 0 ]; then
+      echo "Stopping FKPS retries"
+    fi
+
+    echo "Done with running $SOC_PROVISION_BIN; exit code $ret after $attempt attempt(s)"
+
     if [ ! -d /opt/drm ]; then mkdir -p /opt/drm; fi
     if [ "$ENABLE_MULTI_USER" = "true" ]; then
       if [ ! -f /etc/os-release ]; then
