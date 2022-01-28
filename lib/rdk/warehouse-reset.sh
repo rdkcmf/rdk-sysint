@@ -146,10 +146,10 @@ fi
 
 # persistent data cleanup
 if [ -d /opt/persistent ]; then
-    find /opt/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
+    find /opt/persistent/ -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
 if [ -d /tmp/mnt/diska3/persistent ]; then
-    find /tmp/mnt/diska3/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
+    find /tmp/mnt/diska3/persistent/ -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
 # whitebox data cleanup
 if [ -d /opt/www/whitebox ]; then rm -rf /opt/www/whitebox/*; fi
