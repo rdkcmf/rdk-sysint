@@ -25,7 +25,8 @@ Requires=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '/lib/rdk/swupdate_utility.sh >> /opt/logs/swupdate.log 2>&1 &'
+ExecStartPre=/bin/sh -c '/bin/touch /opt/logs/swupdate.log'
+ExecStart=/bin/sh -c '/lib/rdk/swupdate_utility.sh > /opt/logs/swupdate.log &'
 RemainAfterExit=yes
 
 [Install]
