@@ -382,6 +382,7 @@ else
 	logRotateFramework $rtroutedLog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $rtkfwlog $logRotateGenericCount $logRotateGenericSize
 	logRotateFramework $rtkafwlicensechecklog $logRotateGenericCount $logRotateGenericSize
+	logRotateFramework $remoteDebuggerLog $logRotateGenericCount $logRotateGenericSize
 fi
 
 if [ "$WIFI_SUPPORT" == "true" ];then

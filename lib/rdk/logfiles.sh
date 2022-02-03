@@ -245,6 +245,8 @@ logrotateLog="logrotate.log"
 logrotateLogsBackup="logrotate.log.*"
 systimemgrLog="systimemgr.log"
 systimemgrLogsBackup="systimemgr.log.*"
+remoteDebuggerLog="remote-debugger.log"
+remoteDebuggerLogsBackup="remote-debugger.log.*"
 
 if [ "$CONTAINER_SUPPORT" == "true" ];then
     xreLxcLog="xre.log"
@@ -566,6 +568,8 @@ backup()
     if [ -f $source/$cronjobLog ] ; then $operation $source/$cronjobLog $destn; fi
     if [ -f $source/$logrotateLog ] ; then $operation $source/$logrotateLog $destn; fi
     if [ -f $source/$systimemgrLog ] ; then $operation $source/$systimemgrLog $destn; fi
+    if [ -f $source/$remoteDebuggerLog ] ; then $operation $source/$remoteDebuggerLog $destn; fi
+    
     if [ "$CONTAINER_SUPPORT" == "true" ];then
         if [ -f $source$xreLxcLog ] ; then $operation $source$xreLxcLog $destn; fi
         if [ -f $source/$xreLxcApplicationsLog ] ; then $operation $source/$xreLxcApplicationsLog $destn; fi
@@ -797,6 +801,7 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $logrotateLogsBackup $destn
         moveFiles $opern $source $systimemgrLogsBackup $destn
 	moveFiles $opern $source $factoryCommsLogsBackup $destn
+	moveFiles $opern $source $remoteDebuggerLogsBackup $destn
      fi
 
      if [ "$CONTAINER_SUPPORT" == "true" ];then
@@ -940,6 +945,8 @@ backupSystemLogFiles()
      if [ -f $source/$logrotateLog ] ; then $operation $source/$logrotateLog $destn; fi
      if [ -f $source/$systimemgrLog ] ; then $operation $source/$systimemgrLog $destn; fi
      if [ -f $source/$factoryCommsLog ] ; then $operation $source/$factoryCommsLog $destn; fi
+     if [ -f $source/$remoteDebuggerLog ] ; then $operation $source/$remoteDebuggerLog $destn; fi
+     
      if [ "$CONTAINER_SUPPORT" == "true" ];then
          if [ -f $source/$xreLxcApplicationsLog ] ; then $operation $source/$xreLxcApplicationsLog $destn; fi
          if [ -f $source/$xreLxcLog ] ; then $operation $source/$xreLxcLog $destn; fi
