@@ -135,6 +135,7 @@ FILENAME="$PERSISTENT_PATH/response.txt"
 ## File to save http code and curl progress
 HTTP_CODE="$PERSISTENT_PATH/xconf_curl_httpcode"
 CURL_PROGRESS="$PERSISTENT_PATH/curl_progress"
+FWDL_LOG_FILE="$LOG_PATH/swupdate.log"
 
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
@@ -846,6 +847,7 @@ sendTLSCodebigRequest()
             eval $CURL_CMD &> $CURL_PROGRESS
         fi
         TLSRet=$?
+        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
     fi
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
@@ -1015,6 +1017,7 @@ sendTLSRequest()
             eval $CURL_CMD &> $CURL_PROGRESS
         fi 
         TLSRet=$?
+        cat $CURL_PROGRESS >> $FWDL_LOG_FILE
     fi
     if [ -f $CURL_PROGRESS ]; then
         rm $CURL_PROGRESS
