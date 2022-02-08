@@ -726,6 +726,7 @@ scheduleSupplementaryServices()
     httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
     if [ -z "$httplink" ]; then
         dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
+	httplink=$upload_httplink
     else
         upload_httplink=$httplink
         dcmLog "upload_httplink is $upload_httplink"
@@ -962,6 +963,7 @@ do
                     httplink=`cat /tmp/DCMSettings.conf | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
                     if [ -z "$httplink" ]; then
                         dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
+			httplink=$upload_httplink 
                     else
                         upload_httplink=$httplink
                         dcmLog "upload_httplink is $upload_httplink"
