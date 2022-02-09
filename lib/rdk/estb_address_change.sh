@@ -73,24 +73,12 @@ if [ "$GATEWAY_DEVICE" == "yes" ] && [ "$cmd" == "add" ] && [ "$flags" == "globa
                 # Update ESTB IP Bound FireWall
                 echo "`/bin/timestamp` Renewing firewal rules bound to ESTB IP " >> $LOG_FILE
                 /bin/busybox sh /lib/rdk/iptables_init "Refresh"
-                ## Accept Revssh incoming
-                if [[ "$mode" == "ipv6" ]];then
-                   $IPV6_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
-                else
-                   $IPV4_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
-                fi
             else
                 echo "`/bin/timestamp` No ESTB IP Change occured Previous IP:$PREVIOUS_IP Current IP : $CURRENT_IP" >> $LOG_FILE
             fi
         else
             # Store received new IP
             echo "$CURRENT_IP" > /tmp/ipv6_address.txt
-            ## Accept Revssh incoming
-            if [[ "$mode" == "ipv6" ]];then
-               $IPV6_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
-            else
-               $IPV4_BIN -I StaticSshWhiteList -s $CURRENT_IP -j ACCEPT
-            fi
         fi
     fi
 elif [ "$GATEWAY_DEVICE" == "yes" ] && [ "$cmd" == "delete" ] && [ "$flags" == "global" ];then
