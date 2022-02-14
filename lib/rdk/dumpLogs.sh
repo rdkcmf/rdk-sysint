@@ -22,6 +22,11 @@
 
 log_prefix="/opt/logs"
 
+if [ "$SYSLOG_NG_ENABLED" == "true" ] ; then
+	echo "syslog-ng is enabled, no need to run this script to sync logs from journal"
+	exit 0
+fi
+
 # Reduce the priority of the dumpLogs script in SKY since it is swamping the CPU
 if [ "$SKY_EPG_SUPPORT" == "true" ] ; then
     renice -n 10 $$
@@ -425,8 +430,6 @@ if [ "$SOC" = "AMLOGIC" ];then
     logunit "-u audioserver" ${log_prefix}/audioserver.log
     logunit "-u tvserver" ${log_prefix}/tvservice.log
     logunit "-u pqserver" ${log_prefix}/pqserver.log
-    logcat -v time -d -f ${log_prefix}/dolby_ms12.log
-    logcat -C
 fi
 
 if [ "$SOC" = "RTK" ];then

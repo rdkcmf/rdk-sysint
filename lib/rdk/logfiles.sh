@@ -272,8 +272,6 @@ if [ "$SOC" = "AMLOGIC" ];then
 	TvServerLogsBackup="tvservice.log.*"
 	PqserverLog="pqserver.log"
 	PqserverLogsbackup="pqserver.log.*"
-	Dolbyms12Log="dolby_ms12.log"
-	Dolbyms12Logsbackup="dolby_ms12.log.*"
 fi
 
 if [ "$SOC" = "RTK" ];then
@@ -582,7 +580,6 @@ backup()
 	if [ -f $source$AudioServerLog ] ; then $operation $source$AudioServerLog $destn; fi
 	if [ -f $source$TvServerLog ] ; then $operation $source$TvServerLog $destn; fi
 	if [ -f $source/$PqserverLog ] ; then $operation $source/$PqserverLog $destn; fi
-        if [ -f $source/$Dolbyms12Log ] ; then $operation $source/$Dolbyms12Log $destn; fi
     fi
 
     if [ "$SOC" = "RTK" ];then
@@ -817,7 +814,6 @@ backupAppBackupLogFiles()
 	moveFiles $opern $source $AudioServerLogsBackup $destn
 	moveFiles $opern $source $TvServerLogsBackup $destn
 	moveFiles $opern $source $PqserverLogsBackup $destn
-        moveFiles $opern $source $Dolbyms12LogsBackup $destn
      fi
      if [ "$SOC" = "RTK" ];then
         moveFiles $opern $source $realtekDmesgKernelLogBackup $destn

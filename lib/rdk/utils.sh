@@ -269,6 +269,8 @@ flushLogger()
     echo "[PID:$$ $(date -u +%Y/%m/%d-%H:%M:%S)]: [utils.sh] flushLogger is called" >> /opt/logs/core_log.txt
     # Flush journald buffers
     test -f '/etc/os-release' && which journalctl && journalctl --sync --flush
-    # Separate journald logs to files
-    nice -n 19 /lib/rdk/dumpLogs.sh
+    if [ "$SYSLOG_NG_ENABLED" != "true" ] ; then
+        # Separate journald logs to files
+        nice -n 19 /lib/rdk/dumpLogs.sh
+    fi
 }

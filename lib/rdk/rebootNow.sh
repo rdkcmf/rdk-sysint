@@ -283,7 +283,7 @@ if [ "$BLUETOOTH_ENABLED" = "true" ];then
     /bin/systemctl --quiet is-active bt && /bin/systemctl stop bt
 fi
 
-if [ -f /lib/rdk/dumpLogs.sh ];then
+if [ -f /lib/rdk/dumpLogs.sh ] && [ "$SYSLOG_NG_ENABLED" != "true" ];then
     if [ -f /tmp/.dumpinprogress ];then
         sleep 10
     else

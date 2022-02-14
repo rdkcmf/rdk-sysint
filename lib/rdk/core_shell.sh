@@ -181,7 +181,9 @@ dumpSystemdLogs()
     journalctl -b  >> $LOG_PATH/core_log.txt
     echo $(date -u +%Y/%m/%d-%H:%M:%S) "****************SYSTEMD CRASHED DUMPING LOGS END*****************" >> $LOG_PATH/core_log.txt
     
-    sh /lib/rdk/dumpLogs.sh
+    if [ "$SYSLOG_NG_ENABLED" != "true" ] ; then
+        sh /lib/rdk/dumpLogs.sh
+    fi
     sync
 }
 
