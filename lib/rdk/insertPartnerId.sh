@@ -24,6 +24,9 @@
 ## Author: RDK Community
 ##################################################################
 
+deviceIdFile="/opt/www/authService/deviceid.dat"
+partnerIdFile="/opt/www/authService/partnerId3.dat"
+
 #Check whether time event is received
 if [ -f /usr/bin/timedatectl ] ; then
    ntpstatus=`timedatectl |grep "Network time on"|cut -d ':' -f2 |xargs`
@@ -36,6 +39,13 @@ fi
 #Check whether authservice file already exists
 response=`curl --write-out "%{http_code}\n" --silent --output /dev/null http://localhost:50050/authService/getDeviceId`
 if [ $response -eq 200 ] ; then
+   if [ ! -f "${deviceIdFile}" ]; then
+      uuid=`uuidgen`
+      echo "$uuid" > ${deviceIdFile}
+   fi
+   if [ ! -f "${partnerIdFile}" ]; then
+      echo "community" > ${partnerIdFile}
+   fi
    echo "All set. Exiting"
 else
    uuid=`uuidgen`
