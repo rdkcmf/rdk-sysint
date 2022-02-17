@@ -809,9 +809,9 @@ uploadDCMLogs()
 uploadLogOnReboot()
 {
     uploadLog=$1
-    ret=`ls $PREV_LOG_PATH/*.txt | wc -l`
+    ret=`ls $PREV_LOG_PATH/*.txt`
     if [ ! $ret ]; then 
-         ret=`ls $PREV_LOG_PATH/*.log | wc -l` 
+         ret=`ls $PREV_LOG_PATH/*.log` 
          if [ ! $ret ]; then 
                if [ ! -f /etc/os-release ];then pidCleanup;fi
                MAINT_LOGUPLOAD_ERROR=5
