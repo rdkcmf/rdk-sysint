@@ -462,6 +462,10 @@ if [ "$SOC" = "RTK" ];then
     logunit "$rtkunits" $rtkservicelogname
 fi
 
+####### swupdate logging
+# log filter by SyslogIdentifier instead of unit name
+logunit "-t swupdate" ${log_prefix}/swupdate.log
+
 if [ "$MEDIARITE" = "true" ];then
     logunit "-u mediarite" ${log_prefix}/mediarite.log
 fi

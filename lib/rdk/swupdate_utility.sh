@@ -53,10 +53,14 @@ FW_STATE_UNINITIALIZED=0
 MIB_STATUS_FILE="/opt/fwdnldstatus.txt"
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 
-#Use log framework to pring timestamp and source script name
+#Log framework to use systemd-cat to redirect stdout to journal
 swupdateLog()
 {
-    echo "`/bin/timestamp`: $0: $*"
+    if type systemd-cat &> /dev/null; then
+        systemd-cat -t swupdate echo "$0: $*"
+    else
+        echo "`/bin/timestamp`: $0: $*"
+    fi
 }
 
 eventSender()
