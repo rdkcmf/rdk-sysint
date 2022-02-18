@@ -75,7 +75,15 @@ if [ -f $PERSISTENT_PATH/splunk.conf ] && [ $BUILD_TYPE != "prod" ] ; then
 fi
 
 # Override using RFC
-splunkServer=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.LogUpload.DcaUploadUrl 2>&1)
+TelemetryEndpointURL=""
+TelemetryEndpoint=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.TelemetryEndpoint.Enable 2>&1 > /dev/null`
+if [ "x$TelemetryEndpoint" = "xtrue" ]; then
+    TelemetryEndpointURL=`tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.TelemetryEndpoint.URL 2>&1 > /dev/null`
+    if [ ! -z "$TelemetryEndpointURL" ]; then
+        splunkServer="https://$TelemetryEndpointURL"
+    fi
+fi
+
 if [ -z "$splunkServer" ]; then
     # Empty server details !!! Add default values
     . /etc/dcm.properties
