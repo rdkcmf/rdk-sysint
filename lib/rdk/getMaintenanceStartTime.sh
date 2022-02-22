@@ -19,65 +19,126 @@
 ##############################################################################
 
 ######################################################################
-##    * Get the start time of the maintaince from persistent memory 
+##    * Get maintenance start time from RDK maintenance conf file
 ########################################################################
 
-
+. /etc/include.properties
+. /etc/device.properties
 
 #############################################################
 ##                  Variables
 #############################################################
 
-OPT_START_TIME_FILE=/opt/maintainence_start_time.txt
-LOG_PATH=/opt/logs/
+OPT_START_TIME_FILE="${PERSISTENT_PATH}/maintainence_start_time.txt"
+RDK_MAINTENANCE_CONF="${PERSISTENT_PATH}/rdk_maintenance.conf"
 
+IARM_EVENT_BINARY_LOCATION="/usr/bin"
 IARM_BUS_DCM_NEW_START_TIME_EVENT=1
 
 #############################################################
 ##                 Function
 ##############################################################
 
-StartTime_eventSender()
+notify_MaintenanceMGR()
 {
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
-    then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2 $3
+    if [ -f "${IARM_EVENT_BINARY_LOCATION}/IARM_event_sender" ]; then
+        ${IARM_EVENT_BINARY_LOCATION}/IARM_event_sender "MaintenanceMGR" $1 $2
     fi
 }
+
+calculate_start_time()
+{
+    # Convert cron time to seconds
+    cron_time_in_sec=$((start_hr*60*60 + start_min*60))
+
+    if [ -n "$tz_mode" -a "$tz_mode" = "Local time" ]; then
+        # echo "`/bin/timestamp` Timezone mode is ${tz_mode}" >> $LOG_PATH/dcmscript.log
+
+        # Fetch the required offset based on timezone
+        tz_offset=$(sh -c "TZ=\"$zoneValue\" date +'%z'")
+        tz_offset_pos="$(echo $tz_offset | cut -c1)"
+        tz_offset_hr="$(echo $tz_offset | cut -c2-3)"
+        tz_offset_min="$(echo $tz_offset | cut -c4-)"
+
+        # Remove leading zeros if any to avoid bash expression errors
+        tz_offset_hr=$(echo $tz_offset_hr | awk '{print $1 + 0}')
+        tz_offset_min=$(echo $tz_offset_min | awk '{print $1 + 0}')
+
+        # Convert offset to seconds
+        tz_offset_in_sec=$((tz_offset_hr*60*60+tz_offset_min*60))
+
+        # Apply offset to cron time
+        if [ "$tz_offset_pos" = "-" ]; then
+            # echo "`/bin/timestamp` UTC is ahead of device timezone. Hence adding offset to cron time" >> $LOG_PATH/dcmscript.log
+            start_time_in_sec=$((cron_time_in_sec+tz_offset_in_sec))
+        else
+            # echo "`/bin/timestamp` UTC is behind device timezone. Hence removing offset from cron time" >> $LOG_PATH/dcmscript.log
+            start_time_in_sec=$((cron_time_in_sec-tz_offset_in_sec))
+        fi
+    else
+        # echo "`/bin/timestamp` Timezone mode is UTC" >> $LOG_PATH/dcmscript.log
+
+        if [ "$DEVICE_NAME" = "PLATCO" ]; then
+            tz_offset=$timeZoneOffset
+            tz_offset_in_sec=$(($timeZoneOffset*60*60))
+        fi
+
+        start_time_in_sec=$((cron_time_in_sec+tz_offset_in_sec))
+    fi
+
+    # Avoid cron to be set beyond 24 hr clock limit
+    # NOTE: In ideal scenarios, this is not expected but still handling it
+    if [ "$start_time_in_sec" -ge 86400 ]
+    then
+        start_time_in_sec=$((start_time_in_sec-86400))
+    elif [ "$start_time_in_sec" -le 0 ]
+    then
+        start_time_in_sec=$((start_time_in_sec+86400))
+    fi
+
+    start_time=$start_time_in_sec
+    start_time_sec=$((start_time%60))
+    start_time=$((start_time/60))
+    start_time_min=$((start_time%60))
+    start_time=$((start_time/60))
+    start_time_hr=$((start_time%60))
+
+    echo "`/bin/timestamp` timeZoneOffset: $tz_offset , start_time_hr: $start_time_hr, start_time_min: $start_time_min, start_time_sec: $start_time_sec" >> $LOG_PATH/dcmscript.log
+
+    calc_epoch=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
+    curr_epoch=$(date -u "+%s")
+    sec=$((calc_epoch-curr_epoch))
+
+    if [ $sec -le 0 ]; then
+        echo "`/bin/timestamp` Calculated start time ($calc_epoch) is in the past, bumping by 24hrs" >> $LOG_PATH/dcmscript.log
+        calc_epoch=$((calc_epoch+86399))
+    fi
+
+    echo "`/bin/timestamp` Maintenance start time: $calc_epoch" >> $LOG_PATH/dcmscript.log
+    echo $calc_epoch
+}
+
 
 #############################################################
 ##                  Main
 ############################################################
 
 if [ -f "$OPT_START_TIME_FILE" ]; then
-    
-    start_time_sec=`grep "sec" $OPT_START_TIME_FILE  | cut -d ":" -f2`
-    start_time_min=`grep "min" $OPT_START_TIME_FILE  | cut -d ":" -f2`
-    start_time_hr=`grep "hours" $OPT_START_TIME_FILE  | cut -d ":" -f2`
-    start_epoch=`grep "epoch" $OPT_START_TIME_FILE  | cut -d ":" -f2`
-
-    echo "`/bin/timestamp` start time got from persistent file : $start_time_hr:$start_time_min:$start_time_sec epoch: $start_epoch" >> $LOG_PATH/dcmscript.log
- 
-    if [ $start_time_hr  -le 24 ] && [ $start_time_min -le 60 ] && [ $start_time_sec -le 60 ] 
-    then 
-        # calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
-        calc_epoc=$start_epoch
-        curr_epoc=$(date -u "+%s")
-        sec=$((calc_epoc-curr_epoc))
-        if [ $sec -le 0 ]
-        then
-           echo "Maintenance start time is in the past ($calc_epoc), bumping by 24hrs: " $((calc_epoc+86399)) >> $LOG_PATH/dcmscript.log
-           calc_epoc=$((calc_epoc+86399))
-        fi
-        StartTime_eventSender "MaintenanceMGR" $IARM_BUS_DCM_NEW_START_TIME_EVENT $calc_epoc   
-        echo $calc_epoc
-    else
-       echo "`/bin/timestamp` start time values in persistent file is not proper" >> $LOG_PATH/dcmscript.log
-       echo -1
-    fi
-else
-    #persistent file not found 
-    echo "`/bin/timestamp` start time persistent file not found" >> $LOG_PATH/dcmscript.log
-    echo -1
+    # echo "`/bin/timestamp` Removing $OPT_START_TIME_FILE file since it is obsolete" >> $LOG_PATH/dcmscript.log
+    rm -rf "$OPT_START_TIME_FILE"
 fi
 
+if [ -f "$RDK_MAINTENANCE_CONF" ]; then
+    . $RDK_MAINTENANCE_CONF
+else
+    echo "`/bin/timestamp` $RDK_MAINTENANCE_CONF file not found. Cannot fetch maintenance start time" >> $LOG_PATH/dcmscript.log
+    echo -1
+    exit -1
+fi
+
+. ${RDK_PATH}/getTimeZone.sh &> /dev/null
+echo "`/bin/timestamp` Start time got from persistent file : $start_hr:$start_min tz_mode: $tz_mode timezone: $zoneValue" >> $LOG_PATH/dcmscript.log
+start_epoch=$(calculate_start_time)
+#notify_MaintenanceMGR "$IARM_BUS_DCM_NEW_START_TIME_EVENT" "$start_epoch" >> $LOG_PATH/dcmscript.log 2>&1
+echo $start_epoch
+exit 0

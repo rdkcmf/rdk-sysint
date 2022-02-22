@@ -47,14 +47,6 @@ eventSender()
     fi
 }
 
-StartTime_eventSender()
-{
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];
-    then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2 $3
-    fi
-}
-
 dcmLog() {
     echo "`/bin/timestamp`: $0: $*" >> $DCM_LOG_FILE
 }
@@ -77,7 +69,7 @@ echo $$ > $pid_file
 DCM_SKIP_RETRY_FLAG='/tmp/dcm_not_configured'
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 
-OPT_START_TIME_FILE=/opt/maintainence_start_time.txt
+RDK_MAINTENANCE_CONF="/opt/rdk_maintenance.conf"
 
 if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
       . /opt/dcm.properties
@@ -96,13 +88,6 @@ if [ -z $LOG_PATH ]; then
 fi
 if [ -z $PERSISTENT_PATH ]; then
     PERSISTENT_PATH="/tmp"
-fi
-zoneValue=""
-if [ "$DEVICE_NAME" = "PLATCO" ]; then
-    timeZoneDSTPath="/opt/persistent/timeZoneDST"
-    timeZoneOffsetMap="/etc/timeZone_offset_map"
-    timeZone=""
-    timeZoneOffset=""
 fi
 
 export PATH=$PATH:/usr/bin:/bin:/usr/local/bin:/sbin:/usr/local/lighttpd/sbin:/usr/local/sbin
@@ -137,6 +122,9 @@ fi
 
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
+
+# initialize timezone
+. $RDK_PATH/getTimeZone.sh >> $LOG_PATH/dcmscript.log 2>&1
 
 # add 10s delay for IARM manager to be ready
 sleep 10
@@ -395,9 +383,6 @@ CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_dcm"
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
-## Timezone file for all platforms Gram/Fles boxes.
-TIMEZONEDST="/opt/persistent/timeZoneDST"
-
 cron=""
 sleep_time=0
 PREVIOUS_CRON_FILE="/opt/.telemetry_previous_cron_file"
@@ -436,72 +421,6 @@ IsCodeBigBlocked()
         fi
     fi
     return $codebigret
-}
-
-getTimeZone()
-{
-  echo "Retrieving the timezone value"
-  if [ "$DEVICE_NAME" = "PLATCO" ]; then
-    zoneValue=""
-    timeZoneOffset=""
-    timeZone=`cat $timeZoneDSTPath | grep -v 'null'`
-    if [ -z "$timeZone" ];then
-      echo "`/bin/timestamp` /opt/persistent/timeZoneDST is empty, default timezone America/New_York applied" >> $LOG_PATH/dcmscript.log
-      timeZone="America/New_York"
-    else
-      echo "`/bin/timestamp` Device TimeZone: $timeZone" >> $LOG_PATH/dcmscript.log
-    fi
-    if [ -f $timeZoneOffsetMap ];then
-      zoneValue=`cat $timeZoneOffsetMap | grep $timeZone | cut -d ":" -f2 | sed 's/[\",]/ /g'`
-      timeZoneOffset=`cat $timeZoneOffsetMap | grep $timeZone | cut -d ":" -f3 | sed 's/[\",]/ /g'`
-    fi
-    if [ -z "$zoneValue" ] || [ -z "$timeZoneOffset" ]; then
-      echo "`/bin/timestamp` Given TimeZone not supported by XConf - default timezone US/Eastern with offset 0 is applied" >> $LOG_PATH/dcmscript.log
-      zoneValue="US/Eastern"
-      timeZoneOffset="0"
-    fi
-    echo "`/bin/timestamp` TimeZone Information after mapping : zoneValue = $zoneValue, timeZoneOffset = $timeZoneOffset" >> $LOG_PATH/dcmscript.log
-  else
-    JSONPATH=/opt
-    if [ "$CPU_ARCH" == "x86" ]; then JSONPATH=/tmp; fi
-    counter=1
-    echo "Reading Timezone value from $JSONPATH/output.json file..."
-    while [ ! "$zoneValue" ]
-    do
-      echo "timezone retry:$counter"
-      if [ -f $JSONPATH/output.json ] && [ -s $JSONPATH/output.json ];then
-          grep timezone $JSONPATH/output.json | cut -d ":" -f2 | sed 's/[\",]/ /g' > /tmp/.timeZone.txt
-      fi
- 
-      while read entry
-      do
-          zoneValue=`echo $entry | grep -v 'null'`
-          if [ ! -z "$zoneValue" ]; then
-              break
-          fi
-      done < /tmp/.timeZone.txt
-
-      if [ $counter -eq 10 ];then
-          echo "Timezone retry count reached the limit . Timezone data source is missing"
-          break;
-      fi
-      counter=`expr $counter + 1`
-      sleep 6
-    done
-
-    if [ ! "$zoneValue" ]; then
-      echo "Timezone value from $JSONPATH/output.json is empty, Reading from $TIMEZONEDST file..."
-      if [ -f $TIMEZONEDST ] && [ -s $TIMEZONEDST ];then
-          zoneValue=`cat $TIMEZONEDST | grep -v 'null'`
-          echo "Got timezone using $TIMEZONEDST successfully, value:$zoneValue"
-      else
-          echo "$TIMEZONEDST file not found, Timezone data source is missing "
-      fi
-    else
-      echo "Got timezone using $JSONPATH/output.json successfully, value:$zoneValue"
-    fi
-  fi
-  echo "$zoneValue"
 }
 
 ## FW version from version.txt 
@@ -887,80 +806,28 @@ interrupt_DCM_onabort()
 }
 fi
 
-calculate_start_time()
+save_maintenance_info()
 {
-    cron_hr=$1
-    cron_min=$2
+    echo "`/bin/timestamp` Saving maintenance details to $RDK_MAINTENANCE_CONF" >> $LOG_PATH/dcmscript.log
 
-if [ "$DEVICE_NAME" = "PLATCO" ]; then
+    cron_hr="$1"
+    cron_min="$2"
+    tz_mode="$3"
 
-   start_time_hr=$((cron_hr+timeZoneOffset))
+    # Remove leading zeros if any to avoid bash expression errors
+    cron_hr=$(echo "$cron_hr" | awk '{print $1 + 0}')
+    cron_min=$(echo "$cron_min" | awk '{print $1 + 0}')
 
-   start_time_min=$cron_min
+    # Persist maintenance info
+    echo "start_hr=\"${cron_hr}\"" > $RDK_MAINTENANCE_CONF
+    echo "start_min=\"${cron_min}\"" >> $RDK_MAINTENANCE_CONF
+    echo "tz_mode=\"${tz_mode}\"" >> $RDK_MAINTENANCE_CONF
 
-   start_time_sec=0
-
-
-   if [ $start_time_hr  -gt 24 ];
-   then
-        start_time_hr=$((start_time_hr-24))
-   fi
-
-   if [ $start_time_hr  -le 0 ];
-   then
-      start_time_hr=$((start_time_hr+24))
-   fi
-   
-   echo "`/bin/timestamp` cron_hr: $cron_hr, cron_min: $cron_min , timeZoneOffset: $timeZoneOffset , start_time_hr: $start_time_hr, start_time_min: $start_time_min " >> $LOG_PATH/dcmscript.log
-else
-
-    time_in_sec=$((cron_hr*60*60 + cron_min*60))
-
-    #no time offset calculation required - as received hr and min from XCONF is in UTC format
-    time_offset=0
-
-    start_time_in_sec=$((time_in_sec+time_offset))
-
-    #To avoid cron to be set beyond 24 hr clock limit
-    if [ "$start_time_in_sec" -ge 86400 ]
-    then
-        start_time_in_sec=$((start_time_in_sec-86400))
-    elif [ "$start_time_in_sec" -le 0 ]
-    then
-        start_time_in_sec=$((start_time_in_sec+86399))
-    fi
-
-    start_time=$start_time_in_sec
-    start_time_sec=$((start_time%60))
-    start_time=$((start_time/60))
-    start_time_min=$((start_time%60))
-    start_time=$((start_time/60))
-    start_time_hr=$((start_time%60))
-fi
-
-    echo hours:$start_time_hr > $OPT_START_TIME_FILE
-    echo min:$start_time_min >> $OPT_START_TIME_FILE
-    echo sec:$start_time_sec >> $OPT_START_TIME_FILE
-
-    calc_epoc=$(date -u "+%s" -d $start_time_hr:$start_time_min:$start_time_sec)
-    curr_epoc=$(date -u "+%s")
-    sec=$((calc_epoc-curr_epoc))
-    # bump the maintenance start time returned by Xconf by 24
-    # hours if it is within 4 hours of the current time
-    if [ $sec -le 14400 ]
-    then
-      echo "Next window time within 4hrs: $calc_epoc, bumping by 24 hours: " $((calc_epoc+86399)) >> $LOG_PATH/dcmscript.log
-      calc_epoc=$((calc_epoc+86399))
-    fi
-    echo epoch:$calc_epoc >> $OPT_START_TIME_FILE
-    echo $calc_epoc
-
+    cat "$RDK_MAINTENANCE_CONF" >> $LOG_PATH/dcmscript.log
 }
-
 
 if [ "x$T2_ENABLE" != "xtrue" ]; then
       echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
-      getTimeZone
       loop=1
       counter=0
       while [ $loop -eq 1 ]
@@ -1133,9 +1000,10 @@ do
                     cron=''
                     cron_hr=`cat /tmp/DCMSettings.conf | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2 | cut -d ' ' -f2`
                     cron_min=`cat /tmp/DCMSettings.conf | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2 | cut -d ' ' -f1`
+                    tz_mode=`cat /tmp/DCMSettings.conf | grep 'urn:settings:TimeZoneMode' | cut -d '=' -f2 | xargs`
                     if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
                     then
-                       start_time=`calculate_start_time $cron_hr $cron_min` #sleep time is cron time here
+                       save_maintenance_info "$cron_hr" "$cron_min" "$tz_mode"
                     fi    
                 else
                     #echo " `/bin/timestamp` Failed to read 'urn:settings:LogUploadSettings:UploadSchedule:levelone:cron' from DCMSettings.conf." >> $LOG_PATH/dcmscript.log
@@ -1175,8 +1043,5 @@ then
    else
         echo "`/bin/timestamp` Sending MAINT_DCM_COMPLETE event to MaintenanceMGR" >> $LOG_PATH/dcmscript.log
         eventSender "MaintenanceMGR" $MAINT_DCM_COMPLETE
-        #post start time event after COMPLETE event
-        StartTime_eventSender "MaintenanceMGR" $IARM_BUS_DCM_NEW_START_TIME_EVENT $start_time
-
    fi
 fi
