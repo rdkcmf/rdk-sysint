@@ -71,10 +71,6 @@ echo "`timestamp` ******* PingTelemetry:Start of Configurations *******"
 pingTestEnable=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.PingTelemetry.Enable 2>&1 > /dev/null`
 echo "`timestamp` PingTelemetry:Ping telemetry enabled:$pingTestEnable"
 if [ "$pingTestEnable" != "true" ]; then
-    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-    then
-        eventSender "MaintenanceMGR" $MAINT_PINGTELEMETRY_ERROR
-    fi
     skip_test "Exiting as ping telemetry is disabled"
 fi
 t2CountNotify "INFO_ICMP_RFC" 
@@ -217,10 +213,6 @@ do
         # Checking whether pingTest is enabled, need to check before every burst
         pingTestEnable=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.PingTelemetry.Enable 2>&1 > /dev/null`
         if [ "$pingTestEnable" != "true" ]; then 
-            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-               then
-                  eventSender "MaintenanceMGR" $MAINT_PINGTELEMETRY_ERROR
-            fi
             skip_test "Exiting as ping telemetry is disabled"
         fi
         
