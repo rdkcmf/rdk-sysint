@@ -144,6 +144,76 @@ echo "`/bin/timestamp` Starting execution of DCMscript_maintaince.sh" >> $LOG_PA
 echo "Telemetry run for previous boot log files" >> $LOG_PATH/dcmscript.log
 TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 
+scheduleSupplementaryServices() {
+
+    T2_DCM_CONFIG=$1
+    cp $T2_DCM_CONFIG $FILENAME
+    local OUTFILE='/tmp/DCMSettings.conf'
+    processJsonResponse
+
+    #--------------------------------- START : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
+    # Cannot move away from all mTls and new device specific workarounds present today due to deployment complexity. Clean up effort will take care of this.
+
+    upload_protocol=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:uploadProtocol' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    if [ -n "$upload_protocol" ]; then
+    	echo "`/bin/timestamp` upload_protocol: $upload_protocol" >> $LOG_PATH/dcmscript.log
+    else
+        upload_protocol='HTTP'
+        echo "`/bin/timestamp` 'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf" >> $LOG_PATH/dcmscript.log
+    fi
+
+    httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    if [ -z "$httplink" ]; then
+        echo "`/bin/timestamp` 'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'" >> $LOG_PATH/dcmscript.log
+    else
+        upload_httplink=$httplink
+        echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+    fi
+
+    if [ "$FORCE_MTLS" == "true" ]; then
+        echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
+        mTlsLogUpload="true"
+    fi
+    echo "RFC_mTlsLogUpload:$mTlsLogUpload" >> $LOG_PATH/dcmscript.log
+
+    if [ "$mTlsLogUpload" == "true" ] || [ $useXpkiMtlsLogupload == "true" ]; then
+        #sky endpoint dont use the /secure extension;
+        if [ "$FORCE_MTLS" != "true"  ]; then
+            upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
+        fi
+    fi
+    echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
+    #--------------------------------- END : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
+
+    #Check the value of 'UploadOnReboot' in DCMSettings.conf
+    uploadCheck=`cat $OUTFILE | grep 'urn:settings:LogUploadSettings:UploadOnReboot' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    logUploadcron=`cat $OUTFILE | grep 'urn:settings:LogUploadSettings:UploadSchedule:cron' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+    difdCron=`cat $OUTFILE | grep 'urn:settings:CheckSchedule:cron' | cut -d '=' -f2`
+
+    if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
+        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
+    elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
+        echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
+        nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+    else
+        echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
+    fi
+    if [ -z "$logUploadcron" ] || [ "$logUploadcron" == "null" ]; then
+        echo " `/bin/timestamp` Uploading logs as DCM response is either null or not present" >> $LOG_PATH/dcmscript.log
+        nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+    else
+        echo " `/bin/timestamp` 'UploadSchedule:cron' is present setting cron jobs " >> $LOG_PATH/dcmscript.log
+        sh /lib/rdk/cronjobs_update.sh "update" "uploadSTBLogs.sh" "$logUploadcron nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 0 1 0 $upload_protocol $upload_httplink"
+    fi
+
+    if [ -n "$difdCron" ]; then
+        echo "Configuring cron job for deviceInitiatedFWDnld.sh" >> $LOG_PATH/dcmscript.log
+        sh /lib/rdk/cronjobs_update.sh "update" "deviceInitiatedFWDnld.sh" "$difdCron /bin/sh $RDK_PATH/deviceInitiatedFWDnld.sh 0 2 >> /opt/logs/swupdate.log 2>&1"
+    fi
+
+}
+
 ###########################################################################################
 TELEMETRY_PATH_TEMP="$TELEMETRY_PATH/tmp"
 T2_SERVICE_PATH="/tmp/enable_t2_service"
@@ -172,6 +242,9 @@ if [ ! -f $T2_0_BIN ]; then
 fi
 
 if [ "x$T2_ENABLE" == "xtrue" ]; then
+    PROCESS_CONFIG_COMPLETE_FLAG="/tmp/t2DcmComplete"
+    T2_DCM_CONFIG="$PERSISTENT_PATH/.t2persistentfolder/DCMresponse.txt"
+
     t2Pid=`pidof $T2_0_APP`
     if [ -z "$t2Pid" ]; then
         echo "${T2_BIN} is present, XCONF config fetch and parse will be handled by T2 implementation" >> $DCM_LOG_FILE
@@ -192,19 +265,37 @@ if [ "x$T2_ENABLE" == "xtrue" ]; then
     if [ "$dcaCheck" != "0" ]; then
         sh /lib/rdk/cronjobs_update.sh "remove" "dca_utility.sh"
     fi
+    ## Schedule rest of the secondary services as part of DCM .
+    #1] Device initiated FW download
+    #2] Log upload cron
+    local MAX_RETRY_T2_RESPONSE=12
+    local count=0
+    local t2_dcm_config=$PERSISTENT_PATH
 
-    if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
+    while [ ! -f $PROCESS_CONFIG_COMPLETE_FLAG ]
+    do
+        dcmLog "Wait for config fetch complete"
+        sleep 10
+        let count++
+        if [ $count -eq $MAX_RETRY_T2_RESPONSE ]; then
+            break
+        fi
+    done
+    scheduleSupplementaryServices $T2_DCM_CONFIG
+
+     if [ "x$ENABLE_MAINTENANCE" != "xtrue" ]
     then
        exit 0
     fi
-
 fi
 
 ###########################################################################################
 
 touch $TELEMETRY_PREVIOUS_LOG
 # Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
-sh /lib/rdk/dca_utility.sh 0 0 &
+if [ "x$T2_ENABLE" != "xtrue" ]; then
+     sh /lib/rdk/dca_utility.sh 0 0 &
+fi
 
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
@@ -845,58 +936,57 @@ fi
 }
 
 
-
-
-
-echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
-getTimeZone
-loop=1
-counter=0
-while [ $loop -eq 1 ]
-do
-    estbIp=`getIPAddress`
-    if [ "X$estbIp" == "X" ]; then
-         sleep 10
-    else
-         if [ "$IPV6_ENABLED" = "true" ]; then
-               if [ "Y$estbIp" != "Y$DEFAULT_IP" ] && [ -f $WAREHOUSE_ENV ]; then
-                   loop=0
-               elif [ ! -f /tmp/estb_ipv4 ] && [ ! -f /tmp/estb_ipv6 ]; then
-                   sleep 10
-                   echo "`/bin/timestamp` waiting for IPv6 IP" >> $LOG_PATH/dcmscript.log
-                   let counter++
-                   if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
-                       sh $RDK_PATH/dca_utility.sh 0 0
-                   fi
-               elif [ "Y$estbIp" == "Y$DEFAULT_IP" ] && [ -f /tmp/estb_ipv4 ]; then
-                   echo "`/bin/timestamp` waiting for IPv4 IP" >> $LOG_PATH/dcmscript.log
-                   let counter++
-                   if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
-                       sh $RDK_PATH/dca_utility.sh 0 0
-                   fi
-                   sleep 10
-               else
-                   loop=0
-               fi
+if [ "x$T2_ENABLE" != "xtrue" ]; then
+      echo "`/bin/timestamp` Waiting for IP" >> $LOG_PATH/dcmscript.log
+      getTimeZone
+      loop=1
+      counter=0
+      while [ $loop -eq 1 ]
+      do
+          estbIp=`getIPAddress`
+          if [ "X$estbIp" == "X" ]; then
+               sleep 10
           else
-               if [ "Y$estbIp" == "Y$DEFAULT_IP" ]; then
-                   sleep 10
-                   let counter++
-                   if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
-                       sh $RDK_PATH/dca_utility.sh 0 0
+               if [ "$IPV6_ENABLED" = "true" ]; then
+                    if [ "Y$estbIp" != "Y$DEFAULT_IP" ] && [ -f $WAREHOUSE_ENV ]; then
+                        loop=0
+                    elif [ ! -f /tmp/estb_ipv4 ] && [ ! -f /tmp/estb_ipv6 ]; then
+                        sleep 10
+                        echo "`/bin/timestamp` waiting for IPv6 IP" >> $LOG_PATH/dcmscript.log
+                        let counter++
+                        if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
+                             sh $RDK_PATH/dca_utility.sh 0 0
+                        fi
+                    elif [ "Y$estbIp" == "Y$DEFAULT_IP" ] && [ -f /tmp/estb_ipv4 ]; then
+                        echo "`/bin/timestamp` waiting for IPv4 IP" >> $LOG_PATH/dcmscript.log
+                        let counter++
+                        if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
+                             sh $RDK_PATH/dca_utility.sh 0 0
+                        fi
+                        sleep 10
+                   else
+                       loop=0
                    fi
                else
-                    loop=0
+                   if [ "Y$estbIp" == "Y$DEFAULT_IP" ]; then
+                       sleep 10
+                       let counter++
+                       if [ "$counter" -eq 30 ] || [ "$counter" -eq 90 ]; then
+                           sh $RDK_PATH/dca_utility.sh 0 0
+                       fi
+                   else
+                       loop=0
+                   fi
                fi
           fi
-    fi
 
-    # Do not keep spinning too long for RPI models 
-    if [ "$BOX_TYPE" == "pi" ] && [ "$counter" -eq 6 ] ; then
-        loop=0
-    fi
+          # Do not keep spinning too long for RPI models 
+          if [ "$BOX_TYPE" == "pi" ] && [ "$counter" -eq 6 ] ; then
+               loop=0
+          fi
 
-done
+     done
+fi 
 
 #---------------------------------
 #        Main App
@@ -966,8 +1056,10 @@ do
                 if [ -z $sleep_time ]; then
                     sleep_time=720
                 fi
-                sh /lib/rdk/cronjobs_update.sh "update" "dca_utility.sh" "$cron nice -n 19 sh $RDK_PATH/dca_utility.sh $sleep_time 1"
-                sh $RDK_PATH/dca_utility.sh 0 1
+		if [ "x$T2_ENABLE" != "xtrue" ]; then
+                      sh /lib/rdk/cronjobs_update.sh "update" "dca_utility.sh" "$cron nice -n 19 sh $RDK_PATH/dca_utility.sh $sleep_time 1"
+                      sh $RDK_PATH/dca_utility.sh 0 1
+	        fi     
                 if [ "$reboot_flag" == "1" ];then
                     echo "Exiting script." >> $LOG_PATH/dcmscript.log
                     echo 0 > $DCMFLAG
@@ -1004,8 +1096,9 @@ do
                     else
                         sleep_time=10
                     fi
-                    
-                    sh /lib/rdk/cronjobs_update.sh "update" "dca_utility.sh" "$cron nice -n 19 sh $RDK_PATH/dca_utility.sh $sleep_time 1"
+                    if [ "x$T2_ENABLE" != "xtrue" ]; then
+                         sh /lib/rdk/cronjobs_update.sh "update" "dca_utility.sh" "$cron nice -n 19 sh $RDK_PATH/dca_utility.sh $sleep_time 1"
+		    fi
                     echo "cron:$cron" > $PREVIOUS_CRON_FILE
                     echo "sleep_time:$sleep_time" >> $PREVIOUS_CRON_FILE
                     maintenance_error_flag=0
