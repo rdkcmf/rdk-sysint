@@ -298,14 +298,17 @@ processLogsFolder()
 modifyFileWithTimestamp()
 {
     srcLogPath=$1
-    ret=`ls $srcLogPath/*.txt | wc -l`
+    ret=`ls $srcLogPath/*.txt`
     if [ ! $ret ]; then 
-         ret=`ls $srcLogPath/*.log | wc -l`
+         ret=`ls $srcLogPath/*.log`
          if [ ! $ret ]; then 
               if [ ! -f /etc/os-release ];then pidCleanup;fi
-              MAINT_LOGUPLOAD_ERROR=5
-              eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-              exit 1
+              uploadLog "Log directory empty, skipping log upload"
+	      if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+	          MAINT_LOGUPLOAD_COMPLETE=4
+                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+	      fi
+              exit 0
          fi
     fi
 
@@ -338,14 +341,17 @@ modifyFileWithTimestamp()
 modifyTimestampPrefixWithOriginalName()
 {
     srcLogPath=$1
-    ret=`ls $srcLogPath/*.txt | wc -l`
+    ret=`ls $srcLogPath/*.txt`
     if [ ! $ret ]; then
-         ret=`ls $srcLogPath/*.log | wc -l`
+         ret=`ls $srcLogPath/*.log`
          if [ ! $ret ]; then
               if [ ! -f /etc/os-release ];then pidCleanup;fi
-              MAINT_LOGUPLOAD_ERROR=5
-              eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-              exit 1
+              uploadLog "Log directory empty, skipping log upload"
+              if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                  MAINT_LOGUPLOAD_COMPLETE=4
+                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+              fi
+              exit 0
          fi
     fi
     FILES=*.*
@@ -814,9 +820,12 @@ uploadLogOnReboot()
          ret=`ls $PREV_LOG_PATH/*.log` 
          if [ ! $ret ]; then 
                if [ ! -f /etc/os-release ];then pidCleanup;fi
-               MAINT_LOGUPLOAD_ERROR=5
-               eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-               exit 1
+	       uploadLog "Log directory empty, skipping log upload"
+               if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                  MAINT_LOGUPLOAD_COMPLETE=4
+                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+               fi
+               exit 0
          fi
     fi
     uploadLog "Sleeping for seven minutes"
