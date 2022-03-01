@@ -50,7 +50,7 @@ echo "[MTLS_VA] mTLS Video Analytics request" >> $logsFile
 CURL_CMD="curl -w '%{http_code}\n' $CERT "https://va-cpe-srvr.xcal.tv:58081/test/OddEvenPattern.test" --cacert $CA_FILE_PATH -o /tmp/OddEvenPattern.test"
 HTTP_CODE=`curl -w '%{http_code}\n' $CERT "https://va-cpe-srvr.xcal.tv:58081/test/OddEvenPattern.test" --cacert $CA_FILE_PATH -o /tmp/OddEvenPattern.test`
 http_code=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
-echo "[MTLS_VA] CURL_CMD: $CURL_CMD" >> $logsFile
+echo "[MTLS_VA] CURL_CMD: $CURL_CMD"| sed -e 's#devicecert_1.*https#devicecert_1.pk12<masked> https#g' | sed -e 's#staticXpkiCrt.*https#staticXpkiCrt.pk12<masked> https#g' >> $logsFile
 echo "[MTLS_VA] http_code $http_code" >> $logsFile
 
 if [ "$http_code" == 200 ]; then
