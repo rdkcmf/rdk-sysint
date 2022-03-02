@@ -40,7 +40,7 @@ rfcLogging ()
     echo "`/bin/timestamp` [RFC]:WEB_INSPECTOR : $1" >> $LOG_PATH/rfcscript.log
 }
 
-rfcLogging "Executing enableWebInspector.sh !!"
+rfcLogging "Executing enableWebInspector.sh with arguments - $*"
 
 
 if [ ! -f /etc/os-release ]; then
@@ -81,7 +81,7 @@ if [ -f  /lib/rdk/getRFC.sh ]; then
     . /lib/rdk/getRFC.sh WEBKIT_INSPECTOR
 fi
 
-rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR is $RFC_ENABLE_WEBKIT_INSPECTOR"
+rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR is $RFC_ENABLE_WEBKIT_INSPECTOR and BUILD_TYPE is $BUILD_TYPE"
 if [ "$RFC_ENABLE_WEBKIT_INSPECTOR" == "true" ] || [ "$BUILD_TYPE" != "prod" ]; then
 
     iface_type=0
@@ -90,11 +90,11 @@ if [ "$RFC_ENABLE_WEBKIT_INSPECTOR" == "true" ] || [ "$BUILD_TYPE" != "prod" ]; 
 
     RWI_PORTS=(9224 10000 10001 10002 10003)
 
-    if [ 2 -le $iface_type ] && [ $iface_type -le 4 ] ;then
-        rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR Valid Interface !!"
+    if [ 1 -le $iface_type ] && [ $iface_type -le 4 ] ;then
+        rfcLogging "$iface is a valid interface !!"
         if [ "$ip_event" = "delete" ];then
 
-            rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR ip_event : delete!!"
+            rfcLogging "ip_event : $ip_event"
             if [ -x $IPV4_BIN_PATH ]; then
                 for port in ${RWI_PORTS[@]}; do
                   $IPV4_BIN -D INPUT -i $iface -p tcp --dport $port -j ACCEPT
@@ -112,9 +112,9 @@ if [ "$RFC_ENABLE_WEBKIT_INSPECTOR" == "true" ] || [ "$BUILD_TYPE" != "prod" ]; 
             fi
         else
            [ -f $NET_SYS_PATH/$iface/operstate ] && iface_status=`cat $NET_SYS_PATH/$iface/operstate` || iface_status="down"
-           rfcLogging "[$0]:Interface = $iface Status = $iface_status"
+               rfcLogging "[$0]:Interface = $iface Status = $iface_status"
            if [ "$iface_status" = "up" ] && [ "$ip_event" = "add" ];then
-                rfcLogging "RFC_ENABLE_WEBKIT_INSPECTOR add!!"
+                rfcLogging "ip_event : $ip_event"
 		#Restart DHCPC if the global v6 Ip is not assigned to eth
                 sleep 5
                 globalIP=`ip addr show dev $iface | grep -i global | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\1/;t;d' | head -n`
