@@ -60,6 +60,8 @@ if [ ! -s $composite_resolvFile ]; then
 fi
 
 #Sorting both original and newly updated content to avoid unnecessary restart of dnsmasq.service
+/usr/bin/timeout 5 /bin/sync -d $composite_resolvFile
+/usr/bin/timeout 5 /bin/sync -d $resolvFile
 _sort $composite_resolvFile
 _sort $resolvFile
 
