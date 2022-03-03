@@ -279,6 +279,11 @@ if [ -z "$DEVXCONF_URL" ]; then
     DEVXCONF_URL="https://ccpxcb-dt-a001-q.dt.ccp.cable.comcast.com:8095/xconf/swu/stb"
 fi
 
+RDKVFW_UPGRADER=$(tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.RDKFirmwareUpgrader.Enable 2>&1)
+if [ -z "$RDKVFW_UPGRADER" ]; then
+    RDKVFW_UPGRADER="false"
+fi
+
 stateRedlog ()
 {
     if type systemd-cat &> /dev/null; then
@@ -318,6 +323,8 @@ eventManager()
         swupdateLog "Missing the binary $IARM_EVENT_BINARY_LOCATION/IARM_event_sender"
     fi
 }
+
+swupdateLog "RDKFirmwareUpgrader rfc Status=$RDKVFW_UPGRADER"
 
 isThrottleEnabled="false"
 VIDEO=""
@@ -1325,9 +1332,34 @@ httpDownload ()
                 UseCodebig=0
                 IsDirectBlocked
                 skipdirect=$?
-                if [ $skipdirect -eq 0 ]; then 
-                    httpTLSDownload
-                    ret=$?
+                if [ $skipdirect -eq 0 ]; then
+                    swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER and incremental= $isIncrementalCDLEnabled"
+                    if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$isIncrementalCDLEnabled" != "xtrue" ]; then
+                        swupdateLog "Starting C daemon rdkvfwupgrader"
+                        rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
+                        swupdateLog "url:$imageHTTPURL"
+                        swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, reboot=$cloudImmediateRebootFlag"
+                        swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
+                        if [ -f /usr/bin/rdkvfwupgrader ]; then
+                            /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag"
+                            ret=$?
+                            if [ $ret -eq 127 ]; then
+                                swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
+                                exit 127
+                            fi
+			    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                            TLSRet=$ret
+                            swupdateLog "rdkvfwupgrader binary execution complete ret=$ret, http_code=$http_code, tlsret=$TLSRet"
+                        else
+                            swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+                            httpTLSDownload
+                            ret=$?
+                        fi
+                    else
+                        swupdateLog "Going For script based download rfc=$RDKVFW_UPGRADER"
+                        httpTLSDownload
+                        ret=$?
+                    fi
                     if [ "$http_code" != "200" ] && [ "$http_code" != "206" ] && [ "$http_code" != "404" ]; then
                         swupdateLog "httpDownload: Direct image upgrade failover request failed return=$ret, httpcode=$http_code"
                     else
@@ -1354,8 +1386,34 @@ httpDownload ()
             while [ $httpretry -lt $RETRY_COUNT ]
             do
                 swupdateLog "httpDownload: Using Direct Image upgrade connection"
-                httpTLSDownload
-                ret=$?
+
+                swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER and incremental= $isIncrementalCDLEnabled"
+                if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$isIncrementalCDLEnabled" != "xtrue" ]; then
+                    swupdateLog "Starting C daemon rdkvfwupgrader in loop"
+                    rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
+                    swupdateLog "mtls=$FORCE_MTLS, url:$imageHTTPURL, devicetype:$DEVICE_TYPE, devivename: $DEVICE_NAME"
+                    swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, build:$BUILD_TYPE, reboot=$cloudImmediateRebootFlag"
+                    swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
+                    if [ -f /usr/bin/rdkvfwupgrader ]; then
+                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag"
+                        ret=$?
+                        if [ $ret -eq 127 ]; then
+                            swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
+                            exit 127
+                        fi
+                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                        TLSRet=$ret
+                        swupdateLog "rdkvfwupgrader binary loop execution complete ret=$ret, http_code=$http_code, tlsret=$TLSRet"
+                    else
+                        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader procees with script"
+                        httpTLSDownload
+                        ret=$?
+                    fi
+                else
+                    swupdateLog "Going For script based download rfc=$RDKVFW_UPGRADER"
+                    httpTLSDownload
+                    ret=$?
+                fi
                 if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                     swupdateLog "httpDownload: Direct Image upgrade Success: ret=$ret httpcode=$http_code"
                     break
@@ -1444,6 +1502,9 @@ interrupt_download()
 {
     swupdateLog "Download is interrupted due to the PowerState changed to ON"
     if [ -f $CURL_PID_FILE ]; then
+        if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+	    CurlPid=`cat $CURL_PID_FILE`
+        fi
         kill -9 $CurlPid
         rm -rf "$CURL_PID_FILE"
     fi
@@ -1465,6 +1526,9 @@ interrupt_download_onabort()
     if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
         swupdateLog "Download is interrupted due to the maintenance abort"
         if [ -f $CURL_PID_FILE ]; then
+            if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+	        CurlPid=`cat $CURL_PID_FILE`
+            fi
             kill -9 $CurlPid
             rm -rf "$CURL_PID_FILE"
         fi
