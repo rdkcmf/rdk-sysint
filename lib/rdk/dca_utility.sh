@@ -664,6 +664,13 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
             if [ -f $TELEMETRY_RESEND_FILE -a "`wc -l $TELEMETRY_RESEND_FILE | cut -d ' ' -f 1`" -ge "$MAX_LIMIT_RESEND" ]; then
                 dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
             else
+                if [ -f $TELEMETRY_TEMP_RESEND_FILE ]; then
+                        previousReport=`cat $TELEMETRY_TEMP_RESEND_FILE`
+                        dcaLog "Previous report is avilable append to resend file"
+                        echo $previousReport >> $RTL_LOG_FILE
+                        echo $previousReport >> $TELEMETRY_RESEND_FILE
+                        rm -f $TELEMETRY_TEMP_RESEND_FILE
+                fi
                 echo $outputJson >> $TELEMETRY_RESEND_FILE
                 dcaLog "resend : Storing data to resend"
                 if [ "$flag" = "1" ]; then
@@ -678,9 +685,11 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
 
             fi
         else
-           dcaLog "sleeping $sleep_time seconds"
+           echo $outputJson > $TELEMETRY_TEMP_RESEND_FILE
+	   dcaLog "sleeping $sleep_time seconds"
            sleep $sleep_time
            retry=0
+           rm -f $TELEMETRY_TEMP_RESEND_FILE
            
            if [ -f $TELEMETRY_RESEND_FILE ]; then
                rm -f $TELEMETRY_TEMP_RESEND_FILE
