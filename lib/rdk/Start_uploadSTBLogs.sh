@@ -92,9 +92,15 @@ checkXpkiMtlsBasedLogUpload()
      fi
      echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
      checkXpkiMtlsBasedLogUpload
-     #sky endpoint dont use the /secure extension;
-     if [ "$FORCE_MTLS" != "true"  ]; then
-         upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
+     if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
+        dcmLog "opt override is present. Ignore settings from Bootstrap config"
+     else
+        Bootstrap_SSR_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.SsrUrl 2>&1 > /dev/null)
+
+        if [ "$Bootstrap_SSR_URL" ]; then
+            upload_httplink="$Bootstrap_SSR_URL/cgi-bin/S3.cgi"
+            dcmLog "Setting upload_httplink to $upload_httplink from Bootstrap config Bootstrap_SSR_URL:$Bootstrap_SSR_URL"
+        fi
      fi
      echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
  fi

@@ -219,12 +219,6 @@ getTelemetryEndpoint() {
 
 getTelemetryEndpoint
 
-#Sky endpoints dont use /secure extenstion;
-if [ "$FORCE_MTLS" != "true"  ]; then
-    DCA_UPLOAD_URL=`echo $DCA_UPLOAD_URL | sed 's/$/\/secure/'`
-    dcaLog "MTLS Telemetry Logupload URL:$DCA_UPLOAD_URL"
-fi
-
 dcaLog "dca upload url : $DCA_UPLOAD_URL"
 
 PrevFileName=''

@@ -239,11 +239,15 @@ else
     upload_httplink=$HTTP_UPLOAD_LINK
 fi
 
-#check if we have bootstrap parameter
-bootstrap_upload_httplink=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.SsrUrl 2>&1 > /dev/null)
-if [ ! -z "$bootstrap_upload_httplink" ]; then
-    dcmLog "Overriding the upload url with bootstrap url"
-    upload_httplink="$bootstrap_upload_httplink/cgi-bin/S3.cgi"
+if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
+    dcmLog "opt override is present. Ignore settings from Bootstrap config"
+else
+   #check if we have bootstrap parameter
+   bootstrap_upload_httplink=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.SsrUrl 2>&1 > /dev/null)
+   if [ ! -z "$bootstrap_upload_httplink" ]; then
+       dcmLog "Overriding the upload url with bootstrap url"
+       upload_httplink="$bootstrap_upload_httplink/cgi-bin/S3.cgi"
+   fi
 fi
 
 MAX_UPLOAD_ATTEMPTS=3
@@ -722,20 +726,15 @@ scheduleSupplementaryServices()
         upload_protocol='HTTP'
         dcmLog "'urn:settings:LogUploadSettings:Protocol' is not found in DCMSettings.conf"
     fi
-
-    httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
-    if [ -z "$httplink" ]; then
-        dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
-	httplink=$upload_httplink
-    else
-        upload_httplink=$httplink
-        dcmLog "upload_httplink is $upload_httplink"
-    fi
-
-    
-    #sky endpoint dont use the /secure extension;
-    if [ "$FORCE_MTLS" != "true"  ]; then
-        upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
+    if [ -z "$bootstrap_upload_httplink" ]; then
+        httplink=`cat $OUTFILE | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+        if [ -z "$httplink" ]; then
+           dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
+           httplink=$upload_httplink
+        else
+           upload_httplink=$httplink
+           dcmLog "upload_httplink is $upload_httplink"
+        fi
     fi
     dcmLog "upload_httplink is $upload_httplink"
     #--------------------------------- END : Derive URL For Upload Logs Based On Different RFC's And Value from Config  --------------------------------------------------
@@ -960,6 +959,7 @@ do
                 fi
                 #---------------------------------------------------------
                 if [ "$upload_protocol" == "HTTP" ]; then
+                    if [  -z "$bootstrap_upload_httplink" ]; then
                     httplink=`cat /tmp/DCMSettings.conf | grep 'LogUploadSettings:UploadRepository:URL' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
                     if [ -z "$httplink" ]; then
                         dcmLog "'LogUploadSettings:UploadRepository:URL' is not found in DCMSettings.conf, upload_httplink is '$upload_httplink'"
@@ -968,11 +968,6 @@ do
                         upload_httplink=$httplink
                         dcmLog "upload_httplink is $upload_httplink"
                     fi
-                    dcmLog "MTLS preferred"
-
-                    #sky endpoint dont use the /secure extension;
-                    if [ "$FORCE_MTLS" != "true"  ]; then
-                        upload_httplink=`echo $httplink | sed "s|/cgi-bin|/secure&|g"`
                     fi
                     dcmLog "upload_httplink is $upload_httplink"
                 fi
