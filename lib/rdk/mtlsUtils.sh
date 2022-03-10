@@ -47,7 +47,7 @@ getMtlsCreds()
             echo "Error: $1 Getconfig file failed"
             exit 128
         fi
-        mtlscreds=" --key $cred --cert $cert"
+        mtlscreds=" --key $cred --cert $ltcert"
     else
         if [ ! -f /usr/bin/GetConfigFile ];then
             echo "Error: $1 GetConfigFile Not Found. Exit!!"
