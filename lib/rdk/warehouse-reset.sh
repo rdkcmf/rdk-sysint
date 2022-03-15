@@ -151,6 +151,7 @@ fi
 if [ -d /tmp/mnt/diska3/persistent ]; then
     find /tmp/mnt/diska3/persistent/ -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
+rm -rf /opt/secure/persistent/rdkservicestore
 # whitebox data cleanup
 if [ -d /opt/www/whitebox ]; then rm -rf /opt/www/whitebox/*; fi
 if [ -d /mnt/nvram2/whitebox ]; then rm -rf /mnt/nvram2/whitebox/* ; fi

@@ -119,6 +119,7 @@ if [ -d /tmp/mnt/diska3/persistent ]; then
     find /tmp/mnt/diska3/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
 if [ -f /tmp/mnt/diska3/OCAP_LSV ];then rm -rf /tmp/mnt/diska3/OCAP_LSV;fi
+rm -rf /opt/secure/persistent/rdkservicestore
 
 # whitebox data cleanup
 if [ -d /opt/www/whitebox ]; then rm -rf /opt/www/whitebox/* ; fi

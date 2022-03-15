@@ -25,6 +25,7 @@
 if [ -d /opt/persistent ]; then
     find /opt/persistent -mindepth 1 -maxdepth 1 ! -name 'store-mode-video' -exec rm -rf {} \;
 fi
+rm -rf /opt/secure/persistent/rdkservicestore
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
      if [ -f /lib/rdk/ubi-volume-cleanup.sh ];then
          sh /lib/rdk/ubi-volume-cleanup.sh "PERSISTENT_jffs2"
