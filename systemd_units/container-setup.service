@@ -1,0 +1,23 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management,
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2022 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=Configure container permissions
+
+Requires=securemount.service
+Wants=dobby.service wpeframework.service
+Before=wpeframework.service
+After=securemount.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/lib/rdk/container_setup.sh'
+
+[Install]
+WantedBy=multi-user.target
