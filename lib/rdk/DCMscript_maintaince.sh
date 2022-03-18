@@ -55,6 +55,10 @@ StartTime_eventSender()
     fi
 }
 
+dcmLog() {
+    echo "`/bin/timestamp`: $0: $*" >> $DCM_LOG_FILE
+}
+
 T2_ENABLE=`tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.Enable 2>&1`
 
 # exit if an instance is already running
