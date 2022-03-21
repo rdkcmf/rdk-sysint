@@ -2455,6 +2455,19 @@ sendXCONFTLSRequest ()
     return $curl_result
 }
 
+checkCodebigAccess() 
+{
+    local request_type=2
+    local retval=0
+    eval "GetServiceUrl $request_type temp > /dev/null 2>&1"
+    local checkExitcode=$?
+    swupdateLog "Exit code for codebigcheck $checkExitcode"
+    if [ $checkExitcode -eq 255 ]; then
+        retval=1
+    fi
+    return $retval
+}
+
 sendXCONFCodebigRequest () 
 {
     http_code="000"
@@ -2510,7 +2523,10 @@ sendXCONFRequest()
 
     if [ $UseCodebig -eq 1 ]; then
         swupdateLog "sendXCONFRequest Codebig is enabled UseCodebig=$UseCodebig"
-        if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+        swupdateLog "Check if codebig is applicable for the Device"
+        checkCodebigAccess
+        codebigapplicable=$?
+	if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
             skipcodebig=$?
@@ -2604,7 +2620,10 @@ sendXCONFRequest()
         fi    
     
         if [ "$http_code" = "000" ]; then
-            if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+            swupdateLog "Check if codebig is applicable for the Device"
+            checkCodebigAccess
+            codebigapplicable=$?
+            if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then
                 swupdateLog "sendXCONFRequest Direct Image upgrade Failed: httpcode=$http_code attempting codebig" 
                 # Use Codebig connection connection on XI platforms
                 IsCodeBigBlocked

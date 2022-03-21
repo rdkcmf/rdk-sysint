@@ -484,6 +484,19 @@ sendTLSSSRRequest()
     uploadLog "Connect with $msg_tls_source Curl return code : $TLSRet"
 }
 
+checkCodebigAccess() 
+{
+    local request_type=1
+    local retval=0
+    eval "GetServiceUrl $request_type temp > /dev/null 2>&1"
+    local checkExitcode=$?
+    uploadLog "Exit code for codebigcheck $checkExitcode"
+    if [ $checkExitcode -eq 255 ]; then
+        retval=1
+    fi
+    return $retval
+}
+
 DoCodebigSSR()
 {
     SIGN_CMD="GetServiceUrl 1 \"$UploadHttpParams?filename=$1$uploadfile_md5\""
@@ -538,7 +551,10 @@ HttpLogUpload()
             
     if [ $UseCodebig -eq 1 ]; then
         uploadLog "HttpLogUpload: Codebig is enabled UseCodebig=$UseCodebig"
-        if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+        uploadLog "check if codebig is supported in the device"
+        checkCodebigAccess
+        codebigapplicable=$?
+        if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
             skipcodebig=$?
@@ -617,7 +633,10 @@ HttpLogUpload()
         fi 
     
         if [ "$http_code" = "000" ]; then
-            if [ "$DEVICE_TYPE" = "mediaclient" ]; then      # only fallback if server doesn't respond
+            uploadLog "check if codebig is supported in the device"
+            checkCodebigAccess
+            codebigapplicable=$?
+            if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then      # only fallback if server doesn't respond
                 IsCodeBigBlocked 
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then

@@ -659,6 +659,19 @@ sendTLSDCMRequest()
     echo "Curl return code with $msg_tls_source : $TLSRet" >> $LOG_PATH/dcmscript.log
 }
 
+checkCodebigAccess() 
+{
+    local request_type=3
+    local retval=0
+    eval "GetServiceUrl $request_type temp > /dev/null 2>&1"
+    local checkExitcode=$?
+    dcmLog "Exit code for codebigcheck $checkExitcode"
+    if [ $checkExitcode -eq 255 ]; then
+        retval=1
+    fi
+    return $retval
+}
+
 DoCodebig()
 {
     SIGN_CMD="GetServiceUrl 3 \"$JSONSTR\""
@@ -702,7 +715,10 @@ sendHttpRequestToServer()
 
     if [ $UseCodebig -eq 1 ]; then
         echo "`/bin/timestamp`:sendHttpRequestToServer: Codebig is enabled UseCodebig:$UseCodebig" >> $LOG_PATH/dcmscript.log
-        if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+        echo "`/bin/timestamp`:check if codebig is supported for the Device" >> $LOG_PATH/dcmscript.log
+        checkCodebigAccess
+        codebigapplicable=$?
+        if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then
             # Use Codebig connection connection on XI platforms
             IsCodeBigBlocked
             skipcodebig=$?
@@ -783,7 +799,10 @@ sendHttpRequestToServer()
         fi
 
         if [ "$http_code" = "000" ]; then
-            if [ "$DEVICE_TYPE" = "mediaclient" ]; then
+            echo "`/bin/timestamp`:check if codebig is supported for the Device" >> $LOG_PATH/dcmscript.log
+            checkCodebigAccess
+            codebigapplicable=$?
+            if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then
                 echo "`/bin/timestamp`:sendHttpRequestToServer: Direct DCM connection failed: httpcode:$http_code, attempting Codebig" >> $LOG_PATH/dcmscript.log
                 IsCodeBigBlocked
                 skipcodebig=$?
