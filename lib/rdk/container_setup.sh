@@ -113,7 +113,7 @@ enableNetflixContainer()
     mkdir /run/Netflix/
     chown -R dobbyapp:dobbyapp /run/Netflix
 
-    mkdir -p /opt/netflix
+    mkdir -p /opt/netflix/network
     chown -R netflix:netflix /opt/netflix
     chown -R netflix:netflix /opt/drm/netflix
     chown netflix:netflix /tmp/.deviceDetails*
