@@ -247,7 +247,9 @@ checkPacketLoss()
   #Check IPV6
   gwIpv6=$(/sbin/ip -6 route | awk '/default/ { print $3 }' | head -n1 | awk '{print $1;}')
   if [ "$gwIpv6" != "" ] && [ "$gwIpv6" != "dev" ] ; then
-    gwResponse=$(ping6 -c "$pingCount" -i "$pingInterval" "$gwIpv6")
+    #get default interface name for ipv6 and pass it with ping6 command
+    gwIp6_interface=$(/sbin/ip -6 route | awk '/default/ { print $5 }' | head -n1 | awk '{print $1;}')
+    gwResponse=$(ping6 -I "$gwIp6_interface" -c "$pingCount" -i "$pingInterval" "$gwIpv6")
     ret=$(echo "$gwResponse" | grep "packet"|awk '{print $7}'|cut -d'%' -f1)
     packetsLostipv6=$ret
     gwResponseTime=$(echo "$gwResponse" | sed '$!d;s|.*/\([0-9.]*\)/.*|\1|')
