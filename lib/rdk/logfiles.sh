@@ -479,6 +479,9 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 
         accessmanagerLog="accessmanager.log"
         accessmanagerLogsBackup="accessmanager.log.*"
+
+        seToolLog="seTool.log"
+        seToolLogsBackup="seTool.log.*"
 fi
 
 if [ "$HDD_ENABLED" = "false" ]; then

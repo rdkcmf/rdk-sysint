@@ -304,6 +304,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
         logRotateFramework $coreDumpLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $xw3systeminfo $logRotateGenericCount $xw3systeminfoSize
         logRotateFramework $accessmanagerLog $logRotateGenericCount $accessmanagerLogRotateSize
+        logRotateFramework $seToolLog $logRotateGenericCount $seToolLogRotateSize
 else
 	logRotateFramework $receiverLog $receiverLogRotatCount $receiverLogRotatSize
 	logRotateFramework $ttsLog $ttsLogRotatCount $ttsLogRotatSize
