@@ -247,6 +247,7 @@ if [ "$DEVICE_TYPE" != "mediaclient" ]; then
      logRotateFramework $cpuprocanalyzerLog $cpuprocanalyzerLogRotateCount $cpuprocanalyzerLogRotateSize
      logRotateFramework $namedLog $namedLogRotateCount $namedLogRotateSize
      logRotateFramework $dnsqueryLog $dnsqueryLogRotateCount $dnsqueryLogRotateSize
+     logRotateFramework $sslendpointsLog $sslendpointsLogRotateCount $sslendpointsLogRotateSize
 else
      logRotateFramework $wifiTelemetryLog $wifiTelemetryLogRotateCount $wifiTelemetryLogRotateSize
      logRotateFramework $tr69AgentLog $tr69AgentHttpLogRotateCount $tr69AgentHttpLogRotateSize
@@ -257,6 +258,7 @@ else
      logRotateFramework $cpuprocanalyzerLog $cpuprocanalyzerLogRotateCount $cpuprocanalyzerLogRotateSize
      logRotateFramework $namedLog $namedLogRotateCount $namedLogRotateSize
      logRotateFramework $dnsqueryLog $dnsqueryLogRotateCount $dnsqueryLogRotateSize
+     logRotateFramework $sslendpointsLog $sslendpointsLogRotateCount $sslendpointsLogRotateSize
 fi
 
 if [ "$DEVICE_TYPE" ==  "XHC1" ];then
