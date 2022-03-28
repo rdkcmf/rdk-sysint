@@ -389,7 +389,14 @@ imageDownloadToLocalServer ()
     model_num=$MODEL_NUM
     FILE_EXT=$model_num*.bin
     rm -f $FILE_EXT
-
+    cloudfile_model=`echo $UPGRADE_FILE | cut -d '_' -f1`
+    if [[ "$cloudfile_model" != *"$model_num"* ]]; then
+        swupdateLog "Image configured is not of model $model_num.. Skipping the upgrade"
+        swupdateLog "Exiting from Image Upgrade process..!"
+        updateFWDnldStatus "$cloudProto" "Failure" "Cloud FW Version is invalid" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Failed"
+        eventManager $FirmwareStateEvent $FW_STATE_FAILED
+        exit 0
+    fi
     updateFWDnldStatus "$cloudProto" "ESTB in progress" "" "$dnldVersion" "$UpgradeFile" "$runtime" "$CodebigFlag" "Downloading"
     swupdateLog "imageDownloadToLocalServer: Started image download ..."
 
