@@ -72,7 +72,7 @@ FILE_NAME=$MAC"_Logs_$dt"
 echo "Folder: $USB_LOG" >> $LOG_PATH/dcmscript.log
 echo "File: $FILE_NAME" >> $LOG_PATH/dcmscript.log
 
-USB_DIR="/opt/logs/$FILE_NAME"
+USB_DIR="/opt/tmpusb/$FILE_NAME"
 mkdir -p $USB_DIR
 
 sync
@@ -84,8 +84,7 @@ fi
 # Move now all of the log files that were collected since last upload
 
 cd $LOG_PATH
-mv *.log* $USB_DIR/.
-mv *.txt* $USB_DIR/.
+mv $LOG_PATH/* $USB_DIR/.
 
 cd $USB_DIR
 
