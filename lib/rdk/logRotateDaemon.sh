@@ -84,6 +84,9 @@ sigusr1_function()
 }
 trap 'sigusr1_function $LINENO $BASH_COMMAND EXIT' SIGUSR1
 
+#Set flag to indicate log rotation
+LOG_ROTATE_FLAG=0
+
 # exit if an instance is already running
 if [ ! -f /etc/os-release ];then
     if [ ! -f /tmp/.log-rotate-daemon.pid ];then
@@ -188,6 +191,7 @@ logrotate()
 	if [[ ${FILESIZE} -gt ${SIZE} ]];
 	then
         	echo "logrotate started: ${FILENAME} size: ${FILESIZE} inode : `ls -i ${DIRNAME}/${FILENAME} | awk '{print $1;}'` date : `date +"%d/%m/%Y - %H.%M.%S"` "
+                LOG_ROTATE_FLAG=1
 		i=$COUNT
 		while [ $i -ge 2 ]
 		do
@@ -456,6 +460,7 @@ if [ "$HDD_ENABLED" = "false" ]; then
                echo "logrotate started for maxfile: ${maxFile} size: ${size} inode : `ls -i ${maxFile} | awk '{print $1;}'` date : `date +"%d/%m/%Y - %H.%M.%S"` "
                if [ ! -s $maxFile ]; then echo "$maxFile is empty"; return 0; fi
                mv $maxFile $maxFile.1
+               LOG_ROTATE_FLAG=1
                cat /dev/null > $maxFile
           fi
      fi
@@ -474,6 +479,17 @@ if [ ! -f /etc/os-release ];then
               chown restricteduser:restrictedgroup /opt/logs/core_log.txt
            fi
        fi
+    fi
+fi
+
+#After rotating log files, sending SIGHUP to syslog-ng to close the fd of the log file
+if [ "$SYSLOG_NG_ENABLED" == "true" ] ; then
+    if [ $LOG_ROTATE_FLAG -eq 1 ]; then
+        echo "Sending SIGHUP to reload syslog-ng"
+        killall -HUP syslog-ng
+        if [ $? -eq 0 ]; then
+            echo "syslog-ng reloaded successfully"
+        fi
     fi
 fi
 
