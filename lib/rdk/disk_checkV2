@@ -84,14 +84,26 @@ mount_SDCard()
 {
   i="0"
   if [ -b $DEV_FILE ]; then
-    # ------- Check SD Card mount infromation -----#
+    # ------- Check SD Card mount information -----#
     checkmount=`mount | grep -i $DEV_FILE`
+
     if [ ! "$checkmount" ]; then
       echo "SD card is not mounted."
+      mount_opts="noatime,nodiratime,data=writeback"
+
+      # Check to see if the partition has journaling available
+      dumpe2fs -h $DEV_FILE | grep -o has_journal > /dev/null
+
+      has_journal=$?
+
+      if [ "$has_journal" == "0" ] && [ "x$SD_CARD_USE_JOURNAL" == "xtrue" ]; then
+        mount_opts="noatime,nodiratime,data=journal"
+      fi
+
       while true; do
         echo "Now mounting ..."
         mkdir -p $MOUNT_PATH 2> /dev/null
-        mount -t ext4 -O noatime,nodiratime,data=writeback $DEV_FILE $MOUNT_PATH
+        mount -t ext4 -O $mount_opts $DEV_FILE $MOUNT_PATH
         ret=$?
         #echo $ret
         if [ "$ret" == "0" ]; then
@@ -124,7 +136,13 @@ mount_SDCard()
     else
       echo "SD card is already mounted in $MOUNT_PATH. Trying to remount"
       rm -f $MOUNT_PATH/mountStatus.txt
-      mount -o remount,data=writeback $DEV_FILE $MOUNT_PATH
+
+      mount_opts="remount,data=writeback"
+      if [ "$has_journal" == "0" ] && [ "x$SD_CARD_USE_JOURNAL" == "xtrue" ]; then
+        mount_opts="remount,data=journal"
+      fi
+
+      mount -o $mount_opts $DEV_FILE $MOUNT_PATH
       ret=$?
       if [ "$ret" == "0" ]; then
           mkdir -p $MOUNT_PATH/OCAP_MSV/0/0/DEFAULT_RECORDING_VOLUME/dvr/chunks
@@ -149,9 +167,22 @@ create_Ext4_FileSystem()
        umount $MOUNT_PATH
     fi
 
+    # set default to not use journaling
+    mount_opts="^has_journal"
+
+    if [ "x$SD_CARD_USE_JOURNAL" == "xtrue" ]; then
+      echo "[$DEV_FILE]: Forcing journaling support"
+      mount_opts="has_journal"
+    fi
+
     #--- Create ext4 file system without journal ---
-    mkfs.ext4 -t ext4 -O ^has_journal $DEV_FILE
-    echo "Created ext4 with disabled journal."
+    mkfs.ext4 -t ext4 -O $mount_opts $DEV_FILE
+    if [ "$mount_opts" == "has_journal" ]; then
+      echo "Created ext4 with enabled journal."
+    else
+      echo "Created ext4 with disabled journal."
+    fi
+
   fi
 }
 
