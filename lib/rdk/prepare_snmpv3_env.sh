@@ -102,18 +102,6 @@ if [ -d /etc/snmpv3/certs ]; then
          cp /etc/snmpv3/certs/snmpd_v3.conf $SNMPDCONF
      fi
 
-     if [ -f /usr/bin/GetConfigFile ]; then
-         GetConfigFile /tmp/.snmp/tls/private/rdkv-snmpd.key
-         if [ -f /tmp/.snmp/tls/private/rdkv-snmpd.key ]; then
-             chmod 600 /tmp/.snmp/tls/private/rdkv-snmpd.key
-             mv /tmp/.snmp/tls/private/rdkv-snmpd.key /tmp/.snmp/tls/private/rdkv-snmpdY22.key
-             chmod 600 /tmp/.snmp/tls/private/rdkv-snmpdY22.key
-         fi
-     else
-         echo "GetConfigFile not Found !!"
-         exit 127
-     fi
-
      #execute c_rehash in ca-certs folder to get hash files for CA-chain
 #     echo "c_rehash in ca-certs folder to get hash files for CA-chain"
 #     c_rehash /etc/ssl/certs/snmp/tls/ca-certs/
