@@ -86,6 +86,15 @@ fi
 cd $LOG_PATH
 mv $LOG_PATH/* $USB_DIR/.
 
+#Send SIGHUP to reload syslog-ng after uploading logs to usb
+if [ "$SYSLOG_NG_ENABLED" == "true" ] ; then
+    echo "Sending SIGHUP to reload syslog-ng" >> $LOG_PATH/dcmscript.log
+    killall -HUP syslog-ng
+    if [ $? -eq 0 ]; then
+        echo "syslog-ng reloaded successfully" >> $LOG_PATH/dcmscript.log
+    fi
+fi
+
 cd $USB_DIR
 
 USB_LOG_FILE="$USB_LOG/$LOG_FILE"
