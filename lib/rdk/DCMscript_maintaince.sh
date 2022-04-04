@@ -79,10 +79,6 @@ WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 
 OPT_START_TIME_FILE=/opt/maintainence_start_time.txt
 
-# Adding a sleep of 1 minute to avoid the initial 
-# CPU load due to ip address check
-sleep 90
-
 if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
       . /opt/dcm.properties
 else
@@ -147,9 +143,6 @@ sleep 10
 
 echo "`/bin/timestamp` Starting execution of DCMscript_maintaince.sh" >> $LOG_PATH/dcmscript.log
 
-## Trigger Telemetry run for previous boot log files 
-echo "Telemetry run for previous boot log files" >> $LOG_PATH/dcmscript.log
-TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 
 scheduleSupplementaryServices() {
 
@@ -298,10 +291,13 @@ fi
 
 ###########################################################################################
 
+## Trigger Telemetry run for previous boot log files 
+echo "Telemetry run for previous boot log files" >> $LOG_PATH/dcmscript.log
+TELEMETRY_PREVIOUS_LOG="/tmp/.telemetry_previous_log"
 touch $TELEMETRY_PREVIOUS_LOG
 # Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
 if [ "x$T2_ENABLE" != "xtrue" ]; then
-     sh /lib/rdk/dca_utility.sh 0 0 &
+     sh /lib/rdk/dca_utility.sh 1 1 &
 fi
 
 # initialize partnerId
@@ -1118,6 +1114,11 @@ do
                     if [ -n $sleep_time ]; then
                         sleep_time=`expr $sleep_time - 1` #Subtract 1 miute from it
                         sleep_time=`expr $sleep_time \* 60` #Make it to seconds
+                        # Random sleeps should not be too long or greater than 2 mins - this might not be even needed
+                        # with the big data stack we have today but retaining for a safer side .
+                        if [ $sleep_time -gt 120 ]; then 
+                            sleep_time=120
+                        fi
                         sleep_time=$(($RANDOM%$sleep_time)) #Generate a random value out of it
                     else
                         sleep_time=10

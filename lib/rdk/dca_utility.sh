@@ -704,7 +704,6 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
                           dcaLog "resend queue size has already reached MAX_LIMIT_RESEND. Not adding anymore entries"
                        fi
                    fi
-	           sleep 10
                    retry=$((retry + 1))
                done < $TEMP_RESEND_FILE
                rm -f $TEMP_RESEND_FILE

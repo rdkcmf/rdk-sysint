@@ -148,7 +148,7 @@ fi
 if [ "x$T2_ENABLE" != "xtrue" ]; then
     touch $TELEMETRY_PREVIOUS_LOG
     # Running previous logs telemetry run in background as previous logs directory will be removed after 7mins sleep in uploadSTBLogs.sh
-    sh /lib/rdk/dca_utility.sh 0 0 &
+    sh /lib/rdk/dca_utility.sh 1 1 &
 fi
 
 # initialize partnerId
@@ -940,7 +940,7 @@ do
                     cron="*/15 * * * *"
                 fi
                 if [ -z $sleep_time ]; then
-                    sleep_time=720
+                    sleep_time=120
                 fi
                 sh /lib/rdk/cronjobs_update.sh "update" "dca_utility.sh" "$cron nice -n 19 sh $RDK_PATH/dca_utility.sh $sleep_time 1"
 
@@ -1034,6 +1034,11 @@ do
                     if [ -n $sleep_time ]; then
                         sleep_time=`expr $sleep_time - 1` #Subtract 1 miute from it
                         sleep_time=`expr $sleep_time \* 60` #Make it to seconds
+                        # Random sleeps should not be too long or greater than 2 mins - this might not be even needed 
+                        # with the big data stack we have today but retaining for a safer side .
+                        if [ $sleep_time -gt 120 ]; then 
+                            sleep_time=120
+                        fi
                         sleep_time=$(($RANDOM%$sleep_time)) #Generate a random value out of it
                     else
                         sleep_time=10
