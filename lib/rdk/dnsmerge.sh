@@ -62,8 +62,7 @@ fi
 #Sorting both original and newly updated content to avoid unnecessary restart of dnsmasq.service
 /usr/bin/timeout 5 /bin/sync -d $composite_resolvFile
 /usr/bin/timeout 5 /bin/sync -d $resolvFile
-_sort $composite_resolvFile
-_sort $resolvFile
+awk 'NR==FNR{name[$1]++;next}$1 in name' $composite_resolvFile $resolveFile  >> $composite_resolvFile
 
 if diff $composite_resolvFile $resolvFile >/dev/null ; then 
     echo "No Change in DNS Servers" 
