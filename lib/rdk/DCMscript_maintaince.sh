@@ -307,14 +307,13 @@ checkon_reboot=$5
 useXpkiMtlsLogupload=false
 checkXpkiMtlsBasedLogUpload()
 {
-    xpkiMtlsRFC=$(tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UseXPKI.Enable 2>&1 > /dev/null)
     if [ "$DEVICE_TYPE" = "broadband" ]; then
          dycredpath="/nvram/lxy"
     else
         dycredpath="/opt/lxy"
     fi
 
-    if [ -d $dycredpath ] &&  [ "x$xpkiMtlsRFC" = "xtrue" ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
+    if [ -d $dycredpath ] && [ -f /usr/bin/rdkssacli ] && [ -f /opt/certs/devicecert_1.pk12 ]; then
         useXpkiMtlsLogupload="true"
     else
         useXpkiMtlsLogupload="false"
