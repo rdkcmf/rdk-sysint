@@ -256,9 +256,9 @@ if [ "x$T2_ENABLE" == "xtrue" ]; then
     ## Schedule rest of the secondary services as part of DCM .
     #1] Device initiated FW download
     #2] Log upload cron
-    local MAX_RETRY_T2_RESPONSE=12
-    local count=0
-    local t2_dcm_config=$PERSISTENT_PATH
+    MAX_RETRY_T2_RESPONSE=12
+    count=0
+    t2_dcm_config=$PERSISTENT_PATH
 
     while [ ! -f $PROCESS_CONFIG_COMPLETE_FLAG ]
     do
