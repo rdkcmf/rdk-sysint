@@ -1326,7 +1326,7 @@ httpDownload ()
                 skipdirect=$?
                 if [ $skipdirect -eq 0 ]; then
                     swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER and incremental= $isIncrementalCDLEnabled"
-                    if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$isIncrementalCDLEnabled" != "xtrue" ]; then
+                    if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
                         swupdateLog "Starting C daemon rdkvfwupgrader"
                         rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
                         swupdateLog "url:$imageHTTPURL"
@@ -1380,7 +1380,7 @@ httpDownload ()
                 swupdateLog "httpDownload: Using Direct Image upgrade connection"
 
                 swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER and incremental= $isIncrementalCDLEnabled"
-                if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$isIncrementalCDLEnabled" != "xtrue" ]; then
+                if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
                     swupdateLog "Starting C daemon rdkvfwupgrader in loop"
                     rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
                     swupdateLog "mtls=$FORCE_MTLS, url:$imageHTTPURL, devicetype:$DEVICE_TYPE, devivename: $DEVICE_NAME"
