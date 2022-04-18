@@ -470,6 +470,8 @@ fi
 ####### swupdate logging
 # log filter by SyslogIdentifier instead of unit name
 logunit "-t swupdate" ${log_prefix}/swupdate.log
+####### sslendpoint logging
+logunit "-t sslendpoint" ${log_prefix}/sslendpoints.log
 
 if [ "$MEDIARITE" = "true" ];then
     logunit "-u mediarite" ${log_prefix}/mediarite.log
