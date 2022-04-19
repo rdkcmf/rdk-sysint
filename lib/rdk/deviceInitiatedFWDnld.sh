@@ -1299,8 +1299,33 @@ httpDownload ()
                 while [ $httpcbretry -le $CB_RETRY_COUNT ]
                 do
                     swupdateLog "httpDownload: Using Codebig Image upgrade connection"
-                    httpCodebigDownload
-                    ret=$?
+                    swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
+                    if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+                        swupdateLog "Starting C daemon rdkvfwupgrader"
+                        rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
+                        swupdateLog "url:$imageHTTPURL"
+                        swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, reboot=$cloudImmediateRebootFlag"
+                        swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
+                        if [ -f /usr/bin/rdkvfwupgrader ]; then
+                            /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig"
+                            ret=$?
+                            if [ $ret -eq 127 ]; then
+                                swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
+                                exit 127
+                            fi
+                            http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                            TLSRet=$ret
+                            swupdateLog "rdkvfwupgrader binary execution complete ret=$ret, http_code=$http_code, tlsret=$TLSRet"
+                        else
+                            swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+                            httpCodebigDownload
+                            ret=$?
+                        fi
+                    else
+                        swupdateLog "Going For script based download rfc=$RDKVFW_UPGRADER"
+                        httpCodebigDownload
+                        ret=$?
+                    fi
                     if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                        swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                        IsDirectBlocked
@@ -1333,13 +1358,13 @@ httpDownload ()
                         swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, reboot=$cloudImmediateRebootFlag"
                         swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
                         if [ -f /usr/bin/rdkvfwupgrader ]; then
-                            /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag"
+                            /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig"
                             ret=$?
                             if [ $ret -eq 127 ]; then
                                 swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
                                 exit 127
                             fi
-			    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                            http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                             TLSRet=$ret
                             swupdateLog "rdkvfwupgrader binary execution complete ret=$ret, http_code=$http_code, tlsret=$TLSRet"
                         else
@@ -1387,7 +1412,7 @@ httpDownload ()
                     swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, build:$BUILD_TYPE, reboot=$cloudImmediateRebootFlag"
                     swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
                     if [ -f /usr/bin/rdkvfwupgrader ]; then
-                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag"
+                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig"
                         ret=$?
                         if [ $ret -eq 127 ]; then
                             swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
@@ -1429,8 +1454,33 @@ httpDownload ()
                     while [ $httpcbretry -le $CB_RETRY_COUNT ]
                     do
                         swupdateLog "httpDownload: Using Codebig Image upgrade connection"
-                        httpCodebigDownload
-                        ret=$?
+                        swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
+                        if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+                            swupdateLog "Starting C daemon rdkvfwupgrader"
+                            rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
+                            swupdateLog "url:$imageHTTPURL"
+                            swupdateLog "Throttled=$isThrottleEnabled, topspeed:$TOPSPEED, main:$ENABLE_MAINTENANCE, reboot=$cloudImmediateRebootFlag"
+                            swupdateLog "delay=$delayDnld, runtime:$runtime, statupdate:$disableStatsUpdate, path=$rdkv_fw_path, longcert=$LONG_TERM_CERT"
+                            if [ -f /usr/bin/rdkvfwupgrader ]; then
+                                /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "1"
+                                ret=$?
+                                if [ $ret -eq 127 ]; then
+                                    swupdateLog "httpDownload Error: rdkvfwupgrader exit=$ret"
+                                    exit 127
+                                fi
+                                http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                                TLSRet=$ret
+                                swupdateLog "rdkvfwupgrader binary execution complete ret=$ret, http_code=$http_code, tlsret=$TLSRet"
+                            else
+                                swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+                                httpCodebigDownload
+                                ret=$?
+                            fi
+                        else
+                            swupdateLog "Going For script based download rfc=$RDKVFW_UPGRADER"
+                            httpCodebigDownload
+                            ret=$?
+                        fi
                         if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
                             swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                             UseCodebig=1
