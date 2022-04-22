@@ -142,6 +142,9 @@ fi
 # initialize partnerId
 . $RDK_PATH/getPartnerId.sh
 
+# add 10s delay for IARM manager to be ready
+sleep 10
+
 echo "`/bin/timestamp` Starting execution of DCMscript_maintaince.sh" >> $LOG_PATH/dcmscript.log
 
 ## Trigger Telemetry run for previous boot log files 
@@ -1147,8 +1150,10 @@ if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
 then
    if [ "$maintenance_error_flag" -eq 1 ]
    then
+        echo "`/bin/timestamp` Sending MAINT_DCM_ERROR event to MaintenanceMGR" >> $LOG_PATH/dcmscript.log
         eventSender "MaintenanceMGR" $MAINT_DCM_ERROR
    else
+        echo "`/bin/timestamp` Sending MAINT_DCM_COMPLETE event to MaintenanceMGR" >> $LOG_PATH/dcmscript.log
         eventSender "MaintenanceMGR" $MAINT_DCM_COMPLETE
         #post start time event after COMPLETE event
         StartTime_eventSender "MaintenanceMGR" $IARM_BUS_DCM_NEW_START_TIME_EVENT $start_time

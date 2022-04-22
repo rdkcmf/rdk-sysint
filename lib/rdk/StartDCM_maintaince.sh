@@ -21,6 +21,8 @@
 . /etc/include.properties
 . /etc/device.properties
 
+DCM_LOG_FILE="/opt/logs/dcmscript.log"
+
 if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
       . /opt/dcm.properties
 else
@@ -34,7 +36,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
 
 if [ -f "$RDK_PATH/DCMscript_maintaince.sh" ]
 then
-    sh $RDK_PATH/DCMscript_maintaince.sh $DCM_LOG_SERVER $DCM_LOG_SERVER_URL $LOG_SERVER 0 1 &
+    (sh $RDK_PATH/DCMscript_maintaince.sh $DCM_LOG_SERVER $DCM_LOG_SERVER_URL $LOG_SERVER 0 1 >> $DCM_LOG_FILE 2>&1) &
 else
     echo "$RDK_PATH/DCMscript_maintaince.sh file not found."
 fi
