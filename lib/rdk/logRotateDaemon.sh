@@ -409,6 +409,7 @@ if [ "$SOC" = "AMLOGIC" ];then
 	logRotateFramework $AudioServerLog $logRotateAudioServerCount $logRotateAudioServerSize
 	logRotateFramework $TvServerLog $logRotateAmlGenericCount $logRotateAmlGenericSize
 	logRotateFramework $PqserverLog $logRotateAmlGenericCount $logRotatePqserverSize
+        logRotateFramework $btmonLog $logRotateGenericCount $logRotateGenericSize
 fi
 
 if [ "$SOC" = "RTK" ];then
