@@ -138,21 +138,27 @@ oopsDumpCheck()
 
     # Ensure OOPS DUMP string presence for Kernel Panic in startup_stdout_log.txt.
     if [ -f "$DMESG_LOG_FILE" ] && [[ $(grep $KERNEL_PANIC_SEARCH_STRING $DMESG_LOG_FILE) ]];then
-        oops_dump=1
-        t2CountNotify "SYST_ERR_SrtupKCdump"
+        if [[ $(grep -e "Kernel Oops" -e "Kernel Panic" $DMESG_LOG_FILE) ]];then
+            oops_dump=1
+            t2CountNotify "SYST_ERR_SrtupKCdump"
+        fi
     fi
 
     # Ensure OOPS DUMP string presence for Kernel Panic in messages.txt
     if [ $oops_dump -eq 0 ];then
         if [ -f "$KERNEL_LOG_FILE" ] && [[ $(grep $KERNEL_PANIC_SEARCH_STRING $KERNEL_LOG_FILE) ]];then
-            oops_dump=1
+            if [[ $(grep -e "Kernel Oops" -e "Kernel Panic" $KERNEL_LOG_FILE) ]];then
+                oops_dump=1
+            fi
         fi
     fi
 
     # Ensure OOPS DUMP string presence for Kernel Panic in application.log
     if [ $oops_dump -eq 0 ];then
         if [ -f "$APPLICATION_LOG_FILE" ] && [[ $(grep $KERNEL_PANIC_SEARCH_STRING $APPLICATION_LOG_FILE) ]];then
-            oops_dump=1
+            if [[ $(grep -e "Kernel Oops" -e "Kernel Panic" $APPLICATION_LOG_FILE) ]];then
+                oops_dump=1
+            fi
         fi
     fi
     
