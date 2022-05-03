@@ -107,14 +107,10 @@ REQUEST_TYPE_FOR_CODEBIG_URL=14
 
 FOUR_CMDLINE_PARAMS=4
 
-#Log framework to use systemd-cat to redirect stdout to journal
+#Log framework to print timestamp and source script name
 swupdateLog()
 {
-    if type systemd-cat &> /dev/null; then
-        systemd-cat -t swupdate echo "$0: $*"
-    else
-        echo "`/bin/timestamp`: $0: $*" >> $LOG_FILE
-    fi
+    echo "`/bin/timestamp`: $0: $*" >> $LOG_FILE
 }
 
 tlsLog()

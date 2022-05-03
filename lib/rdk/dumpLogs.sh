@@ -468,8 +468,7 @@ if [ "$SOC" = "RTK" ];then
 fi
 
 ####### swupdate logging
-# log filter by SyslogIdentifier instead of unit name
-logunit "-t swupdate" ${log_prefix}/swupdate.log
+logunit "-u swupdate" ${log_prefix}/swupdate.log
 ####### sslendpoint logging
 logunit "-t sslendpoint" ${log_prefix}/sslendpoints.log
 

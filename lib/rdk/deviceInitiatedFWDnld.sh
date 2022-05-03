@@ -286,21 +286,13 @@ fi
 
 stateRedlog ()
 {
-    if type systemd-cat &> /dev/null; then
-        systemd-cat -t swupdate echo "$0: $*"
-    else
-        echo "`Timestamp` : $*" >> "$STATE_RED_LOG_FILE"
-    fi
+    echo "`Timestamp` : $*" >> "$STATE_RED_LOG_FILE"
 }
 
-#Log framework to use systemd-cat to redirect stdout to journal
+#Log framework to print timestamp and source script name
 swupdateLog()
 {
-    if type systemd-cat &> /dev/null; then
-        systemd-cat -t swupdate echo "$0: $*"
-    else
-        echo "`/bin/timestamp`: $0: $*"
-    fi
+    echo "`/bin/timestamp`: $0: $*"
 }
 
 tlsLog()
