@@ -1,0 +1,29 @@
+ ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management, LLC.
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+
+[Unit]
+Description=Virtual WiFi interface and DHCP Client
+After=wifi.service moca.service
+Requires=wifi.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+Environment=DEFAULT_WIFI_IFACE_IP=192.168.28.10
+EnvironmentFile=/etc/device.properties
+ExecStartPre=/sbin/ifconfig ${WIFI_INTERFACE}:0 ${DEFAULT_WIFI_IFACE_IP} up
+ExecStart=/bin/sh -c 'if [ "$(cat /sys/class/net/$ETHERNET_INTERFACE/operstate)" != "up" ] || [ -f /tmp/ani_wifi ]; then \
+exec /sbin/udhcpc -i ${WIFI_INTERFACE}:0 -p /tmp/udhcpc.${WIFI_INTERFACE}:0.pid --foreground; \
+fi'
+ExecStop=/sbin/ifconfig ${WIFI_INTERFACE}:0 down
+
+[Install]
+WantedBy=multi-user.target

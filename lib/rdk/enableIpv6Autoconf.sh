@@ -27,6 +27,11 @@ if [ -f  /lib/rdk/getRFC.sh ]; then
     . /lib/rdk/getRFC.sh SLAACSUPPORT
 fi
 
+if [ ! -d "/proc/sys/net/ipv6/conf/$interface" ]; then
+    echo "Interface $interface not yet created. Hence exiting.."
+    exit 0
+fi
+
 echo "RFC_ENABLE_SLAACSUPPORT:$RFC_ENABLE_SLAACSUPPORT"
 
 RFC_ENABLE_SLAACSUPPORT_L=`echo $RFC_ENABLE_SLAACSUPPORT | tr '[:upper:]' '[:lower:]'`

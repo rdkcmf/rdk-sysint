@@ -1,0 +1,21 @@
+# ============================================================================
+# RDK MANAGEMENT, LLC CONFIDENTIAL AND PROPRIETARY
+# ============================================================================
+# This file (and its contents) are the intellectual property of RDK Management,
+# It may not be used, copied, distributed or otherwise  disclosed in whole or in
+# part without the express written permission of RDK Management, LLC.
+# ============================================================================
+# Copyright (c) 2016 RDK Management, LLC. All rights reserved.
+# ============================================================================
+[Unit]
+Description=Reboot Reason Log to message.txt from reset_reason variable
+
+After=local-fs.target nvram.service previous-log-backup.service
+Before=reboot-reason-logger.service update-reboot-info.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/lib/rdk/reset_reason.sh'
+
+[Install]
+WantedBy=multi-user.target

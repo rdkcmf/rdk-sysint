@@ -18,6 +18,7 @@
 # limitations under the License.
 ##############################################################################
 
+. /etc/device.properties
 
 cleanup()
 {
@@ -37,13 +38,19 @@ cleanup()
   fi
 }
 
+if [ "$SOC" = "AMLOGIC" ]; then
+    CORE_FILE_SIZE=512000
+else
+    CORE_FILE_SIZE=2097152
+fi
+
 # cleaning coredump backup area
-cleanup /opt/corefiles_back/ 2097152
-cleanup /opt/secure/corefiles_back/ 2097152
+cleanup /opt/corefiles_back/ $CORE_FILE_SIZE
+cleanup /opt/secure/corefiles_back/ $CORE_FILE_SIZE
 # cleaning coredump area
-cleanup /opt/corefiles/ 2097152
-cleanup /var/lib/systemd/coredump/ 2097152
-cleanup /opt/secure/corefiles/ 2097152
+cleanup /opt/corefiles/ $CORE_FILE_SIZE
+cleanup /var/lib/systemd/coredump/ $CORE_FILE_SIZE
+cleanup /opt/secure/corefiles/ $CORE_FILE_SIZE
 # cleaning minidump area
 cleanup /opt/minidumps/ 512000
 cleanup /opt/secure/minidumps/ 512000

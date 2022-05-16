@@ -80,7 +80,7 @@ setLogFile()
 # Get the MAC address of the machine
 getMacAddressOnly()
 {
-    ifconfig | grep $ESTB_INTERFACE |grep -v $ESTB_INTERFACE: | tr -s ' ' | cut -d ' ' -f5 | sed -e 's/://g'
+    cat /sys/class/net/${ESTB_INTERFACE}/address | sed -e 's/://g' | tr a-z A-Z
 }
 
 # Get the SHA1 checksum
@@ -93,25 +93,42 @@ getSHA1()
 # IP address of the machine
 getIPAddress()
 {
-if [ "$(getModel)" = "RPI" ]; then
-     echo "Inside get ip address" >> $LOG_PATH/dcmscript.log
-    if [ -f /tmp/wifi-on ]; then
-        interface=`getWiFiInterface`
+    if [ "$WIFI_SUPPORT" == "true" ] && [ -f /tmp/wifi-on ]; then
+        interface=$WIFI_INTERFACE
     else
-        interface=`getMoCAInterface`
+        interface=$ESTB_INTERFACE
     fi
-    if [ -f /tmp/estb_ipv6 ]; then
-        ip addr show dev $interface | grep -i global | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\1/;t;d' | head -n1
+
+    if [ -f /tmp/.ipv6$interface ]; then
+        IPAddress=`cat /tmp/.ipv6$interface`
+    elif [ -f /tmp/.ipv4$interface ]; then
+        IPAddress=`cat /tmp/.ipv4$interface`
     else
-        ifconfig $interface | grep inet | tr -s ' ' | cut -d ' ' -f3 | sed -e 's/addr://g'
+        IPAddress=""
     fi
-else
-    if [ -f /tmp/estb_ipv6 ]; then
-        ifconfig -a $DEFAULT_ESTB_INTERFACE | grep inet6 | tr -s " " | grep -v Link | cut -d " " -f4 | cut -d "/" -f1 | head -n1
-    else
-        ifconfig -a $ESTB_INTERFACE | grep inet | grep -v inet6 | tr -s ' ' | cut -d ' ' -f3 | sed -e 's/addr://g'
+
+    if [ -z $IPAddress ]; then
+        if [ -f /tmp/estb_ipv6 ]; then
+            IPAddress=`ifconfig -a $DEFAULT_ESTB_INTERFACE | grep inet6 | tr -s " " | grep -v Link | cut -d " " -f4 | cut -d "/" -f1 | head -n1`
+        else
+            IPAddress=`ifconfig -a $ESTB_INTERFACE | grep inet | grep -v inet6 | tr -s ' ' | cut -d ' ' -f3 | sed -e 's/addr://g'`
+        fi
     fi
-fi
+
+    if [ "$(getModel)" = "RPI" ]; then
+        if [ -f /tmp/wifi-on ]; then
+            interface=`getWiFiInterface`
+        else
+            interface=`getMoCAInterface`
+        fi
+        if [ -f /tmp/estb_ipv6 ]; then
+            IPAddress=`ip addr show dev $interface | grep -i global | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\1/;t;d' | head -n1`
+        else
+            IPAddress=`ifconfig $interface | grep inet | tr -s ' ' | cut -d ' ' -f3 | sed -e 's/addr://g'`
+        fi
+    fi
+
+    echo $IPAddress
 }
 
 getEstbMacAddress()
@@ -133,6 +150,10 @@ getMoCAInterface()
                 if [ ! "$interface" ]; then
                      interface=eth0
                 fi
+
+                if [[ "$MOCA_SUPPORT" == "true" ]]; then
+                    interface=$MOCA_INTERFACE
+                fi
         fi
         echo $interface
 }
@@ -151,8 +172,12 @@ getWiFiInterface()
 
 getModel()
 {
-    model=`sh $RDK_PATH/getDeviceDetails.sh read model`
-    echo $model
+    if [ "$DEVICE_TYPE" = "hybrid" ] ; then
+        model=`sh $RDK_PATH/getDeviceDetails.sh read model`
+        echo $model
+    else
+        echo "$MODEL_NUM"
+    fi
 }
 
 getECMMac()
@@ -163,7 +188,13 @@ getECMMac()
 
 checkWiFiModule()
 {
-  echo 0
+    if [ -f $RDK_PATH/checkWifiModule.sh ]; then
+        sh $RDK_PATH/checkWifiModule.sh
+    elif [ -f "/tmp/wifi-on" ]; then
+        echo 1
+    else
+        echo 0
+    fi
 }
 
 checkAutoIpDefaultRoute()
