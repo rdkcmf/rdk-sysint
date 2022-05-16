@@ -2158,24 +2158,59 @@ checkForUpgrades ()
 
 processJsonResponse()
 {
+    JSONWRITE="/usr/bin/jsonwrite"
+    SCRIPTEXEC=1
     FILENAME=$1
     OUTPUT="$PERSISTENT_PATH/output.txt"
-    OUTPUT1=`cat $FILENAME | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT`
-    swupdateLog "OUTPUT1 : $OUTPUT1"
 
-    cloudFWFile=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
-    cloudFWLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
+    if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+        if [ -f $JSONWRITE ]; then
+            $JSONWRITE "$FILENAME" "$OUTPUT" "1"
+            json_out_status=$?
+            if [ -f $OUTPUT ] && [ $json_out_status -eq 0 ]; then
+                . $OUTPUT
+                SCRIPTEXEC=0
+            else
+                swupdateLog "Missing $OUTPUT, json_out_status = $json_out_status"
+            fi
+        else
+            swupdateLog "Missing $JSONWRITE"
+        fi
+    fi
+
+    if [ $SCRIPTEXEC -eq 0 ]; then
+        swupdateLog "Using binary based JSON processing"
+        cloudFWFile=$firmwareFilename
+        cloudFWLocation=$firmwareLocation
+        ipv6cloudFWLocation=$ipv6FirmwareLocation
+        cloudFWVersion=$firmwareVersion
+        DelayDownloadXconf=$delayDownload
+        cloudProto=$firmwareDownloadProtocol                                         # Get download protocol to be used
+        cloudImmediateRebootFlag=$rebootImmediately                                  # immediate reboot flag
+        peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "=" -f2 | sed s/\"//g | tr '\n' ','`    # peripheral firmwares
+        dlCertBundle=$dlCertBundle
+        cloudPDRIVersion=$additionalFwVerInfo
+     else
+        swupdateLog "Using script based JSON processing"
+	OUTPUT1=`cat $FILENAME | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT`
+	swupdateLog "OUTPUT1 : $OUTPUT1"
+
+        cloudFWFile=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
+        cloudFWLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
+        ipv6cloudFWLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
+        cloudFWVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+        DelayDownloadXconf=`grep delayDownload $OUTPUT | cut -d \| -f2`
+        cloudProto=`grep firmwareDownloadProtocol $OUTPUT | cut -d \| -f2`          # Get download protocol to be used
+        cloudImmediateRebootFlag=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    # immediate reboot flag
+        peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "|" -f2 | tr '\n' ','`    # peripheral firmwares
+        dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
+        cloudPDRIVersion=`grep additionalFwVerInfo $OUTPUT | cut -d \| -f2 | tr -d ' '`
+    fi
+    
+    ipv4cloudFWLocation=$cloudFWLocation
     cloudFWLocation=`echo $cloudFWLocation | sed "s/http:/https:/g"`
     echo "$cloudFWLocation" > /tmp/.xconfssrdownloadurl
-    ipv4cloudFWLocation=$cloudFWLocation
-    ipv6cloudFWLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
     ipv6cloudFWLocation=`echo $ipv6cloudFWLocation | sed "s/http:/https:/g"`
-    cloudFWVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
-    DelayDownloadXconf=`grep delayDownload $OUTPUT | cut -d \| -f2`
-    cloudProto=`grep firmwareDownloadProtocol $OUTPUT | cut -d \| -f2`          # Get download protocol to be used
-    cloudImmediateRebootFlag=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    # immediate reboot flag
-    peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "|" -f2 | tr '\n' ','`    # peripheral firmwares
-    dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
 
     swupdateLog "cloudFWFile: $cloudFWFile"
     swupdateLog "cloudFWLocation: $cloudFWLocation"
@@ -2186,6 +2221,7 @@ processJsonResponse()
     swupdateLog "cloudImmediateRebootFlag: $cloudImmediateRebootFlag"
     swupdateLog "peripheralFirmwares: $peripheralFirmwares"
     swupdateLog "dlCertBundle: $dlCertBundle"
+    swupdateLog "cloudPDRIVersion: $cloudPDRIVersion"
 
     # Check if xconf returned any bundles to update
     # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
@@ -2209,8 +2245,6 @@ processJsonResponse()
     fi
 
     if [ "$PDRI_ENABLED" = "true" ]; then   #get PDRI version from the cloud
-        cloudPDRIVersion=`grep additionalFwVerInfo $OUTPUT | cut -d \| -f2 | tr -d ' '`
-        swupdateLog "cloudPDRIVersion: $cloudPDRIVersion"
         pdriVersion=`echo $cloudPDRIVersion | tr '[A-Z]' '[a-z]'`
         dnldPdriFile=$pdriVersion  # This doesn't have the file extension (.bin)
         #this one is the device PDRI;Global one
