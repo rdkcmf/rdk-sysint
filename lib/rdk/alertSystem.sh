@@ -43,6 +43,10 @@ if [ -f /lib/rdk/utils.sh ];then
      . /lib/rdk/utils.sh
 fi
 
+if [ -f /lib/rdk/getPartnerId.sh ];then 
+    . /lib/rdk/getPartnerId.sh
+fi
+
 # Configuration Files
 VERSION=1
 HTTP_CODE="/tmp/splunkHttpCode"
@@ -51,6 +55,7 @@ SPLUNK_URL_CACHE="/tmp/.splunk_end_point"
 TELEMETRY_PROFILE_DEFAULT_PATH="/tmp/DCMSettings.conf"
 
 currentTime=`date '+%Y-%m-%d %H:%M:%S'`
+partnerId=$(getPartnerId)
 echo "$SCRIPT_NAME: $currentTime"
 
 # Check if we are using https servers
@@ -100,7 +105,14 @@ software_version=`grep ^imagename: /version.txt | cut -d ':' -f2`
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
-strjson="{\"searchResult\":[{\"process_name\":\"$PROCESS_NAME\"},{\"mac\":\"$estb_mac\"},{\"Version\":\"$software_version\"},{\"msgTime\":\"$currentTime\"},{\"logEntry\":\"$MSG_DATA\"}]}"
+if [ "x$PROCESS_NAME" == "xdeepSleepMgrMain" ]; then
+    # Message data is actual metadata header in case of trigger from deepSleep manager process
+    # This change is needed since there are data clouds in different deployment which are not flexible to accomodate any deviations in data format
+    strjson="{\"searchResult\":[{\"Time\":\"$currentTime\"},{\"process_name\":\"$PROCESS_NAME\"},{\"mac\":\"$estb_mac\"},{\"Version\":\"$software_version\"},{\"PartnerId\":\"$partnerId\"},{\"$MSG_DATA\":\"1\"}]}"
+else
+    strjson="{\"searchResult\":[{\"process_name\":\"$PROCESS_NAME\"},{\"mac\":\"$estb_mac\"},{\"Version\":\"$software_version\"},{\"msgTime\":\"$currentTime\"},{\"PartnerId\":\"$partnerId\"},{\"logEntry\":\"$MSG_DATA\"}]}"
+fi
+
 if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
     CURL_CMD="curl -w '%{http_code}\n' -H \"Accept: application/json\" -H \"Content-type: application/json\" -X POST -d '$strjson' -o \"$HTTP_FILENAME\" \"$splunkServer\" --cert-status --connect-timeout 30 -m 30 "
 else
