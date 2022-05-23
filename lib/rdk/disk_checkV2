@@ -281,12 +281,14 @@ deepsleep_function()
 {
     DEV_FILE=$SD_CARD_APP_PART
     MOUNT_PATH=$SD_CARD_APP_MOUNT_PATH
+    if [ "$DEV_FILE" != "" ] && [ "$MOUNT_PATH" != "" ]; then
     if [ "$1" = "ON" ]; then
             echo "Box going to DEEPSLEEP. Unmount apps partition"
             umount_function
     elif [ "$1" = "OFF" ]; then
             echo "Box waking up from DEEPSLEEP. Mount apps partition"
             mount_function
+    fi
     fi
 }
 
