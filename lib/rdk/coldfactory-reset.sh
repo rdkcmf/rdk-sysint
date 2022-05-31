@@ -40,6 +40,7 @@ if [ -d /tmp/mnt/diska3/persistent/dvr ];then
     rm -rf /tmp/mnt/diska3/persistent/dvr 
 fi
 rm -rf /opt/secure/persistent/rdkservicestore
+rm -rf /opt/secure/persistent/System
 
 if [ "$DEVICE_TYPE" = "mediaclient" ];then
      if [ -f /lib/rdk/ubi-volume-cleanup.sh ];then

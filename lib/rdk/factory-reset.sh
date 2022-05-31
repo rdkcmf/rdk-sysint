@@ -120,6 +120,7 @@ if [ -d /tmp/mnt/diska3/persistent ]; then
 fi
 if [ -f /tmp/mnt/diska3/OCAP_LSV ];then rm -rf /tmp/mnt/diska3/OCAP_LSV;fi
 rm -rf /opt/secure/persistent/rdkservicestore
+rm -rf /opt/secure/persistent/System
 
 # whitebox data cleanup
 if [ -d /opt/www/whitebox ]; then rm -rf /opt/www/whitebox/* ; fi
