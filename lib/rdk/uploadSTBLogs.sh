@@ -17,39 +17,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##############################################################################
+
+#Source Default and Common Variable
 . /etc/include.properties
 . /etc/device.properties
 
-. $RDK_PATH/utils.sh 
+#Source Default and Common Functions
+. $RDK_PATH/utils.sh
 . $RDK_PATH/logfiles.sh
-
-IARM_EVENT_BINARY_LOCATION=/usr/bin
-if [ ! -f /etc/os-release ]; then
-    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
-fi
-
-eventSender()
-{
-    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];then
-        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
-    fi
-}
-
-# exit if an instance is already running
-if [ ! -f /tmp/.log-upload.pid ];then
-    # store the PID
-    echo $$ > /tmp/.log-upload.pid
-else
-    pid=`cat /tmp/.log-upload.pid`
-    if [ -d /proc/$pid ];then
-        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]
-        then
-            MAINT_LOGUPLOAD_INPROGRESS=16
-            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
-        fi
-        exit 0
-    fi
-fi
 
 if [ -f /lib/rdk/t2Shared_api.sh ]; then
     source /lib/rdk/t2Shared_api.sh
@@ -60,8 +35,55 @@ if [ "$DEVICE_TYPE" != "mediaclient" ]; then
     . $RDK_PATH/commonUtils.sh
 fi
 
-TLS_LOG_FILE="$LOG_PATH/tlsError.log"
+#Assign Input Arguments
+TFTP_SERVER=$1
+FLAG=$2
+DCM_FLAG=$3
+UploadOnReboot=$4
+UploadProtocol=$5
+UploadHttpLink=$6
+TriggerType=$7
+RRD_FLAG=$8
+RRD_UPLOADLOG_FILE=$9
 
+
+#Initialze Variables
+MAC=`getMacAddressOnly`
+HOST_IP=`getIPAddress`
+DT=`date "+%m-%d-%y-%I-%M%p"`
+LOG_FILE=$MAC"_Logs_$DT.tgz"
+VERSION="version.txt"
+PREV_LOG_PATH="$LOG_PATH/PreviousLogs"
+PREV_LOG_BACKUP_PATH="$LOG_PATH/PreviousLogs_backup/"
+DCM_UPLOAD_LIST="$LOG_PATH/dcm_upload"
+DCM_LOG_FILE=$LOG_PATH/dcmscript.log
+TELEMETRY_PATH="/opt/.telemetry"
+timeValuePrefix=""
+HTTP_CODE=/tmp/logupload_curl_httpcode
+TLS=""
+CLOUD_URL=""
+CURL_TLS_TIMEOUT=30
+CURL_TIMEOUT=10
+useXpkiMtlsLogupload=false
+encryptionEnable=false
+CB_NUM_UPLOAD_ATTEMPTS=1
+DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_upl"
+CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_upl"
+PREVIOUS_REBOOT_INFO="/opt/secure/reboot/previousreboot.info"
+UNSCHEDULEDREBOOT_TR181_NAME='Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UploadLogsOnUnscheduledReboot.Disable'
+TIMESTAMP=`date "+%Y-%m-%d-%H-%M-%S%p"`
+RRD_LOG_FILE="$LOG_PATH/remote-debugger.log"
+RRD_TR181_NAME="Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.RDKRemoteDebugger.IssueType"
+ISSUETYPE=`tr181 ${RRD_TR181_NAME} 2>&1 > /dev/null | sed 's/\./_/g' | tr 'a-z' 'A-Z'`
+RRD_LOG_DIR="/tmp/rrd/"
+TLS_LOG_FILE="$LOG_PATH/tlsError.log"
+IARM_EVENT_BINARY_LOCATION=/usr/bin
+upload_flag="true"
+prevUploadFlag=0
+EnableOCSPStapling="/tmp/.EnableOCSPStapling"
+EnableOCSP="/tmp/.EnableOCSPCA"
+
+#Common Logging Function
 uploadLog() {
     echo "`/bin/timestamp`: $0: $*" >> $DCM_LOG_FILE
 }
@@ -70,44 +92,7 @@ tlsLog() {
     echo "$0: $*" >> $TLS_LOG_FILE
 }
 
-# assign the input arguments
-TFTP_SERVER=$1
-FLAG=$2
-DCM_FLAG=$3
-UploadOnReboot=$4
-UploadProtocol=$5
-UploadHttpLink=$6
-TriggerType=$7
-
-# initialize the variables
-MAC=`getMacAddressOnly`
-HOST_IP=`getIPAddress`
-DT=`date "+%m-%d-%y-%I-%M%p"`
-LOG_FILE=$MAC"_Logs_$DT.tgz"
-VERSION="version.txt"
-
-# working folders
-PREV_LOG_PATH="$LOG_PATH/PreviousLogs"
-PREV_LOG_BACKUP_PATH="$LOG_PATH/PreviousLogs_backup/"
-DCM_UPLOAD_LIST="$LOG_PATH/dcm_upload"
-DCM_LOG_FILE=$LOG_PATH/dcmscript.log
-TELEMETRY_PATH="/opt/.telemetry"
-timeValuePrefix="" 
-HTTP_CODE=/tmp/logupload_curl_httpcode
-TLS=""
-if [ -f /etc/os-release ]; then
-    TLS="--tlsv1.2"
-fi
-CLOUD_URL=""
-CURL_TLS_TIMEOUT=30
-CURL_TIMEOUT=10
-useXpkiMtlsLogupload=false
-encryptionEnable=false
-if [ -f /etc/os-release ]; then
-    encryptionEnable=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.EncryptCloudUpload.Enable 2>&1 > /dev/null`
-fi
-# we limit the attempt to 1 when called
-# as a part of logupload before deepsleep
+# we limit the attempt to 1 when called as a part of logupload before deepsleep
 if [ "$TriggerType" != "1" ]; then
     NUM_UPLOAD_ATTEMPTS=3
     uploadLog "Called with $NUM_UPLOAD_ATTEMPTS attempts"
@@ -115,33 +100,50 @@ else
     NUM_UPLOAD_ATTEMPTS=1
     uploadLog "Called from Plugin with $NUM_UPLOAD_ATTEMPTS attempt"
 fi
-CB_NUM_UPLOAD_ATTEMPTS=1
-DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_upl"
-CB_BLOCK_FILENAME="/tmp/.lastcodebigfail_upl"
-PREVIOUS_REBOOT_INFO="/opt/secure/reboot/previousreboot.info"
-UNSCHEDULEDREBOOT_TR181_NAME='Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.UploadLogsOnUnscheduledReboot.Disable'
-DCM_LOG_FILE="$LOG_PATH/dcmscript.log"
 
+#Check for input Arguments
 if [ ! -z "$TriggerType" ]; then
-    if [ $# -ne 7 ];then
-        uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink> <TriggerType>"
+    if [ $# -ne 9 ];then
+        uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol>  <UploadHttpLink> <TriggerType> <RRD_FLAG> <RRD_UPLOADLOG_FILE>"
     fi
-elif [ $# -ne 6 ];then
-    uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink>"
+elif [ $# -ne 8 ];then
+    uploadLog "USAGE: $0 <TFTP Server IP> <Flag (STB delay or not)> <SCP_SERVER> <UploadOnReboot> <UploadProtocol> <UploadHttpLink> <RRD_FLAG> <RRD_UPLOADLOG_FILE>"
 fi
 
-uploadLog "Build Type: $BUILD_TYPE Log file: $LOG_FILE UploadProtocol: $UploadProtocol UploadHttpLink: $UploadHttpLink"
-
-upload_flag="true"
-if [ -f "/tmp/DCMSettings.conf" ]; then
-    upload_flag=`cat /tmp/DCMSettings.conf | grep 'urn:settings:LogUploadSettings:upload' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
-    uploadLog "upload_flag = $upload_flag"
+#Replace Initialized Variables
+if [ -f /etc/os-release ]; then
+    TLS="--tlsv1.2"
 fi
 
-prevUploadFlag=0
+if [ ! -f /etc/os-release ]; then
+    IARM_EVENT_BINARY_LOCATION=/usr/local/bin
+fi
 
-EnableOCSPStapling="/tmp/.EnableOCSPStapling"
-EnableOCSP="/tmp/.EnableOCSPCA"
+if [ -f /etc/os-release ]; then
+    encryptionEnable=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.EncryptCloudUpload.Enable 2>&1 > /dev/null`
+fi
+
+eventSender()
+{
+    if [ -f $IARM_EVENT_BINARY_LOCATION/IARM_event_sender ];then
+        $IARM_EVENT_BINARY_LOCATION/IARM_event_sender $1 $2
+    fi
+}
+
+# exit if an instance is already running
+if [ ! -f /tmp/.log-upload.pid ]; then
+    # store the PID
+    echo $$ > /tmp/.log-upload.pid
+else
+    pid=`cat /tmp/.log-upload.pid`
+    if [ -d /proc/$pid ];then
+        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+            MAINT_LOGUPLOAD_INPROGRESS=16
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
+        fi
+        exit 0
+    fi
+fi
 
 #get telemetry opt out status
 getOptOutStatus()
@@ -162,6 +164,7 @@ getOptOutStatus()
     return $optoutStatus
 }
 
+#MTLS Upload Check
 checkXpkiMtlsBasedLogUpload()
 {
     if [ "$DEVICE_TYPE" = "broadband" ]; then
@@ -178,35 +181,16 @@ checkXpkiMtlsBasedLogUpload()
     uploadLog "xpki based mtls support = $useXpkiMtlsLogupload"
 }
 
+#PID Cleanup function
 pidCleanup()
 {
     # PID file cleanup
-    if [ -f /tmp/.log-upload.pid ];then
+    if [ -f /tmp/.log-upload.pid ]; then
         rm -rf /tmp/.log-upload.pid
     fi
 }
 
-if [ ! -d $PREV_LOG_PATH ]; then
-    uploadLog "The Previous Logs folder is missing"
-    if [ ! -f /etc/os-release ];then
-        pidCleanup;
-    fi
-    MAINT_LOGUPLOAD_ERROR=5
-    eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-    exit 0
-fi
-
-if [ ! -d "$TELEMETRY_PATH" ]
-then
-    uploadLog "Telemetry Folder does not exist . Creating now"
-    mkdir -p "$TELEMETRY_PATH"
-fi
-
-if [ ! -d $DCM_LOG_PATH ]; then                              
-    uploadLog "DCM log Folder does not exist . Creating now"
-    mkdir -p "$DCM_LOG_PATH" 
-fi  
-
+#Direct and Codebig Communication Functions
 IsDirectBlocked()
 {
     directret=0
@@ -241,12 +225,14 @@ IsCodeBigBlocked()
     return $codebigret
 }
 
+#Check Flashed Version
 getFWVersion()
 {
     verStr=`cat /version.txt | grep ^imagename: | cut -d ":" -f 2`
     echo $verStr
 }
 
+#Perform APP Logs backup
 backupAppLogs()
 {
     source=$1
@@ -257,18 +243,20 @@ backupAppLogs()
     if [ -f $source$SysLog ] ; then cp $source$SysLog $destn; fi
 }
 
+#Rename the rotated logfiles
 renameRotatedLogs()
 {
     logPath=$1
     if [ -f $RDK_PATH/renameRotatedLogs.sh ]; then
-         if [ -f $logPath/ocapri_log.txt ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/ocapri_log.txt; fi
-         if [ -f $logPath/receiver.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/receiver.log; fi
-         if [ -f $logPath/greenpeak.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/greenpeak.log; fi
-         if [ -f $logPath/gp_init.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/gp_init.log; fi
-         if [ -f $logPath/app_status.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/app_status.log; fi
+        if [ -f $logPath/ocapri_log.txt ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/ocapri_log.txt; fi
+        if [ -f $logPath/receiver.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/receiver.log; fi
+        if [ -f $logPath/greenpeak.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/greenpeak.log; fi
+        if [ -f $logPath/gp_init.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/gp_init.log; fi
+        if [ -f $logPath/app_status.log ] ; then sh $RDK_PATH/renameRotatedLogs.sh $logPath/app_status.log; fi
     fi
 }
 
+#Processing logs folder to perform copy operation
 processLogsFolder()
 {
     srcLogPath=$1
@@ -277,11 +265,12 @@ processLogsFolder()
     backupSystemLogFiles "cp" $srcLogPath $destnLogPath
     backupAppBackupLogFiles "cp" $srcLogPath $destnLogPath
 
-    if [ -f $RAMDISK_PATH/disk_log.txt ]; then cp $RAMDISK_PATH/disk_log.txt $destnLogPath ; fi
+    if [ -f $RAMDISK_PATH/disk_log.txt ]; then
+            cp $RAMDISK_PATH/disk_log.txt $destnLogPath ; fi
 
     backupCount=`ls $srcLogPath/logbackup-* 2>/dev/null | wc -l`
     if [ $backupCount -gt 0 ]; then
-       cp -r $srcLogPath/logbackup-* $destnLogPath
+        cp -r $srcLogPath/logbackup-* $destnLogPath
     fi
 
     if [ -f $srcLogPath/$rebootLog ]; then cp $srcLogPath/$rebootLog $destnLogPath; fi
@@ -290,26 +279,28 @@ processLogsFolder()
     if [ -f $PERSISTENT_PATH/sventest/p3541_all_csven_AV_health_data_trigger.tar.gz ] ; then
         cp $PERSISTENT_PATH/sventest/p3541_all_csven_AV_health_data_trigger.tar.gz $destnLogPath
     fi
+
     if [ "$DEVICE_TYPE" != "mediaclient" ]; then
           renameRotatedLogs $srcLogPath
     fi
 }
 
+#Modify the files with timestamp prefix
 modifyFileWithTimestamp()
 {
     srcLogPath=$1
     ret=`ls $srcLogPath/*.txt`
-    if [ ! $ret ]; then 
-         ret=`ls $srcLogPath/*.log`
-         if [ ! $ret ]; then 
-              if [ ! -f /etc/os-release ];then pidCleanup;fi
-              uploadLog "Log directory empty, skipping log upload"
-	      if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-	          MAINT_LOGUPLOAD_COMPLETE=4
-                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
-	      fi
-              exit 0
-         fi
+    if [ ! $ret ]; then
+        ret=`ls $srcLogPath/*.log`
+        if [ ! $ret ]; then
+            if [ ! -f /etc/os-release ];then pidCleanup;fi
+            uploadLog "Log directory empty, skipping log upload"
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                MAINT_LOGUPLOAD_COMPLETE=4
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+            fi
+            exit 0
+        fi
     fi
 
     DT=`date "+%m-%d-%y-%I-%M%p-"`
@@ -338,25 +329,26 @@ modifyFileWithTimestamp()
     timeValuePrefix="$DT"
 }
 
+#Convert filenames to original form without timestamp
 modifyTimestampPrefixWithOriginalName()
 {
     srcLogPath=$1
     ret=`ls $srcLogPath/*.txt`
     if [ ! $ret ]; then
-         ret=`ls $srcLogPath/*.log`
-         if [ ! $ret ]; then
-              if [ ! -f /etc/os-release ];then pidCleanup;fi
-              uploadLog "Log directory empty, skipping log upload"
-              if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-                  MAINT_LOGUPLOAD_COMPLETE=4
-                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
-              fi
-              exit 0
-         fi
+        ret=`ls $srcLogPath/*.log`
+        if [ ! $ret ]; then
+            if [ ! -f /etc/os-release ];then pidCleanup;fi
+            uploadLog "Log directory empty, skipping log upload"
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                MAINT_LOGUPLOAD_COMPLETE=4
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+            fi
+            exit 0
+        fi
     fi
     FILES=*.*
     cd $srcLogPath
-    len=`echo ${#timeValuePrefix}` 
+    len=`echo ${#timeValuePrefix}`
     len=`expr $len + 1`
     for f in $FILES
     do
@@ -366,6 +358,7 @@ modifyTimestampPrefixWithOriginalName()
     cd -
 }
 
+#Function to copy all file
 copyAllFiles ()
 {
     EXCLUDE="dcm PreviousLogs_backup PreviousLogs"
@@ -374,23 +367,25 @@ copyAllFiles ()
     do
         COPY_BOOLEAN=true
         for excl in $EXCLUDE
-        do  
+        do
             if [ $excl == $fileName ]; then
               COPY_BOOLEAN=false
-            fi  
+            fi
         done
-        if $COPY_BOOLEAN; then	
+        if $COPY_BOOLEAN; then
            cp -R $fileName $DCM_LOG_PATH
         fi
     done
 }
 
+#Function to copy opt folder logs
 copyOptLogsFiles ()
 {
     cd $LOG_PATH
     cp  * $DCM_LOG_PATH >> $LOG_PATH/dcmscript.log  2>&1
 }
 
+#Log TLS Return value for curl requests
 logTLSError ()
 {
     TLSRet=$1
@@ -402,6 +397,7 @@ logTLSError ()
     esac
 }
 
+#TLS Function for Codebig communication
 sendTLSSSRCodebigRequest()
 {
     POST_URL=$1
@@ -424,6 +420,7 @@ sendTLSSSRCodebigRequest()
     uploadLog "Curl return code : $TLSRet"
 }
 
+#TLS Function for Direct communication
 sendTLSSSRRequest()
 {
     TLSRet=1
@@ -446,7 +443,7 @@ sendTLSSSRRequest()
             uploadLog "Connect with $msg_tls_source"
             if [ ! -f /usr/bin/GetConfigFile ]; then
                 uploadLog "Error: GetConfigFile Not Found"
-		exit 127
+                exit 127
             fi
             ID="/tmp/uydrgopwxyem"
             if [ ! -f "$ID" ]; then
@@ -476,7 +473,7 @@ sendTLSSSRRequest()
     if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
         CURL_CMD="$CURL_CMD --cert-status"
     fi
-    uploadLog "Connect with $msg_tls_source URL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<hidden key> -w#g'`"
+    uploadLog "CURL_CMD: `echo "$CURL_CMD" | sed -e 's#devicecert_1.*-w#devicecert_1.pk12<hidden key> -w#g' | sed -e 's#staticXpkiCrt.*-w#staticXpkiCrt.pk12<hidden key> -w#g'`"
     eval $CURL_CMD > $HTTP_CODE
     TLSRet=$?
 
@@ -484,7 +481,8 @@ sendTLSSSRRequest()
     uploadLog "Connect with $msg_tls_source Curl return code : $TLSRet"
 }
 
-checkCodebigAccess() 
+#Check if Codebig is allowed
+checkCodebigAccess()
 {
     local request_type=1
     local retval=0
@@ -497,6 +495,7 @@ checkCodebigAccess()
     return $retval
 }
 
+#Create Codebig URL
 DoCodebigSSR()
 {
     SIGN_CMD="GetServiceUrl 1 \"$UploadHttpParams?filename=$1$uploadfile_md5\""
@@ -511,26 +510,27 @@ DoCodebigSSR()
     sendTLSSSRCodebigRequest $POST_URL $1
 }
 
+#Function to INterrupt upload when maintainence error
 if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-interrupt_logupload_onabort()
-{
-     echo "LogUpload is interrupted due to the maintenance abort" >> $LOG_PATH/dcmscript.log
+    interrupt_logupload_onabort()
+    {
+        uploadLog "LogUpload is interrupted due to the maintenance abort"
+        if [ ! -f /etc/os-release ];then pidCleanup;fi
 
-     if [ ! -f /etc/os-release ];then pidCleanup;fi
+        #kill the sleep PID
+        if [ -v sleep_pid ]; then
+            kill "$sleep_pid"
+        fi
 
-     #kill the sleep PID
-     if [ -v sleep_pid ]; then
-        kill "$sleep_pid"
-     fi
+        sh /lib/rdk/maintenanceTrapEventNotifier.sh 3 &
 
-     sh /lib/rdk/maintenanceTrapEventNotifier.sh 3 &
+        trap - SIGABRT
 
-     trap - SIGABRT
-
-     exit
-}
+        exit
+    }
 fi
 
+# Perform STB Logs upload using HTTP method
 HttpLogUpload()
 {
     result=1
@@ -548,7 +548,7 @@ HttpLogUpload()
         S3_MD5SUM="$(openssl md5 -binary < $1 | openssl enc -base64)"
         uploadfile_md5="&md5=$S3_MD5SUM"
     fi
-            
+
     if [ $UseCodebig -eq 1 ]; then
         uploadLog "HttpLogUpload: Codebig is enabled UseCodebig=$UseCodebig"
         uploadLog "check if codebig is supported in the device"
@@ -560,7 +560,7 @@ HttpLogUpload()
             skipcodebig=$?
             if [ $skipcodebig -eq 0 ]; then
                 while [ "$cbretries" -le $CB_NUM_UPLOAD_ATTEMPTS ]
-                do        
+                do
                     uploadLog "HttpLogUpload: Attempting Codebig log upload"
                     DoCodebigSSR $1
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
@@ -611,7 +611,7 @@ HttpLogUpload()
     else
         uploadLog "HttpLogUpload: Codebig is disabled UseCodebig=$UseCodebig"
         IsDirectBlocked
-        skipdirect=$? 
+        skipdirect=$?
         if [ $skipdirect -eq 0 ]; then
             while [ "$retries" -lt $NUM_UPLOAD_ATTEMPTS ]
             do
@@ -630,18 +630,18 @@ HttpLogUpload()
                  uploadLog "HttpLogUpload: Direct log upload attempt return: retry=$retries, httpcode=$http_code"
                 sleep 60
             done
-        fi 
-    
+        fi
+
         if [ "$http_code" = "000" ]; then
             uploadLog "check if codebig is supported in the device"
             checkCodebigAccess
             codebigapplicable=$?
             if [ "$DEVICE_TYPE" = "mediaclient" -a $codebigapplicable -eq 0 ]; then      # only fallback if server doesn't respond
-                IsCodeBigBlocked 
+                IsCodeBigBlocked
                 skipcodebig=$?
                 if [ $skipcodebig -eq 0 ]; then
                     while [ "$cbretries" -le $CB_NUM_UPLOAD_ATTEMPTS ]
-                    do 
+                    do
                         uploadLog "HttpLogUpload: Direct log upload failed: httpcode=$http_code, attempting Codebig"
                         DoCodebigSSR $1
                         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
@@ -710,13 +710,13 @@ HttpLogUpload()
         ret=$?
         logTLSError $ret "S3"
         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-        rm $FILENAME 
+        rm $FILENAME
         # Curl ret and http_code
         uploadLog "ret = $ret http_code: $http_code"
         if [ "$ret" = "0" ] && [ "$http_code" = 200 ]; then
              t2CountNotify "TEST_lu_success"
         fi
-    
+
         if [ "$http_code" = "200" ];then
             result=0
         else
@@ -741,7 +741,7 @@ HttpLogUpload()
                       t2CountNotify "TEST_lu_success"
                 fi
 
-            fi        
+            fi
             if [ "$http_code" = "200" ];then
                 uploadLog "LogUpload is successful"
                 result=0
@@ -754,12 +754,6 @@ HttpLogUpload()
     fi
    echo $result
 }
-
-UseCodebig=0
-
-uploadLog "Check Codebig flag,,,"
-IsDirectBlocked
-UseCodebig=$?
 
 # Retain only the last packet capture
 clearOlderPacketCaptures()
@@ -785,18 +779,19 @@ clearOlderPacketCaptures()
             mv $lastMocaPcapCapture.bkp $lastMocaPcapCapture
         fi
     fi
-    
+
     rm -f $LOG_PATH/eas.pcap.*
 }
 
+#Perform Telemetry Logs Upload
 uploadDCMLogs()
 {
     cd $DCM_LOG_PATH
-   
+
     if [ "$upload_flag" == "true" ]; then
         uploadLog "Uploading Logs through DCM cron job"
         modifyFileWithTimestamp $DCM_LOG_PATH >> $LOG_PATH/dcmscript.log  2>&1
-        # Include latest moca-capture in uploaded logs for mediaclient device 
+        # Include latest moca-capture in uploaded logs for mediaclient device
         if [ "$DEVICE_TYPE" == "mediaclient" ]; then
             pcapCount=`ls $LOG_PATH/*-moca.pcap | wc -l`
             if [ $pcapCount -gt 0 ]; then
@@ -808,44 +803,44 @@ uploadDCMLogs()
         tar -zcvf $LOG_FILE * >> $LOG_PATH/dcmscript.log  2>&1
         sleep 60
         uploadLog "Uploading logs $LOG_FILE  onto $TFTP_SERVER"
-       
+
         retval=1
 
-        if [ "$UploadProtocol" == "HTTP" ];then
+        if [ "$UploadProtocol" == "HTTP" ]; then
             retval=$(HttpLogUpload $LOG_FILE)
-            if [ $retval -eq 0 ];then
+            if [ $retval -eq 0 ]; then
                 maintenance_error_flag=0
                 uploadLog "Done Uploading Logs through HTTP"
             else
-                maintenance_error_flag=1 
+                maintenance_error_flag=1
             fi
-           
         else
             uploadLog "UploadProtocol is not HTTP"
         fi
         clearOlderPacketCaptures
     fi
-    
+
     if [ -d $DCM_LOG_PATH ]; then
         rm -rf $DCM_LOG_PATH/
     fi
 }
 
+#Function to Upload Logs when Flag is true
 uploadLogOnReboot()
 {
     uploadLog=$1
     ret=`ls $PREV_LOG_PATH/*.txt`
-    if [ ! $ret ]; then 
-         ret=`ls $PREV_LOG_PATH/*.log` 
-         if [ ! $ret ]; then 
-               if [ ! -f /etc/os-release ];then pidCleanup;fi
-	       uploadLog "Log directory empty, skipping log upload"
-               if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-                  MAINT_LOGUPLOAD_COMPLETE=4
-                  eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
-               fi
-               exit 0
-         fi
+    if [ ! $ret ]; then
+        ret=`ls $PREV_LOG_PATH/*.log`
+        if [ ! $ret ]; then
+            if [ ! -f /etc/os-release ];then pidCleanup;fi
+            uploadLog "Log directory empty, skipping log upload"
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                MAINT_LOGUPLOAD_COMPLETE=4
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+            fi
+            exit 0
+        fi
     fi
     uploadLog "Sleeping for seven minutes"
     if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
@@ -859,12 +854,12 @@ uploadLogOnReboot()
         sleep 330
     fi
     uploadLog "Done sleeping"
-    # Special processing - Permanently backup logs on box delete the logs older than 
+    # Special processing - Permanently backup logs on box delete the logs older than
     # 3 days to take care of old filename
     stat=`find /opt/logs -name "*-*-*-*-*M-" -mtime +3 -exec rm -rf {} \;`
     # for the new filenames with suffix logbackup
     stat=`find /opt/logs -name "*-*-*-*-*M-logbackup" -mtime +3 -exec rm -rf {} \;`
-    TIMESTAMP=`date "+%m-%d-%y-%I-%M%p-logbackup"`                   
+    TIMESTAMP=`date "+%m-%d-%y-%I-%M%p-logbackup"`
     PERM_LOG_PATH="$LOG_PATH/$TIMESTAMP"
     #RDKTV-9938: Moved the logbackup folder creation before move operation
     echo $PERM_LOG_PATH >> $TELEMETRY_PATH/lastlog_path
@@ -901,8 +896,8 @@ uploadLogOnReboot()
         uploadLog "Not Uploading Logs with DCM"
     fi
     cd $PREV_LOG_PATH
-    sleep 5    
-    if [ -f $PREV_LOG_PATH/$LOG_FILE ]; then 
+    sleep 5
+    if [ -f $PREV_LOG_PATH/$LOG_FILE ]; then
         rm -rf $PREV_LOG_PATH/$LOG_FILE
     fi
     modifyTimestampPrefixWithOriginalName $PREV_LOG_PATH
@@ -918,89 +913,143 @@ uploadLogOnReboot()
     fi
 }
 
+#############################################################
+#                    MAIN FUNCTION                          #
+#############################################################
+UseCodebig=0
+uploadLog "Check Codebig flag,,,"
+IsDirectBlocked
+UseCodebig=$?
 
-if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-    trap 'interrupt_logupload_onabort' SIGABRT
-fi
-
-if [ -d $DCM_LOG_PATH ]; then
-     rm -rf $DCM_LOG_PATH/
-fi
-
-#Remove *.tgz files from /opt/logs
-stat=`find $LOG_PATH -name "*.tgz" -exec rm -rf {} \;`
-clearOlderPacketCaptures
-
-#Remove files which have timestamp in it filename
-for item in `ls $LOG_PATH/*-*-*-*-*M-* | grep "[0-9]*-[0-9]*-[0-9]*-[0-9]*-M*" | grep -v "logbackup" | grep -v "moca.pcap"`;do
-    if [ -f "$item" ];then
-        uploadLog "Removing $item"
-        rm -rf $item
+if [ "$RRD_FLAG" -eq 1 ]; then
+    DCM_LOG_FILE=$RRD_LOG_FILE
+    uploadLog "Uploading RRD Debug Logs $RRD_UPLOADLOG_FILE to S3 SERVER"
+    retval=1
+    if [ "$UploadProtocol" == "HTTP" ];then
+        retval=$(HttpLogUpload $RRD_UPLOADLOG_FILE)
+        if [ $retval -eq 0 ];then
+            uploadLog "Uploading Logs through HTTP Success..."
+            exit 0
+        else
+            uploadLog "Uploading Logs through HTTP Failed!!!"
+            exit 1
+        fi
+    else
+        uploadLog "UploadProtocol is not HTTP"
+        exit 1
     fi
-done
-
-getOptOutStatus
-opt_out=$?
-if [ $opt_out -eq 1 ]; then
-    uploadLog "Logupload is disabled as TelemetryOptOut is set"
-    MAINT_LOGUPLOAD_COMPLETE=4
-    eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
-    exit 0
-fi
-
-if [ $DCM_FLAG -eq 0 ] ; then 
-     uploadLog "Uploading Without DCM"
-     uploadLogOnReboot true
-else 
-     if [ $FLAG -eq 1 ] ; then 
-       if [ $UploadOnReboot -eq 1 ]; then	
-           uploadLog "UploadOnReboot set to true"
-           uploadLogOnReboot true	
-        else 
-           uploadLog "UploadOnReboot set to false"
-           maintenance_error_flag=1
-           uploadLogOnReboot false
-           echo $PERM_LOG_PATH >> $DCM_UPLOAD_LIST
-       fi
-     else
-       if [ $UploadOnReboot -eq 0 ]; then  
-          mkdir -p $DCM_LOG_PATH
-          fileUploadCount=`cat "$DCM_UPLOAD_LIST" | wc -l`
-          if [ $fileUploadCount -gt 0 ]; then
-             while read line
-                do
-                   echo $line 
-                   cp -R $line $DCM_LOG_PATH
-                   done < $DCM_UPLOAD_LIST
-                   copyOptLogsFiles
-                   cat /dev/null > $DCM_UPLOAD_LIST	
-                   uploadDCMLogs
-          else
-             copyOptLogsFiles
-             uploadDCMLogs
-          fi
-       else 
-          touch $DCM_INDEX
-          copyAllFiles
-          uploadDCMLogs
-       fi
+else
+    uploadLog "Build Type: $BUILD_TYPE Log file: $LOG_FILE UploadProtocol: $UploadProtocol UploadHttpLink: $UploadHttpLink"
+    #Read Upload_Flag information
+    if [ -f "/tmp/DCMSettings.conf" ]; then
+        upload_flag=`cat /tmp/DCMSettings.conf | grep 'urn:settings:LogUploadSettings:upload' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
+        uploadLog "upload_flag = $upload_flag"
     fi
-fi 
 
-if [ ! -f /etc/os-release ];then pidCleanup;fi
-
-if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-    trap - SIGABRT
-fi
-
-
-if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-    if [ "$maintenance_error_flag" -eq 1 ]; then
+    #Check for PreviousLogs Folder
+    if [ ! -d $PREV_LOG_PATH ]; then
+        uploadLog "The Previous Logs folder is missing"
+        if [ ! -f /etc/os-release ]; then
+            pidCleanup;
+        fi
         MAINT_LOGUPLOAD_ERROR=5
         eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
-    else
+        exit 0
+    fi
+
+    #Check and Create Telemetry Path Folder
+    if [ ! -d "$TELEMETRY_PATH" ]; then
+        uploadLog "Telemetry Folder does not exist . Creating now"
+        mkdir -p "$TELEMETRY_PATH"
+    fi
+    if [ ! -d $DCM_LOG_PATH ]; then
+        uploadLog "DCM log Folder does not exist . Creating now"
+        mkdir -p "$DCM_LOG_PATH"
+    fi
+
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        trap 'interrupt_logupload_onabort' SIGABRT
+    fi
+
+    #Check and delete old Telemetry path
+    if [ -d $DCM_LOG_PATH ]; then
+        rm -rf $DCM_LOG_PATH/
+    fi
+
+    #Remove *.tgz files from /opt/logs
+    stat=`find $LOG_PATH -name "*.tgz" -exec rm -rf {} \;`
+    clearOlderPacketCaptures
+
+    #Remove files which have timestamp in it filename
+    for item in `ls $LOG_PATH/*-*-*-*-*M-* | grep "[0-9]*-[0-9]*-[0-9]*-[0-9]*-M*" | grep -v "logbackup" | grep -v "moca.pcap"`;do
+        if [ -f "$item" ]; then
+            uploadLog "Removing $item"
+            rm -rf $item
+        fi
+    done
+
+    getOptOutStatus
+    opt_out=$?
+    if [ $opt_out -eq 1 ]; then
+        uploadLog "Logupload is disabled as TelemetryOptOut is set"
         MAINT_LOGUPLOAD_COMPLETE=4
         eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+        exit 0
+    fi
+    if [ $DCM_FLAG -eq 0 ] ; then
+        uploadLog "Uploading Without DCM"
+        uploadLogOnReboot true
+    else
+        if [ $FLAG -eq 1 ] ; then
+            if [ $UploadOnReboot -eq 1 ]; then
+                uploadLog "UploadOnReboot set to true"
+                uploadLogOnReboot true
+            else
+                uploadLog "UploadOnReboot set to false"
+                maintenance_error_flag=1
+                uploadLogOnReboot false
+                echo $PERM_LOG_PATH >> $DCM_UPLOAD_LIST
+            fi
+        else
+            if [ $UploadOnReboot -eq 0 ]; then
+                mkdir -p $DCM_LOG_PATH
+                fileUploadCount=`cat "$DCM_UPLOAD_LIST" | wc -l`
+                if [ $fileUploadCount -gt 0 ]; then
+                    while read line
+                    do
+                        echo $line
+                        cp -R $line $DCM_LOG_PATH
+                        done < $DCM_UPLOAD_LIST
+                        copyOptLogsFiles
+                        cat /dev/null > $DCM_UPLOAD_LIST
+                        uploadDCMLogs
+                else
+                    copyOptLogsFiles
+                    uploadDCMLogs
+                fi
+            else
+                touch $DCM_INDEX
+                copyAllFiles
+                uploadDCMLogs
+            fi
+        fi
+    fi
+
+    if [ ! -f /etc/os-release ]; then
+        pidCleanup
+    fi
+
+    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        trap - SIGABRT
+    fi
+
+    if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+        if [ "$maintenance_error_flag" -eq 1 ]; then
+            MAINT_LOGUPLOAD_ERROR=5
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_ERROR
+        else
+            MAINT_LOGUPLOAD_COMPLETE=4
+            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+        fi
     fi
 fi
-
