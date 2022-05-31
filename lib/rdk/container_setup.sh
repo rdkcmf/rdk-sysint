@@ -95,6 +95,10 @@ setContainerPermissions()
   chown root:dobbyapp /opt/persistent/rdkservices/
   chmod 775 /opt/persistent/rdkservices/
 
+  mkdir -p /opt/.gstreamer
+  chown -R root:dobbyapp /opt/.gstreamer/
+  chmod -R g+rwx /opt/.gstreamer
+
   # ERM
   chown root:vpu /run/resource
   chmod 775 /run/resource
