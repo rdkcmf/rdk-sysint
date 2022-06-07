@@ -41,31 +41,16 @@ getBootstrapPartnerId()
     if [ -f "$BSFILE" ]; then
 
         cp $BSFILE $FILENAME
-        sed -i 's/=/ /g' $FILENAME #
-
-        while read line
-        do
-
-            ## Check bootstrap string
-
-            value1=`echo "$line" | awk '{print $1}'`
-            value2=`echo "$line" | awk '{print $2}'`
-
-            enable_Check=`echo "$value1" | grep -ci 'X_RDKCENTRAL-COM_Syndication.PartnerId'`
-
-            if [ $enable_Check -ne 0 ]; then
-                echo "$value2"
-
-                return
-            fi
-        #
-        done < $FILENAME
+        value2=`grep -i 'X_RDKCENTRAL-COM_Syndication.PartnerId' $FILENAME | awk  'BEGIN{FS="=";};{print $2}' `
+        if [ "$value2" ]; then
+                echo "$value2";
+                return ;
+        fi
     fi
 
 ### Nothing found in the boostrap file
     echo ""
 }
-
 
 if [ -f "${deviceIdFile}" ]; then
     deviceId=`cat ${deviceIdFile}`
