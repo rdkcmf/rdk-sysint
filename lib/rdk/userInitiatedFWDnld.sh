@@ -565,7 +565,7 @@ ProcessImageUpgradeRequest()
                     imageDownloadToLocalServer $cb_signed_request $UpgradeFile $CodebigFlag
                     resp=$?
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                    if [ "$http_code" = "200" ]; then
+                    if [ $resp -eq 0 ] && [ "$http_code" = "200" ]; then
                         swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download Success - ret:$resp, httpcode:$http_code"
                         IsDirectBlocked
                         skipDirect=$?
@@ -618,7 +618,7 @@ ProcessImageUpgradeRequest()
                     imageDownloadToLocalServer $UpgradeLocation $UpgradeFile $CodebigFlag
                     resp=$?
                     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                    if [ "$http_code" = "200" ];then
+                    if [ $resp -eq 0 ] && [ "$http_code" = "200" ]; then
                        swupdateLog "ProcessImageUpgradeRequest: Direct firmware download success - ret:$resp, httpcode:$http_code"
                        break
                     elif [ "$http_code" = "404" ]; then
@@ -645,7 +645,7 @@ ProcessImageUpgradeRequest()
                             imageDownloadToLocalServer $cb_signed_request $UpgradeFile $CodebigFlag
                             resp=$?
                             http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                            if [ "$http_code" = "200" ]; then
+                            if [ $resp -eq 0 ] && [ "$http_code" = "200" ]; then
                                 swupdateLog "ProcessImageUpgradeRequest: Codebig firmware download success - ret:$resp, httpcode:$http_code"
                                 CodebigFlag=1
                                 if [ ! -f $DIRECT_BLOCK_FILENAME ]; then

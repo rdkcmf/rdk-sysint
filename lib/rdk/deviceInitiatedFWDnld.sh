@@ -1326,7 +1326,7 @@ httpDownload ()
                         httpCodebigDownload
                         ret=$?
                     fi
-                    if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
+                    if [ $ret -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
                        swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                        IsDirectBlocked
                        skipDirect=$?
@@ -1431,7 +1431,7 @@ httpDownload ()
                     httpTLSDownload
                     ret=$?
                 fi
-                if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
+                if [ $ret -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
                     swupdateLog "httpDownload: Direct Image upgrade Success: ret=$ret httpcode=$http_code"
                     break
                 elif [ "$http_code" = "404" ]; then
@@ -1481,7 +1481,7 @@ httpDownload ()
                             httpCodebigDownload
                             ret=$?
                         fi
-                        if [ "$http_code" = "200" ] || [ "$http_code" = "206" ]; then
+                        if [ $ret -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
                             swupdateLog "httpDownload: Codebig Image upgrade Success: ret=$ret httpcode=$http_code"
                             UseCodebig=1
                             if [ ! -f $DIRECT_BLOCK_FILENAME ]; then
