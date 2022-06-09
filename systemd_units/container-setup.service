@@ -4,7 +4,7 @@ Description=Configure container permissions
 Requires=securemount.service
 Wants=dobby.service wpeframework.service
 Before=wpeframework.service
-After=securemount.service
+After=securemount.service ermgr.service
 
 [Service]
 Type=oneshot
