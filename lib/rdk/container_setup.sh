@@ -25,71 +25,58 @@ setupContainerBundle()
   USR=$3
   GRP=$4
 
-  CONTAINER_BUNDLE_DIR=/opt/persistent/rdkservices/
-  PLUGIN_DIR=${CONTAINER_BUNDLE_DIR}/${PLUGIN_NAME}
-  DST_DIR=${PLUGIN_DIR}/Container
+  RDKSERVICES_PERSISTENT_DIR=/opt/persistent/rdkservices/
+  PLUGIN_PERSISTENT_DIR=${RDKSERVICES_PERSISTENT_DIR}/${PLUGIN_NAME}
+  PLUGIN_BUNDLE_DIR=/opt/persistent/ContainerBundles/${PLUGIN_NAME}
 
   if [ ! -f "${SRC_DIR}/config.json" ]; then
     echo "`Timestamp` OCI bundle not present in firmware - ${SRC_DIR}/config.json not found" >> $LOGFILE
     return 1
   fi
 
-  # if this is first time we open as container
-  if [ ! -d "${PLUGIN_DIR}/storage" ]; then
-    # move all data including credentials to storage (so it is later avalible inside container)
-    # include hidden .* files but not linux built in "." and ".." directories
-    mkdir -p "${PLUGIN_DIR}/storage"
-    mv  "${PLUGIN_DIR}/".[!.]* "${PLUGIN_DIR}/storage/"
-    mv  "${PLUGIN_DIR}/"* "${PLUGIN_DIR}/storage/"
+  # plugin persistent directory may not have been created yet (after Factory Reset)
+  mkdir -p "${PLUGIN_PERSISTENT_DIR}"
+
+  if [ -d "${PLUGIN_PERSISTENT_DIR}/storage" ]; then
+    mv "${PLUGIN_PERSISTENT_DIR}/storage/"* "${PLUGIN_PERSISTENT_DIR}/"
+    mv "${PLUGIN_PERSISTENT_DIR}/storage/".[!.]* "${PLUGIN_PERSISTENT_DIR}/"
+    rm -rf "${PLUGIN_PERSISTENT_DIR:?}/storage"
   fi
 
   # Copy bundle only if different
-  if [ -f "${DST_DIR}/config-dobby.json" ]; then
+  if [ -f "${PLUGIN_BUNDLE_DIR}/config-dobby.json" ]; then
     image_sum=$(md5sum ${SRC_DIR}/config.json | cut -d' ' -f1)
-    opt_sum=$(md5sum ${DST_DIR}/config-dobby.json | cut -d' ' -f1)
+    opt_sum=$(md5sum ${PLUGIN_BUNDLE_DIR}/config-dobby.json | cut -d' ' -f1)
 
     if [ "x$image_sum" != "x$opt_sum" ]; then
       echo "`Timestamp` Copying OCI bundle for $2 from firmware as config.json doesn't match expected" >> $LOGFILE
-      rm -rf "${DST_DIR:?}/"*
-      cp "${SRC_DIR}/config.json" "${DST_DIR}"
-      cp -R "${SRC_DIR}/rootfs_dobby" "${DST_DIR}"
+      rm -rf "${PLUGIN_BUNDLE_DIR:?}/"*
+      cp "${SRC_DIR}/config.json" "${PLUGIN_BUNDLE_DIR}"
+      cp -R "${SRC_DIR}/rootfs_dobby" "${PLUGIN_BUNDLE_DIR}"
     else
       echo "`Timestamp` Valid OCI bundle found for $2, not recreating" >> $LOGFILE
     fi
   else
     echo "`Timestamp` No OCI bundle for $2 found in opt, copying from firmware" >> $LOGFILE
-    mkdir -p "${DST_DIR}"
-    rm -rf "${DST_DIR:?}/"*
-    cp "${SRC_DIR}/config.json" "${DST_DIR}"
-    cp -R "${SRC_DIR}/rootfs_dobby" "${DST_DIR}"
+    mkdir -p "${PLUGIN_BUNDLE_DIR}"
+    rm -rf "${PLUGIN_BUNDLE_DIR:?}/"*
+    cp "${SRC_DIR}/config.json" "${PLUGIN_BUNDLE_DIR}"
+    cp -R "${SRC_DIR}/rootfs_dobby" "${PLUGIN_BUNDLE_DIR}"
   fi
 
-  # Set permissions on the container bundle directory
-  chmod +x "${CONTAINER_BUNDLE_DIR}"
-
-  chmod -R 744 "${PLUGIN_DIR}"
-  chown -R ${USR}:${GRP} "${PLUGIN_DIR}"
-
+  # Set permissions on the container bundle and persistent directories
+  chown -R ${USR}:${GRP} "${PLUGIN_BUNDLE_DIR}" 
+  chown -R ${USR}:${GRP} "${PLUGIN_PERSISTENT_DIR}"
+  chmod -R ug+rwX,o-w "${PLUGIN_BUNDLE_DIR}" 
+  chmod -R ug+rwX,o-w "${PLUGIN_PERSISTENT_DIR}"
+  
+  # create the symbolic link to container bundle under plugin's persistent data dir
+  # this is where Thunder expects to find the bundle
+  rm -rf "${PLUGIN_PERSISTENT_DIR}/Container"
+  ln -s "${PLUGIN_BUNDLE_DIR}" "${PLUGIN_PERSISTENT_DIR}/Container"
+  
   echo "`Timestamp` setupContainerBundle() for $2 done" >> $LOGFILE
   return 0
-}
-
-moveStorageFromContainer()
-{
-  PLUGIN_NAME=$1
-
-  CONTAINER_BUNDLE_DIR=/opt/persistent/rdkservices/
-  PLUGIN_DIR=${CONTAINER_BUNDLE_DIR}/${PLUGIN_NAME}
-  DST_DIR=${PLUGIN_DIR}/Container
-
-  # if container exists
-  if [ -d "${DST_DIR}" ]; then
-    # move all data including credentials from storage (so it is later avalible outside container)
-    mv "${PLUGIN_DIR}/storage/"* "${PLUGIN_DIR}/"
-    mv "${PLUGIN_DIR}/storage/".[!.]* "${PLUGIN_DIR}/"
-    rm -rf "${DST_DIR:?}"
-    rm -rf "${PLUGIN_DIR:?}/storage"
-  fi
 }
 
 setContainerPermissions()
@@ -103,8 +90,10 @@ setContainerPermissions()
   chown -R root:dobbyapp /opt/drm
   chmod -R g+rwx /opt/drm
 
+  # plugin persistent directory may not have been created yet (after Factory Reset)
+  mkdir -p /opt/persistent/rdkservices/
   chown root:dobbyapp /opt/persistent/rdkservices/
-  chmod 770 /opt/persistent/rdkservices/
+  chmod 775 /opt/persistent/rdkservices/
 
   # ERM
   chown root:vpu /run/resource
@@ -206,7 +195,6 @@ if [ -n "${netflixContainerEnabled}" ] && [ "${netflixContainerEnabled}" = "true
   enableNetflixContainer
 else
   echo "`Timestamp` Netflix not running in container mode" >> $LOGFILE
-  moveStorageFromContainer "Netflix-0"
 fi
 
 # Cobalt container mode
@@ -217,7 +205,6 @@ if [ -n "${cobaltContainerEnabled}" ] && [ "${cobaltContainerEnabled}" = "true" 
   enableCobaltContainer
 else
   echo "`Timestamp` Cobalt not running in container mode" >> $LOGFILE
-  moveStorageFromContainer "Cobalt-0"
 fi
 
 # WPE Container mode
@@ -228,7 +215,5 @@ if [ -n "${wpeContainerEnabled}" ] && [ "${wpeContainerEnabled}" = "true" ]; the
   enableWebkitContainer
 else
   echo "`Timestamp` WPE not running in container mode" >> $LOGFILE
-  moveStorageFromContainer "HtmlApp"
-  moveStorageFromContainer "LightningApp"
-  moveStorageFromContainer "SearchAndDiscoveryApp"
 fi
+
