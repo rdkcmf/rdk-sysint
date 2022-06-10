@@ -1616,24 +1616,8 @@ imageDownloadToLocalServer ()
         imageHTTPURL="$UPGRADE_LOCATION/$UPGRADE_FILE"  
         swupdateLog "IMAGE URL= $imageHTTPURL"
         echo "$imageHTTPURL" > $DnldURLvalue
-        swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
-	if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
-	    swupdateLog "Starting C daemon rdkvfwupgrader"
-	    rdkv_fw_path="$DIFW_PATH/$UPGRADE_FILE"
-	    swupdateLog "url:$imageHTTPURL , codebig=$UseCodebig ,disablestatus=$disableStatsUpdate and immedreboot=$cloudImmediateRebootFlag"
-	    if [ -f /usr/bin/rdkvfwupgrader ]; then
-	        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$delayDnld" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig"
-                ret=$?
-	    else
-	        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
-		httpDownload
-		ret=$?
-	    fi
-	else
-	    swupdateLog "Script based download fw rfc status=$RDKVFW_UPGRADER"
-            httpDownload
-            ret=$?
-        fi
+        httpDownload
+        ret=$?
     fi
 
     http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
@@ -2106,8 +2090,55 @@ checkForUpgrades ()
                         fi
                     fi
                 fi
-                triggerPCIUpgrade
-                pci_upgrade_status=$?
+		swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
+		if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
+		    swupdateLog "Starting C daemon rdkvfwupgrader"
+                    protocol=2
+		    rdkv_fw_path="$DIFW_PATH/$cloudFWFile"
+		    imageHTTPURL="$cloudFWLocation/$cloudFWFile"
+		    swupdateLog "IMAGE URL= $imageHTTPURL"
+		    echo "$imageHTTPURL" > $DnldURLvalue
+		    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
+		    if [ -f /usr/bin/rdkvfwupgrader ]; then
+		        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto"
+			pci_upgrade_status=$?
+			if [ $pci_upgrade_status -eq 1 ]; then
+                            exit 0
+		        fi
+                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                        if [ $pci_upgrade_status -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
+                            invokeImageFlasher $cloudFWLocation $cloudFWFile $rebootFlag $protocol
+                            pci_upgrade_status=$?
+		        else
+			    swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
+			    triggerPCIUpgrade
+			    pci_upgrade_status=$?
+                        fi
+ 
+                        swupdateLog "upgrade method returned $pci_upgrade_status"
+                        if [ $pci_upgrade_status != 0 ] ; then
+                            if [ -f /lib/rdk/logMilestone.sh ]; then
+                                sh /lib/rdk/logMilestone.sh "FWDNLD_FAILED"
+                            fi
+                            swupdateLog "doCDL failed" 
+                            ret=1
+                       else
+                           if [ -f /lib/rdk/logMilestone.sh ]; then
+                               sh /lib/rdk/logMilestone.sh "FWDNLD_COMPLETED"
+                           fi
+                           swupdateLog "doCDL success."
+                           ret=0
+                       fi
+		    else
+		        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+			triggerPCIUpgrade
+			pci_upgrade_status=$?
+		    fi
+	        else
+		    swupdateLog "Script based download fw rfc status=$RDKVFW_UPGRADER"
+                    triggerPCIUpgrade
+                    pci_upgrade_status=$?
+	        fi
             fi
         fi
     fi
