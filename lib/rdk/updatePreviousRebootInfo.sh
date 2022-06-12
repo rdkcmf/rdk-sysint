@@ -478,8 +478,8 @@ if [ -f "$OLD_KEYPRESS_INFO_FILE" ]; then
     mv $OLD_PREVIOUS_KEYPRESS_INFO_FILE $PREVIOUS_KEYPRESS_INFO_FILE
 fi
 
-if [ "$SOC" = "RTK" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
-  #Reading the /proc/cmdline to check wakeup reason on Realtek Platform.
+if [ "$SOC" = "RTK" ] || [ "$RDK_PROFILE" = "TV" ]; then
+  #Reading the /proc/cmdline to check wakeup reason on Realtek & TV Platform.
   if [ -f /lib/rdk/get-reboot-reason.sh ]; then
     # Check to see if we already have the entry in the log
     prevReboot=`grep "PreviousRebootReason" $KERNEL_LOG_FILE`

@@ -38,7 +38,7 @@ cleanup()
   fi
 }
 
-if [ "$SOC" = "AMLOGIC" ]; then
+if [ "$RDK_PROFILE" = "TV" ]; then
     CORE_FILE_SIZE=512000
 else
     CORE_FILE_SIZE=2097152

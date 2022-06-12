@@ -379,7 +379,7 @@ logunit "$wpeframeworkunits" $wpeframeworklogname
 
 ###### update reboot reason info logging
 rebootreasonlist=(update-reboot-info reboot-reason-logger)
-if [ "$SOC" = "AMLOGIC" ];then
+if [ "$RDK_PROFILE" = "TV" ]; then
     rebootreasonlist=(update-reboot-info reboot-reason-logger update-reboot-info-tv)
 fi
 rebootreasonlogname="${log_prefix}/rebootreason.log"

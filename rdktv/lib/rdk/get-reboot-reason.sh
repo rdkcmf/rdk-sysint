@@ -15,52 +15,52 @@ KERNEL_RESET_REASON_VARIABLE=/sys/devices/platform/aml_pm/reset_reason
   RST_Reason=`cat $KERNEL_RESET_REASON_VARIABLE`
   case $RST_Reason in
   0)
-  echo PreviousRebootReason:  power_on_reset! > /dev/kmsg
+  echo PreviousRebootReason:  power_on_reset!
   ;;
   1)
-  echo PreviousRebootReason:  software_master_reset! > /dev/kmsg
+  echo PreviousRebootReason:  software_master_reset!
   ;;
   2)
-  echo PreviousRebootReason:  factory_reset! > /dev/kmsg
+  echo PreviousRebootReason:  factory_reset!
   ;;
   3)
-  echo PreviousRebootReason:  update! > /dev/kmsg
+  echo PreviousRebootReason:  update!
   ;;
   4)
-  echo PreviousRebootReason:  fastboot! > /dev/kmsg
+  echo PreviousRebootReason:  fastboot!
   ;;
   5)
-  echo PreviousRebootReason:  suspend_off! > /dev/kmsg
+  echo PreviousRebootReason:  suspend_off!
   ;;
   6)
-  echo PreviousRebootReason:  hibernate! > /dev/kmsg
+  echo PreviousRebootReason:  hibernate!
   ;;
   7)
-  echo PreviousRebootReason:  bootloader! > /dev/kmsg
+  echo PreviousRebootReason:  bootloader!
   ;;
   8)
-  echo PreviousRebootReason:  shutdown_reboot! > /dev/kmsg
+  echo PreviousRebootReason:  shutdown_reboot!
   ;;
   9)
-  echo PreviousRebootReason:  rpmbp! > /dev/kmsg
+  echo PreviousRebootReason:  rpmbp!
   ;;
   10)
-  echo PreviousRebootReason:  quiescent reboot! > /dev/kmsg
+  echo PreviousRebootReason:  quiescent reboot!
   ;;
   11)
-  echo PreviousRebootReason:  crash_dumpg! > /dev/kmsg
+  echo PreviousRebootReason:  crash_dumpg!
   ;;
   12)
-  echo PreviousRebootReason:  kernel_panic! > /dev/kmsg
+  echo PreviousRebootReason:  kernel_panic!
   ;;
   13)
-  echo PreviousRebootReason:  watchdog_timer_reset! > /dev/kmsg
+  echo PreviousRebootReason:  watchdog_timer_reset!
   ;;
   14)
-  echo PreviousRebootReason:  quiescent recovery! > /dev/kmsg
+  echo PreviousRebootReason:  quiescent recovery!
   ;;
   *)
-  echo PreviousRebootReason:  unknown! > /dev/kmsg
+  echo PreviousRebootReason:  unknown!
   ;;
   esac
 
