@@ -32,7 +32,7 @@ if [ -z "$DEFAULT_DATE" ]; then
 fi
 
 # Check for the partner ID
-curl -d '' -X POST http://127.0.0.1:50050/authService/getDeviceId >/tmp/ntp.txt
+sh /lib/rdk/getDeviceId.sh >/tmp/ntp.txt
 output=`awk -F',' </tmp/ntp.txt '{ for (i=1; i<=NF; i++) print $i}'| grep partnerId | cut -d ":" -f2 | tr -d " " |sed -e 's/[{,},/"]//g'`
 partnerName=`echo "$output" | tr '[A-Z]' '[a-z]'`
 

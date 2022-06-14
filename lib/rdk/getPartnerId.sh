@@ -53,7 +53,7 @@ getReceiverId()
 getPartnerId()
 {
     # Check for the partner ID
-    curl -d '' -X POST http://127.0.0.1:50050/authService/getDeviceId >/tmp/gpid.txt
+    sh /lib/rdk/getDeviceId.sh >/tmp/gpid.txt
     output=`awk -F',' </tmp/gpid.txt '{ for (i=1; i<=NF; i++) print $i}'| grep partnerId | cut -d ":" -f2 | tr -d " " |sed -e 's/[{,},/"]//g'`
     partnerName=`echo "$output" | tr '[A-Z]' '[a-z]'`
 	
@@ -84,7 +84,7 @@ getPartnerId()
 getExperience()
 {
     # Check for the Experience
-    curl -s -d '' -X POST http://127.0.0.1:50050/authService/getExperience >/tmp/gpid.txt
+    curl -H "Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '"' -f 4`" --header "Content-Type: application/json" -d '{"jsonrpc":"2.0", "id":3, "method":"org.rdk.AuthService.getExperience", "params":{}}' http://127.0.0.1:9998/jsonrpc | cut -d ":" -f4-5 | sed 's/,.*/}/' >/tmp/gpid.txt
     experience=`awk -F',' </tmp/gpid.txt '{ for (i=1; i<=NF; i++) print $i}'| grep experience | cut -d ":" -f2 | tr -d " " |sed -e 's/[{,},/"]//g'`
     if [ "$experience" != "" ]; then
        echo "$experience"
