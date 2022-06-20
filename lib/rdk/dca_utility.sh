@@ -634,10 +634,10 @@ if [ -f $SORTED_PATTERN_CONF_FILE ]; then
 
  
         if $singleEntry ; then
-            outputJson="$outputJson{\"mac\":\"$estbMac\"},{\"StbIp\":\"$estbIp\"},{\"receiverId\":\"$receiverId\"},{\"PartnerId\":\"$partnerId\"},{\"AccountId\":\"$accountId\"},{\"Experience\":\"$experience\"},{\"Version\":\"$firmwareVersion\"},{\"Time\":\"$cur_time\"}"
+            outputJson="$outputJson{\"Profile\":\"RDKV\"},{\"mac\":\"$estbMac\"},{\"StbIp\":\"$estbIp\"},{\"receiverId\":\"$receiverId\"},{\"PartnerId\":\"$partnerId\"},{\"AccountId\":\"$accountId\"},{\"Experience\":\"$experience\"},{\"Version\":\"$firmwareVersion\"},{\"Time\":\"$cur_time\"}"
             singleEntry=false
         else
-            outputJson="$outputJson,{\"mac\":\"$estbMac\"},{\"StbIp\":\"$estbIp\"},{\"receiverId\":\"$receiverId\"},{\"PartnerId\":\"$partnerId\"},{\"AccountId\":\"$accountId\"},{\"Experience\":\"$experience\"},{\"Version\":\"$firmwareVersion\"},{\"Time\":\"$cur_time\"}"
+            outputJson="$outputJson,{\"Profile\":\"RDKV\"},{\"mac\":\"$estbMac\"},{\"StbIp\":\"$estbIp\"},{\"receiverId\":\"$receiverId\"},{\"PartnerId\":\"$partnerId\"},{\"AccountId\":\"$accountId\"},{\"Experience\":\"$experience\"},{\"Version\":\"$firmwareVersion\"},{\"Time\":\"$cur_time\"}"
         fi
 
         if [ -f $TELEMETRY_PREVIOUS_LOG ]; then
