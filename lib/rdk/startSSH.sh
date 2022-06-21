@@ -30,10 +30,22 @@ if [ -f /etc/mount-utils/getConfigFile.sh ];then
       mkdir -p /tmp/.dropbear
       . /etc/mount-utils/getConfigFile.sh
 fi
-DROPBEAR_PARAMS_1="/tmp/.dropbear/dropcfg1$$"
-DROPBEAR_PARAMS_2="/tmp/.dropbear/dropcfg2$$"
+DROPBEAR_PARAMS_1="/tmp/.dropbear/dropcfg1"
+DROPBEAR_PARAMS_2="/tmp/.dropbear/dropcfg2"
+
 getConfigFile $DROPBEAR_PARAMS_1
+
+if [ ! -f "$DROPBEAR_PARAMS_1" ]; then
+	echo "Dropbear param 1: $DROPBEAR_PARAMS_1 generation failure"
+	exit 127
+fi
+
 getConfigFile $DROPBEAR_PARAMS_2
+
+if [ ! -f "$DROPBEAR_PARAMS_2" ]; then
+        echo "Dropbear param 2: $DROPBEAR_PARAMS_2 generation failure"
+        exit 127
+fi
 
 WAREHOUSE_ENV="$RAMDISK_PATH/warehouse_mode_active"
 if [ -f /tmp/SSH.pid ]
