@@ -298,7 +298,7 @@ reduceFolderSize()
 # Execution Steps for DISK cleanup
 command=`which lsof`
 if [ "$command" ];then
-     lsof | grep "logs.*\(deleted\)" > /tmp/.lsof_ouput
+     lsof +L1 | grep "logs.*\(deleted\)" > /tmp/.lsof_ouput
 else
      echo "Missing the binary lsof" >> /tmp/disk_cleanup.log
 fi
@@ -308,13 +308,10 @@ if [ "$DEVICE_TYPE" != "XHC1" ]; then
     if [ -s /tmp/.lsof_ouput ];then
         echo "We have open FDs even after deleting the files: `cat /tmp/.lsof_ouput`" >> /tmp/disk_cleanup.log
         while read line; do
-            # Below condition ignores lines with TID column since cleaning up parent PIDs is enough
-            if [ `echo $line | awk '{print NF}'` -eq 10 ]; then
-                pid=`echo $line | awk '{print $2}'`
-                openFD=`echo $line | awk '{print $4}' | tr -cd [:digit:]`
-                echo /proc/$pid/fd/$openFD >> /tmp/disk_cleanup.log
-                :> /proc/$pid/fd/$openFD
-            fi
+            pid=`echo $line | awk '{print $2}'`
+            openFD=`echo $line | awk '{print $4}' | tr -cd [:digit:]`
+            echo /proc/$pid/fd/$openFD >> /tmp/disk_cleanup.log
+            :> /proc/$pid/fd/$openFD
         done < /tmp/.lsof_ouput
         echo "Memory After Closed FD cleanup: `df -kh /opt`" >> /tmp/disk_cleanup.log
     fi
