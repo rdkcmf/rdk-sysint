@@ -250,18 +250,20 @@ if [ ! -f $PERSISTENT_PATH/.lightsleepKillSwitchEnable ]; then
       fi
 fi
 
-if [ "$DEVICE_NAME" = "XI6" ];then
-    # Get eMMC Health report
-    if [ -f /lib/rdk/emmc_health_diag.sh ]; then
-        sh /lib/rdk/emmc_health_diag.sh "reboot"
-        rebootLog "Updated eMMC Health report"
-    fi
-
-    # See if we need to Upgrade the eMMC FW
-    if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
-        rebootLog "Upgrade eMMC FW if required"
-        sh /lib/rdk/eMMC_Upgrade.sh
-    fi
+if [ "$DEVICE_NAME" = "XI6"  ] || [ "$DEVICE_NAME" = "XiOne"  ] || [ "$DEVICE_NAME" = "XiOne-SCB" ];then
+   
+   if [ "$DEVICE_NAME" = "XI6"  ];then 
+    	# Get eMMC Health report
+    	if [ -f /lib/rdk/emmc_health_diag.sh ]; then
+             sh /lib/rdk/emmc_health_diag.sh "reboot"
+    	     rebootLog "Updated eMMC Health report"
+    	fi
+   fi
+   # See if we need to Upgrade the eMMC FW
+   if [ -f /lib/rdk/eMMC_Upgrade.sh ]; then
+       	rebootLog "Upgrade eMMC FW if required"
+       	sh /lib/rdk/eMMC_Upgrade.sh
+   fi
 fi
 
 if [ -f /lib/rdk/aps4_reset.sh ]; then
