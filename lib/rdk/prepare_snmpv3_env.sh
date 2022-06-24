@@ -38,11 +38,16 @@ echo_t() {
     echo "$@" >> $SNMPDCONF
 }
 
+echo_l() {
+    echo "$(date +'%Y-%m-%d:%H:%M:%S:%6N'):RSNMP $@" >> $LOG_PATH/snmpd.log
+}
+
 Extractpkcs12()
 {
      mkdir -p /tmp/.snmp/tls/certs
      mkdir -p /tmp/.snmp/tls/support
 
+     RET=0
      if [ -f $CONFIG_FILE ]; then
          $CONFIG_FILE $CFG_IN
          if [ -f $CFG_IN ]; then
@@ -53,11 +58,14 @@ Extractpkcs12()
              chmod 644 $XPKIEXTRACTLC
              rm -f $CFG_IN
          else
-             echo "$CFG_IN not available"
+             echo_l "$CFG_IN not available"
+             RET=1
          fi
      else
-         echo "No $CONFIG_FILE to fetch $CFG_IN"
+         echo_l "No $CONFIG_FILE to fetch $CFG_IN"
+         RET=1
      fi
+     return $RET
 }
 
 SnmpCertCheckandConfig()
@@ -90,9 +98,21 @@ SnmpCertCheckandConfig()
 }
 
 if [ -d /etc/snmpv3/certs ]; then
+     #Some device having this persistent storage, if we dont dont remove
+     #every boot snmpd will pick these old certs and creates handshake tls errors
+     if [ -d "/var/net-snmp" ]; then
+        rm -rf /var/net-snmp/*
+     fi
      mkdir -p /tmp/.snmp/tls/private
-     #Extract leaf cert from pkcs12 format
-     Extractpkcs12
+     #Extract leaf cert from pkcs12 format, introducing retry logic incase of initial attempt fails
+     total=5
+     for try in $(seq 1 $total); do
+        echo_l "Extract xpki Attempt: $try"
+        Extractpkcs12
+        ret=$?
+        if [ $ret -eq 0 ]; then break; fi
+        sleep 6
+     done
 
      #update snmpd_v3.conf based on expiry of leaf certificates to make sure that agent never sends expired certs to managers
      SnmpCertCheckandConfig
