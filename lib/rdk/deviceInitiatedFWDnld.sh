@@ -144,6 +144,13 @@ FWDL_LOG_FILE="$LOG_PATH/swupdate.log"
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
 
+# server types that can be sent to rdkvfwupgrader
+HTTP_SSR_DIRECT="0"
+HTTP_SSR_CODEBIG="1"
+HTTP_XCONF_DIRECT="2"
+HTTP_XCONF_CODEBIG="3"
+
+
 if [ "$DEVICE_TYPE" = "broadband" ]; then
     dycredpath="/nvram/lxy"
 else
@@ -2090,31 +2097,36 @@ checkForUpgrades ()
                         fi
                     fi
                 fi
-		swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
-		if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
-		    swupdateLog "Starting C daemon rdkvfwupgrader"
+    		    swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
+    		    if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
+    		        swupdateLog "Starting C daemon rdkvfwupgrader"
                     protocol=2
-		    rdkv_fw_path="$DIFW_PATH/$cloudFWFile"
-		    imageHTTPURL="$cloudFWLocation/$cloudFWFile"
-		    swupdateLog "IMAGE URL= $imageHTTPURL"
-		    echo "$imageHTTPURL" > $DnldURLvalue
-		    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
-		    if [ -f /usr/bin/rdkvfwupgrader ]; then
-		        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto" "pci"
-			pci_upgrade_status=$?
-			if [ $pci_upgrade_status -eq 1 ]; then
+                    rdkv_fw_path="$DIFW_PATH/$cloudFWFile"
+                    imageHTTPURL="$cloudFWLocation/$cloudFWFile"
+                    swupdateLog "IMAGE URL= $imageHTTPURL"
+                    echo "$imageHTTPURL" > $DnldURLvalue
+                    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
+                    if [ -f /usr/bin/rdkvfwupgrader ]; then
+                        if [ $UseCodebig -eq 0 ]; then
+                            SERVER_TYPE=$HTTP_SSR_DIRECT
+                        else
+                            SERVER_TYPE=$HTTP_SSR_CODEBIG
+                        fi
+                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$SERVER_TYPE" "$cloudProto" "pci"
+                        pci_upgrade_status=$?
+                        if [ $pci_upgrade_status -eq 1 ]; then
                             exit 0
-		        fi
+                        fi
                         http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
                         if [ $pci_upgrade_status -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
                             invokeImageFlasher $cloudFWLocation $cloudFWFile $rebootFlag $protocol
                             pci_upgrade_status=$?
-		        else
-			    swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
-			    triggerPCIUpgrade
-			    pci_upgrade_status=$?
+                        else
+                            swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
+                            triggerPCIUpgrade
+                            pci_upgrade_status=$?
                         fi
- 
+             
                         swupdateLog "upgrade method returned $pci_upgrade_status"
                         if [ $pci_upgrade_status != 0 ] ; then
                             if [ -f /lib/rdk/logMilestone.sh ]; then
@@ -2122,23 +2134,23 @@ checkForUpgrades ()
                             fi
                             swupdateLog "doCDL failed" 
                             ret=1
-                       else
-                           if [ -f /lib/rdk/logMilestone.sh ]; then
-                               sh /lib/rdk/logMilestone.sh "FWDNLD_COMPLETED"
-                           fi
-                           swupdateLog "doCDL success."
-                           ret=0
-                       fi
-		    else
-		        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
-			triggerPCIUpgrade
-			pci_upgrade_status=$?
-		    fi
-	        else
-		    swupdateLog "Script based download fw rfc status=$RDKVFW_UPGRADER"
+                        else
+                            if [ -f /lib/rdk/logMilestone.sh ]; then
+                                sh /lib/rdk/logMilestone.sh "FWDNLD_COMPLETED"
+                            fi
+                            swupdateLog "doCDL success."
+                            ret=0
+                        fi
+                    else
+                        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+                        triggerPCIUpgrade
+                        pci_upgrade_status=$?
+                    fi
+                else
+    		        swupdateLog "Script based download fw rfc status=$RDKVFW_UPGRADER"
                     triggerPCIUpgrade
                     pci_upgrade_status=$?
-	        fi
+    	        fi
             fi
         fi
     fi
@@ -2174,12 +2186,17 @@ checkForUpgrades ()
                     swupdateLog "IMAGE URL= $imageHTTPURL"
                     swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
                     if [ -f /usr/bin/rdkvfwupgrader ]; then
-                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto" "pdri"
+                        if [ $UseCodebig -eq 0 ]; then
+                            SERVER_TYPE=$HTTP_SSR_DIRECT
+                        else
+                            SERVER_TYPE=$HTTP_SSR_CODEBIG
+                        fi
+                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$SERVER_TYPE" "$cloudProto" "pdri"
                         pdri_upgrade_status=$?
                         if [ $pdri_upgrade_status -eq 1 ]; then
                             exit 0
                         fi
-		        rebootFlag=1
+                        rebootFlag=1
                         if [ "$cloudImmediateRebootFlag" = "false" ]; then
                             rebootFlag=0
                         fi
@@ -2748,10 +2765,10 @@ sendXCONFRequest()
 
 sendJsonRequestToCloud()
 {
-    HTTP_HEADERS='Content-Type: application/json'
     resp=0
     FILENAME=$1
     JSONSTR=""
+    SCRIPTEXEC=1
     createJsonString
     swupdateLog "JSONSTR: $JSONSTR"
     runtime=`date -u +%F' '%T`    
@@ -2768,8 +2785,39 @@ sendJsonRequestToCloud()
 
     updateFWDownloadStatus "" "" "" "" "" "" "$runtime" "Requesting" "$DelayDownloadXconf"
     eventManager $FirmwareStateEvent $FW_STATE_REQUESTING
-    sendXCONFRequest 
-    ret=$?    
+    XCONF_BIN="/usr/bin/rdkvfwupgrader"
+    if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
+        if [ -f $XCONF_BIN ]; then
+            http_code="000"
+            if [ $UseCodebig -eq 0 ]; then
+                SERVER_TYPE=$HTTP_XCONF_DIRECT
+            else
+                SERVER_TYPE=$HTTP_XCONF_CODEBIG
+            fi
+            $XCONF_BIN "$CLOUD_URL" "$DelayDownloadXconf" "0" "no" "$FILENAME" "false" "$SERVER_TYPE" "http" "pci" "$JSONSTR"
+            ret=$?
+            curl_result=$ret
+            if [ -f $FILENAME ]; then
+                SCRIPTEXEC=0
+                if [ -f $HTTP_CODE ]; then
+                    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                else
+                    swupdateLog "Missing HTTP Code file, $HTTP_CODE"
+                fi
+            else
+                swupdateLog "Missing $FILENAME, failover to script"
+            fi
+            swupdateLog "$XCONF_BIN returned $curl_result, http code = $http_code"
+        else
+            swupdateLog "Missing $XCONF_BIN, failover to script"
+        fi
+    fi
+
+    if [ $SCRIPTEXEC -eq 1 ]; then
+        swupdateLog "Executing sendXCONFRequest in script"
+        sendXCONFRequest 
+        ret=$?
+    fi
 
     resp=1
     if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
