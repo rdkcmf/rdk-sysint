@@ -45,7 +45,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.sky.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "sky-italia" : {
       "ntpHost" : "devicetime1.sky.com",
@@ -69,7 +70,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.sky.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
 
    "sky-uk" : {
@@ -94,7 +96,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
 
       "sky-uk-dev" : {
@@ -119,7 +122,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
       "xglobal" : {
          "ntpHost" : "time.xfinity.com",
@@ -143,7 +147,8 @@
          "scm-locations-refreshcount" : "-1",
          "partnerName" : "xglobal",
          "partnerProductName" : "xglobal",
-         "unlockable-feature:vidipath" : "true"
+         "unlockable-feature:vidipath" : "true",
+	 "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
       },
       "sky-deu" : {
       "ntpHost" : "devicetime1.sky.com",
@@ -163,7 +168,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "sky-deu-dev" : {
       "ntpHost" : "devicetime1.sky.com",
@@ -183,7 +189,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "sky-it" : {
       "ntpHost" : "devicetime1.sky.com",
@@ -203,7 +210,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.sky.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "sky-it-dev" : {
       "ntpHost" : "devicetime1.sky.com",
@@ -223,7 +231,8 @@
       "scm-locations-refreshcount" : "-1",
       "partnerName" : "Sky",
       "partnerProductName" : "SkyQ",
-      "unlockable-feature:vidipath" : "true"
+      "unlockable-feature:vidipath" : "true",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.sky.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "comcast" : {
       "ntpHost" : "time.xfinity.com",
@@ -247,7 +256,23 @@
       "130placementRequestTimeout" : "5000",
       "130placementRequestURL" : "https://5df09-linear.v.fwmrm.net/scte/request?nw=384777&csid=linear_endpoint_x1&resp=scte-130&prof=linear_mvpd",
       "130placementStatusNotificationURL" : "https://5df09-linear.v.fwmrm.net/scte/request?nw=384777&csid=linear_endpoint_x1&resp=scte-130&prof=linear_mvpd",
-      "EISSMessaging:Application:AdvertisementId" : "00:00:14:d5:00:00"
+      "EISSMessaging:Application:AdvertisementId" : "00:00:14:d5:00:00",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl",
+      "override" : {
+        "ELTE11MWR" : {
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
+        }
+      },
+      "override" : {
+        "HSTP11MWR" : {
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
+        }
+      },
+      "override" : {
+        "HSTP11MWRFX50" : {
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://secure.ssr.coast.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
+        }
+      }
    },
    "cox" : {
       "ntpHost" : "cpentp.services.cox.net",
@@ -271,7 +296,8 @@
       "scm-locations-refreshperiod" : "",
       "scm-locations-refreshcount" : "",
       "partnerName" : "Cox",
-      "partnerProductName" : "Contour"      
+      "partnerProductName" : "Contour",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "cox-hospitality" : {
       "ntpHost" : "cpentp.services.cox.net",
@@ -292,7 +318,8 @@
       "scm-locations-refreshperiod" : "",
       "scm-locations-refreshcount" : "",
       "partnerName" : "Cox",
-      "partnerProductName" : "Contour"      
+      "partnerProductName" : "Contour",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "cox-dev" : {
       "ntpHost" : "cpentp.services.coxlab.net",
@@ -316,7 +343,8 @@
       "scm-locations-refreshperiod" : "",
       "scm-locations-refreshcount" : "",
       "partnerName" : "Cox",
-      "partnerProductName" : "Contour"
+      "partnerProductName" : "Contour",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "cox-qa" : {
       "ntpHost" : "cpentp.services.cox.net",
@@ -340,7 +368,8 @@
       "scm-locations-refreshperiod" : "",
       "scm-locations-refreshcount" : "",
       "partnerName" : "Cox",
-      "partnerProductName" : "Contour"
+      "partnerProductName" : "Contour",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
   "MIT" : {
       "ntpHost" : "time.xfinity.com",
@@ -359,7 +388,8 @@
       "scm-locations-retrycyclecount" : "",
       "scm-locations-retrycycleperiod" : "",
       "scm-locations-refreshperiod" : "",
-      "scm-locations-refreshcount" : ""
+      "scm-locations-refreshcount" : "",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "shaw" : {
       "ntpHost" : "ntp.shawcable.net",
@@ -383,7 +413,8 @@
       "scm-locations-refreshcount" : "",
       "partnerName" : "Shaw",
       "partnerProductName" : "Shaw)",
-      "unlockable-feature:vidipath" : "false"
+      "unlockable-feature:vidipath" : "false",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "shaw-dev" : {
       "ntpHost" : "ntp.shawcable.net",
@@ -407,7 +438,8 @@
       "scm-locations-refreshcount" : "",
       "partnerName" : "Shaw",
       "partnerProductName" : "Shaw)",
-      "unlockable-feature:vidipath" : "false"
+      "unlockable-feature:vidipath" : "false",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "rogers" : {
       "ntpHost" : "pool.ntp.net.rogers.com",
@@ -429,7 +461,8 @@
       "scm-locations-retrycyclecount" : "",
       "scm-locations-retrycycleperiod" : "",
       "scm-locations-refreshperiod" : "",
-      "scm-locations-refreshcount" : ""
+      "scm-locations-refreshcount" : "",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "rogers-dev" : {
       "ntpHost" : "pool.ntp.net.rogers.com",
@@ -451,7 +484,8 @@
       "scm-locations-retrycyclecount" : "",
       "scm-locations-retrycycleperiod" : "",
       "scm-locations-refreshperiod" : "",
-      "scm-locations-refreshcount" : ""
+      "scm-locations-refreshcount" : "",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "videotron" : {
       "ntpHost" : "vl-vi-ntp001.ip.videotron.ca",
@@ -476,7 +510,8 @@
       "partnerName" : "Videotron",
       "partnerProductName" : "Videotron",
       "unlockable-feature:vidipath" : "false",
-      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN"
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "charter" : {
       "ntpHost" : "2.us.pool.ntp.org",
@@ -500,7 +535,8 @@
       "partnerName" : "charter",
       "partnerProductName" : "charter",
       "unlockable-feature:vidipath" : "false",
-      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN"
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    },
    "charter-dev" : {
       "ntpHost" : "2.us.pool.ntp.org",
@@ -524,6 +560,7 @@
       "partnerName" : "charter",
       "partnerProductName" : "charter",
       "unlockable-feature:vidipath" : "false",
-      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN"
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.NetflixESNprefix" : "CMCVTN",
+      "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CDLDM.CDLModuleUrl" : "https://ssr.ccp.xcal.tv/cgi-bin/x1-sign-redirect.pl?K=10&F=stb_cdl"
    }
 }
