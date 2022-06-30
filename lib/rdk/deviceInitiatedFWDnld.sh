@@ -2100,7 +2100,7 @@ checkForUpgrades ()
 		    echo "$imageHTTPURL" > $DnldURLvalue
 		    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
 		    if [ -f /usr/bin/rdkvfwupgrader ]; then
-		        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto"
+		        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto" "pci"
 			pci_upgrade_status=$?
 			if [ $pci_upgrade_status -eq 1 ]; then
                             exit 0
@@ -2162,8 +2162,61 @@ checkForUpgrades ()
                 swupdateLog "cloudPDRIfile is empty. Do Nothing"
             else
                 disableStatsUpdate="yes"
-                checkAndTriggerPDRIUpgrade
-                pdri_upgrade_status=$?
+		swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
+                if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
+                    swupdateLog "Starting C daemon rdkvfwupgrader for pdri"
+                    protocol=2
+		    if [[ "$cloudPDRIVersion" != *.bin ]]; then
+                        cloudPDRIVersion=$cloudPDRIVersion.bin
+                    fi
+                    rdkv_fw_path="$DIFW_PATH/$cloudPDRIVersion"
+                    imageHTTPURL="$cloudFWLocation/$cloudPDRIVersion"
+                    swupdateLog "IMAGE URL= $imageHTTPURL"
+                    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
+                    if [ -f /usr/bin/rdkvfwupgrader ]; then
+                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$UseCodebig" "$cloudProto" "pdri"
+                        pdri_upgrade_status=$?
+                        if [ $pdri_upgrade_status -eq 1 ]; then
+                            exit 0
+                        fi
+		        rebootFlag=1
+                        if [ "$cloudImmediateRebootFlag" = "false" ]; then
+                            rebootFlag=0
+                        fi
+                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
+                        if [ $pdri_upgrade_status -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
+                            invokeImageFlasher $cloudFWLocation $cloudPDRIVersion $rebootFlag $protocol "pdri"
+                            pdri_upgrade_status=$?
+                        #else
+                         #    Below code to be uncomment when focus regression testing complete
+                         #   swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
+                         #   checkAndTriggerPDRIUpgrade
+                         #   pdri_upgrade_status=$?
+                        fi
+
+                        swupdateLog "upgrade method returned $pdri_upgrade_status"
+                        if [ $pci_upgrade -eq 1 ] && [ $pdri_upgrade_status -ne 100 ]; then
+                            swupdateLog "Adding a sleep of 30secs to avoid the PCI PDRI race condition during flashing"
+                            sleep 30
+                        fi
+			if [ $pdri_upgrade_status -eq 0 ]; then
+                            swupdateLog "PDRI image upgrade successful."
+		        elif [ $pdri_upgrade_status -eq 100 ]; then
+			    swupdateLog "rdkvfwupgrader return=$pdri_upgrade_status Means PDRI upgrade not nedded."
+			    pdri_upgrade_status=0
+                        else
+                            swupdateLog "PDRI image upgrade failure !!!"
+                            t2CountNotify "SYST_ERR_PDRIUpg_failure"
+                        fi
+                    else
+                        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
+                        checkAndTriggerPDRIUpgrade
+                        pdri_upgrade_status=$?
+                    fi
+                else
+                    checkAndTriggerPDRIUpgrade
+                    pdri_upgrade_status=$?
+	        fi
                 disableStatsUpdate="no"
             fi
         fi    
