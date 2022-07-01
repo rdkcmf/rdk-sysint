@@ -45,13 +45,33 @@ else
 fi
 
 # cleaning coredump backup area
-cleanup /opt/corefiles_back/ $CORE_FILE_SIZE
-cleanup /opt/secure/corefiles_back/ $CORE_FILE_SIZE
+if [ -d /opt/corefiles_back/ ]; then
+    cleanup /opt/corefiles_back/ $CORE_FILE_SIZE
+fi    
+if [ -d /opt/secure/corefiles_back/ ]; then
+    cleanup /opt/secure/corefiles_back/ $CORE_FILE_SIZE
+fi
+
 # cleaning coredump area
-cleanup /opt/corefiles/ $CORE_FILE_SIZE
-cleanup /var/lib/systemd/coredump/ $CORE_FILE_SIZE
-cleanup /opt/secure/corefiles/ $CORE_FILE_SIZE
+if [ -d /opt/corefiles/ ]; then
+    cleanup /opt/corefiles/ $CORE_FILE_SIZE
+fi
+
+if [ -d /var/lib/systemd/coredump/ ]; then
+    cleanup /var/lib/systemd/coredump/ $CORE_FILE_SIZE
+fi    
+
+if [ -d /opt/secure/corefiles/ ]; then
+    cleanup /opt/secure/corefiles/ $CORE_FILE_SIZE
+fi
+
 # cleaning minidump area
-cleanup /opt/minidumps/ 512000
-cleanup /opt/secure/minidumps/ 512000
+if [ -d /opt/minidumps/ ]; then
+    cleanup /opt/minidumps/ 512000
+fi
+
+if [ -d /opt/secure/minidumps/ ]; then
+    cleanup /opt/secure/minidumps/ 512000
+fi
+
 exit 0
