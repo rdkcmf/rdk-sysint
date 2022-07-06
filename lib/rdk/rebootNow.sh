@@ -25,6 +25,11 @@
 . /etc/device.properties
 . /etc/env_setup.sh
 
+# The reboot cmd is aliased to "reboot -f" in env_setup.sh. Remove force reboot as it causing HDD corruption.
+if [ -f /etc/os-release ];then
+    alias reboot='/sbin/reboot'
+fi
+
 if [ -f /lib/rdk/t2Shared_api.sh ]; then
     source /lib/rdk/t2Shared_api.sh
 fi
@@ -293,6 +298,9 @@ if [ -f /lib/rdk/dumpLogs.sh ] && [ "$SYSLOG_NG_ENABLED" != "true" ];then
         timeout  15 sh /lib/rdk/dumpLogs.sh
     fi
 fi
+
+#stop syslog-ng service
+/bin/systemctl --quiet is-active syslog-ng && /bin/systemctl stop syslog-ng
 
 rebootLog "Start the sync"
 sync
