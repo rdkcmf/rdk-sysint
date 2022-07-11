@@ -511,27 +511,6 @@ unsetStateRed()
    fi
 }
 
-# forceStateRed - forcing state red; 
-# To be used incase of regular software download fails when all tries are exhausted
-forceStateRed()
-{
-    isStateRedSupported
-    stateSupported=$?
-    if [ $stateSupported -eq 0 ]; then
-         return
-    fi
-
-    isInStateRed
-    stateRedflagset=$?
-    if [ $stateRedflagset -eq 1 ]; then
-        stateRedlog "forceStateRed: device state red recovery flag already set"
-    else
-        stateRedlog "forceStateRed: Forcing Setting State Red Recovery Flag"
-        rm -f $DIRECT_BLOCK_FILENAME
-        rm -f $CB_BLOCK_FILENAME
-        touch $stateRedFlag
-    fi
-}
 
 # checkAndEnterStateRed <curl return code> - enter state red on SSL related error code
 checkAndEnterStateRed()
@@ -2922,9 +2901,6 @@ do
                 eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_ERROR
             fi
             exit 1
-        else
-            stateRedlog "firmware download failed"
-            forceStateRed
         fi
 
         if [ "$http_code" == "404" ]; then
