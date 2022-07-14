@@ -701,6 +701,7 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $libledgerLogsBackup $destn
         moveFiles $opern $source $xw3systeminfoLogsBackup $destn
         moveFiles $opern $source $accessmanagerLogsBackup $destn
+        moveFiles $opern $source $bootUpLogsBackup $destn
      else
      	moveFiles $opern $source $mocaStatusLogsBackup $destn
         moveFiles $opern $source $mocaDriverLogsBackup $destn
