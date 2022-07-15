@@ -51,6 +51,8 @@ PacketLossLoggingInterval=300
 WifiReassociateInterval=360
 WifiResetIntervalForPacketLoss=720
 WifiResetIntervalForDriverIssue=120
+dnsFailures=0
+maxdnsFailures=3
 
 StoreTotmpFile()
 {
@@ -64,6 +66,7 @@ StoreTotmpFile()
     echo "IsWifiReassociated=$IsWifiReassociated" ;
     echo "IsWifiReset=$IsWifiReset" ;
     echo "WifiResetTime=$WifiResetTime" ;
+    echo "dnsFailures=$dnsFailures" ;
   } >> "$tmpFile"
 }
 
@@ -80,6 +83,7 @@ if [ ! -f "$tmpFile" ] ; then
   IsWifiReassociated=0
   IsWifiReset=0
   WifiResetTime=0
+  dnsFailures=0
   { echo "EthernetLogTimeStamp=$EthernetLogTimeStamp" ;
     echo "WifiLogTimeStamp=$WifiLogTimeStamp" ;
     echo "GatewayLogTimeStamp=$GatewayLogTimeStamp" ;
@@ -89,6 +93,7 @@ if [ ! -f "$tmpFile" ] ; then
     echo "IsWifiReassociated=$IsWifiReassociated" ;
     echo "IsWifiReset=$IsWifiReset" ;
     echo "WifiResetTime=$WifiResetTime" ;
+    echo "dnsFailures=$dnsFailures" ;
   } >> "$tmpFile"
 
 else
@@ -101,6 +106,7 @@ else
   IsWifiReassociated=$(grep "IsWifiReassociated" $tmpFile|awk -F  "=" '{print $2}')
   IsWifiReset=$(grep "IsWifiReset" $tmpFile|awk -F  "=" '{print $2}')
   WifiResetTime=$(grep "WifiResetTime" $tmpFile|awk -F  "=" '{print $2}')
+  dnsFailures=$(grep "dnsFailures" $tmpFile|awk -F  "=" '{print $2}')
 fi
 }
 
@@ -345,7 +351,26 @@ checkDnsFile()
   if [ -f "$dnsFile" ] ; then
     if [ $(tr -d ' \r\n\t' < $dnsFile | wc -c ) -eq 0 ] ; then
       echo "$(/bin/timestamp) DNS File($dnsFile) is empty" >> "$logsFile"
-      t2CountNotify "SYST_ERR_DNSFileEmpty"
+      t2CountNotify "SYST_ERR_DNSFileEmpty" 
+      gwIpv4=$(/sbin/ip -4 route | awk '/default/ { print $3 }' | head -n1 | awk '{print $1;}')
+      gwIpv6=$(/sbin/ip -6 route | awk '/default/ { print $3 }' | head -n1 | awk '{print $1;}')
+      if [ "$gwIpv4" != "" ] || [ "$gwIpv6" != "" ] ; then
+          dnsFailures=$((dnsFailures + 1))
+      else
+          dnsFailures=0
+      fi
+
+      if [ "$dnsFailures" -gt "$maxdnsFailures" ] ; then
+          echo "$(/bin/timestamp) Restarting udhcpc to recover" >> "$logsFile"
+          UDHCPC_PID_FILE="/tmp/udhcpc.$interface:0.pid"
+          UDHCPC_PID="$(cat "$UDHCPC_PID_FILE")"
+          if [ "x$UDHCPC_PID" != "x" ]; then
+              /bin/kill -9 "$UDHCPC_PID"
+              /sbin/udhcpc -b -o -i "$interface:0" -p /tmp/udhcpc."$interface:0".pid
+          fi
+      fi
+  else
+      dnsFailures=0
     fi
   else
     echo "$(/bin/timestamp) DNS File is not there $dnsFile" >> "$logsFile"
