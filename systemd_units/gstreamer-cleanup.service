@@ -31,6 +31,7 @@ Environment="PREV_CDLFILE=$(cat /opt/previous_flashed_file_name)"
 ExecStartPre=/bin/sh -c 'if [ -f /lib/rdk/logMilestone.sh ];then sh /lib/rdk/logMilestone.sh "GST_CLEANUP_START"; fi;'
 ExecStart=-/bin/sh -c 'if [[ ${CDLFILE} != *"${PREV_CDLFILE}"* ]]; then echo "Removing gstreamer registry on bootup after CDL"; rm /opt/.gstreamer/registry.bin;GST_REGISTRY_UPDATE=yes gst-inspect-1.0 >/dev/null 2>&1; elif [ ! -f /opt/.gstreamer/registry.bin ]; then echo "Gstreamer registry empty"; GST_REGISTRY_UPDATE=yes gst-inspect-1.0 >/dev/null 2>&1; else echo "gstreamer registry is not removed, previous reboot is not due to CDL"; fi'
 ExecStartPost=/bin/sh -c 'if [ -f /lib/rdk/logMilestone.sh ];then sh /lib/rdk/logMilestone.sh "GST_CLEANUP_COMPLETE"; fi;'
+ExecStop=/bin/sh -c 'FW_UPDATE_STATE=$(cat /opt/fwdnldstatus.txt | grep FwUpdateState | cut -d "|" -f2); echo "FW_UPDATE_STATE: $FW_UPDATE_STATE"; if [ "$FW_UPDATE_STATE" == "Preparing to reboot" ]; then  echo "Removing gstreamer registry after firmware update"; rm /opt/.gstreamer/registry.bin; fi;'
 
 [Install]
 WantedBy=multi-user.target
