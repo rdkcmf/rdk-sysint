@@ -277,6 +277,7 @@ if [ "$BLUETOOTH_ENABLED" = "true" ];then
     rebootLog "Shutting down the bluetooth services gracefully"
     /bin/systemctl --quiet is-active btrLeAppMgr && /bin/systemctl stop btrLeAppMgr
     /bin/systemctl --quiet is-active btmgr && /bin/systemctl stop btmgr
+    /bin/systemctl --quiet is-active sky-bluetoothrcu && /bin/systemctl stop sky-bluetoothrcu
     /bin/systemctl --quiet is-active bluetooth && /bin/systemctl stop bluetooth
     /bin/systemctl --quiet is-active bt-hciuart && /bin/systemctl stop bt-hciuart
     /bin/systemctl --quiet is-active btmac-preset && /bin/systemctl stop btmac-preset
