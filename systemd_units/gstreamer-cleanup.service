@@ -26,6 +26,7 @@ Requires=network-online.target
 
 [Service]
 Type=oneshot
+RemainAfterExit=Yes
 Environment="CDLFILE=$(cat /opt/cdl_flashed_file_name)"
 Environment="PREV_CDLFILE=$(cat /opt/previous_flashed_file_name)"
 ExecStartPre=/bin/sh -c 'if [ -f /lib/rdk/logMilestone.sh ];then sh /lib/rdk/logMilestone.sh "GST_CLEANUP_START"; fi;'
