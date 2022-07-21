@@ -19,6 +19,8 @@
 ##########################################################################
 temp_rdnssd_resolve_cache=/tmp/.resolv.dnsmasq.rdnssd.cache
 rdnssd_resolve_file=/tmp/resolv.dnsmasq.rdnssd
+temp_rdnssd_resolve_cache_sort=/tmp/.resolv.dnsmasq.rdnssd.cache_sort
+rdnssd_resolve_file_sort=/tmp/resolv.dnsmasq.rdnssd_sort
 
 if [ ! -f $rdnssd_resolve_file ]; then
     ##Nothing to do exit
@@ -26,20 +28,20 @@ if [ ! -f $rdnssd_resolve_file ]; then
 fi
 
 if [ -f "$temp_rdnssd_resolve_cache" ]; then
-    if cmp -s "$temp_rdnssd_resolve_cache" "$rdnssd_resolve_file"; then
+    #sort the cache file and newly updated dnsmasq.rdnssd files and then compare it to avoid the unnecessary dnsmasq restarts.
+    sort $temp_rdnssd_resolve_cache -o $temp_rdnssd_resolve_cache_sort
+    sort $rdnssd_resolve_file -o $rdnssd_resolve_file_sort
+    if cmp -s "$temp_rdnssd_resolve_cache_sort" "$rdnssd_resolve_file_sort"; then
         #Nothing to do exit 
         exit 0
-    else
-        #resolv.dnsmasq.rdnssd is updated 
-        #update the cache
-        cp $rdnssd_resolve_file $temp_rdnssd_resolve_cache
-        #Trigger the dnsmerge
-        /bin/sh /lib/rdk/dnsmerge.sh
     fi
-else
-    #First time execution
-    #update the cache file with current rdnssd resolve file
-    cp $rdnssd_resolve_file $temp_rdnssd_resolve_cache
-    #Trigger the dnsmerge
-    /bin/sh /lib/rdk/dnsmerge.sh
 fi
+
+#rdnssd resolve file is updated.
+#update the cache file with current rdnssd resolve file
+cp $rdnssd_resolve_file $temp_rdnssd_resolve_cache
+#clear the sorted tmp files
+rm -f $temp_rdnssd_resolve_cache_sort
+rm -f $rdnssd_resolve_file_sort
+#Trigger the dnsmerge
+/bin/sh /lib/rdk/dnsmerge.sh
