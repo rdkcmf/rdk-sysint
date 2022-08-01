@@ -143,20 +143,24 @@ dumpMemoryStats()
 
 dumpInfo()
 {
-   echo $(date -u +%Y/%m/%d-%H:%M:%S) "$1 crash and uploading the cores" >> $LOG_PATH/core_log.txt
-   echo $(date -u +%Y/%m/%d-%H:%M:%S) "corename = $corename" >> $LOG_PATH/core_log.txt
-   t2ValNotify "core_split" "$corename"
-   echo $(date -u +%Y/%m/%d-%H:%M:%S) "processing_corename = $processing_corename" >> $LOG_PATH/core_log.txt
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "process crashed = $1" >> $LOG_PATH/core_log.txt
    notifyCrashedMarker "$1"
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "signal causing dump = $2" >> $LOG_PATH/core_log.txt
    echo $(date -u +%Y/%m/%d-%H:%M:%S) "time of dump = $3" >> $LOG_PATH/core_log.txt
 }
 
+dumpCoreInfo()
+{
+   echo $(date -u +%Y/%m/%d-%H:%M:%S) "$process crash and uploading the cores" >> $LOG_PATH/core_log.txt
+   echo $(date -u +%Y/%m/%d-%H:%M:%S) "corename = $corename" >> $LOG_PATH/core_log.txt
+   t2ValNotify "core_split" "$corename"
+   echo $(date -u +%Y/%m/%d-%H:%M:%S) "processing_corename = $processing_corename" >> $LOG_PATH/core_log.txt
+}
+
 dumpFile()
 {
     if [ -f /tmp/coredump_mutex_release ];then rm /tmp/coredump_mutex_release ; fi
-    dumpInfo $process $signal $timestamp
+    dumpCoreInfo
     if [ "$HDD_ENABLED" = "false" ];then
         nice -n 19 gzip -f > $CORE_PATH/$processing_corename
         if [[ $? -ne 0 ]]; then
@@ -197,6 +201,7 @@ fi
 process=$1
 signal=$2
 timestamp=$3
+dumpInfo $process $signal $timestamp
 if [ "$HDD_ENABLED" = "false" ];then
      corename="$3_core.prog_$1.signal_$2.gz"
      # we have to have processing_corename that is not touched by uploadDumps.sh
@@ -353,6 +358,8 @@ if [ "$SKY_EPG_SUPPORT" = "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
         fi
     done
 fi
+
+echo $(date -u +%Y/%m/%d-%H:%M:%S) "$1 process is not listed to upload, we are not processing the core file" >> $LOG_PATH/core_log.txt
 
 exit 0
 
