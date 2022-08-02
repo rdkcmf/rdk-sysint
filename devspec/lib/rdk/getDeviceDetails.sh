@@ -107,6 +107,8 @@ getBluetoothMac()
 getRF4CEMac()
 {
     rf4ce_mac="00:00:00:00:00:00:00:00"
+
+    echo "$rf4ce_mac"
 }
 
 
