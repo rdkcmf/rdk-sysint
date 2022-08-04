@@ -90,7 +90,7 @@ setPreviousRebootInfo()
     echo "}" >> $PREVIOUS_REBOOT_INFO_FILE
 
     # Set Hard Power reset time with timestamp
-    if [ "$reason" != "KERNEL_PANIC" ] || [ ! -f "$PREVIOUS_HARD_REBOOT_INFO_FILE" ];then
+    if [ "$reason" == "HARD_POWER" ] || [ "$reason" == "POWER_ON_RESET" ] || [ "$reason" == "UNKNOWN_RESET" ] || [ ! -f "$PREVIOUS_HARD_REBOOT_INFO_FILE" ];then
         echo "{" > $PREVIOUS_HARD_REBOOT_INFO_FILE
         echo "\"lastHardPowerReset\":\"$timestamp\"" >> $PREVIOUS_HARD_REBOOT_INFO_FILE
         echo "}" >> $PREVIOUS_HARD_REBOOT_INFO_FILE
