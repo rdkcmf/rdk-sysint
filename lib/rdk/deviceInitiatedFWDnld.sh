@@ -149,7 +149,8 @@ HTTP_SSR_DIRECT="0"
 HTTP_SSR_CODEBIG="1"
 HTTP_XCONF_DIRECT="2"
 HTTP_XCONF_CODEBIG="3"
-
+# Below file is use for call updateSecurityStage function when image download and flash successful via c code
+UPDATESECSTAGEFILE="/tmp/rdkvfw_sec_stage"
 
 if [ "$DEVICE_TYPE" = "broadband" ]; then
     dycredpath="/nvram/lxy"
@@ -2076,60 +2077,8 @@ checkForUpgrades ()
                         fi
                     fi
                 fi
-    		    swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
-    		    if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
-    		        swupdateLog "Starting C daemon rdkvfwupgrader"
-                    protocol=2
-                    rdkv_fw_path="$DIFW_PATH/$cloudFWFile"
-                    imageHTTPURL="$cloudFWLocation/$cloudFWFile"
-                    swupdateLog "IMAGE URL= $imageHTTPURL"
-                    echo "$imageHTTPURL" > $DnldURLvalue
-                    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
-                    if [ -f /usr/bin/rdkvfwupgrader ]; then
-                        if [ $UseCodebig -eq 0 ]; then
-                            SERVER_TYPE=$HTTP_SSR_DIRECT
-                        else
-                            SERVER_TYPE=$HTTP_SSR_CODEBIG
-                        fi
-                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$SERVER_TYPE" "$cloudProto" "pci"
-                        pci_upgrade_status=$?
-                        if [ $pci_upgrade_status -eq 1 ]; then
-                            exit 0
-                        fi
-                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                        if [ $pci_upgrade_status -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
-                            invokeImageFlasher $cloudFWLocation $cloudFWFile $rebootFlag $protocol
-                            pci_upgrade_status=$?
-                        else
-                            swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
-                            triggerPCIUpgrade
-                            pci_upgrade_status=$?
-                        fi
-             
-                        swupdateLog "upgrade method returned $pci_upgrade_status"
-                        if [ $pci_upgrade_status != 0 ] ; then
-                            if [ -f /lib/rdk/logMilestone.sh ]; then
-                                sh /lib/rdk/logMilestone.sh "FWDNLD_FAILED"
-                            fi
-                            swupdateLog "doCDL failed" 
-                            ret=1
-                        else
-                            if [ -f /lib/rdk/logMilestone.sh ]; then
-                                sh /lib/rdk/logMilestone.sh "FWDNLD_COMPLETED"
-                            fi
-                            swupdateLog "doCDL success."
-                            ret=0
-                        fi
-                    else
-                        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
-                        triggerPCIUpgrade
-                        pci_upgrade_status=$?
-                    fi
-                else
-    		        swupdateLog "Script based download fw rfc status=$RDKVFW_UPGRADER"
-                    triggerPCIUpgrade
-                    pci_upgrade_status=$?
-    	        fi
+                triggerPCIUpgrade
+                pci_upgrade_status=$?
             fi
         fi
     fi
@@ -2153,66 +2102,8 @@ checkForUpgrades ()
                 swupdateLog "cloudPDRIfile is empty. Do Nothing"
             else
                 disableStatsUpdate="yes"
-		swupdateLog "rdkfwupgrader rfc status = $RDKVFW_UPGRADER"
-                if [ "x$RDKVFW_UPGRADER" = "xtrue" ] && [ "x$cloudProto" = "xhttp" ]; then
-                    swupdateLog "Starting C daemon rdkvfwupgrader for pdri"
-                    protocol=2
-		    if [[ "$cloudPDRIVersion" != *.bin ]]; then
-                        cloudPDRIVersion=$cloudPDRIVersion.bin
-                    fi
-                    rdkv_fw_path="$DIFW_PATH/$cloudPDRIVersion"
-                    imageHTTPURL="$cloudFWLocation/$cloudPDRIVersion"
-                    swupdateLog "IMAGE URL= $imageHTTPURL"
-                    swupdateLog "codebig=$UseCodebig ,disablestatus=$disableStatsUpdate, immedreboot=$cloudImmediateRebootFlag, proto=$cloudProto and delaydownload=$DelayDownloadXconf"
-                    if [ -f /usr/bin/rdkvfwupgrader ]; then
-                        if [ $UseCodebig -eq 0 ]; then
-                            SERVER_TYPE=$HTTP_SSR_DIRECT
-                        else
-                            SERVER_TYPE=$HTTP_SSR_CODEBIG
-                        fi
-                        /usr/bin/rdkvfwupgrader "$imageHTTPURL" "$DelayDownloadXconf" "$runtime" "$disableStatsUpdate" "$rdkv_fw_path" "$cloudImmediateRebootFlag" "$SERVER_TYPE" "$cloudProto" "pdri"
-                        pdri_upgrade_status=$?
-                        if [ $pdri_upgrade_status -eq 1 ]; then
-                            exit 0
-                        fi
-                        rebootFlag=1
-                        if [ "$cloudImmediateRebootFlag" = "false" ]; then
-                            rebootFlag=0
-                        fi
-                        http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                        if [ $pdri_upgrade_status -eq 0 ] && [ "$http_code" = "200" -o "$http_code" = "206" ]; then
-                            invokeImageFlasher $cloudFWLocation $cloudPDRIVersion $rebootFlag $protocol "pdri"
-                            pdri_upgrade_status=$?
-                        #else
-                         #    Below code to be uncomment when focus regression testing complete
-                         #   swupdateLog "C based app rdkvfwupgrader fail. Go for fall back to script"
-                         #   checkAndTriggerPDRIUpgrade
-                         #   pdri_upgrade_status=$?
-                        fi
-
-                        swupdateLog "upgrade method returned $pdri_upgrade_status"
-                        if [ $pci_upgrade -eq 1 ] && [ $pdri_upgrade_status -ne 100 ]; then
-                            swupdateLog "Adding a sleep of 30secs to avoid the PCI PDRI race condition during flashing"
-                            sleep 30
-                        fi
-			if [ $pdri_upgrade_status -eq 0 ]; then
-                            swupdateLog "PDRI image upgrade successful."
-		        elif [ $pdri_upgrade_status -eq 100 ]; then
-			    swupdateLog "rdkvfwupgrader return=$pdri_upgrade_status Means PDRI upgrade not nedded."
-			    pdri_upgrade_status=0
-                        else
-                            swupdateLog "PDRI image upgrade failure !!!"
-                            t2CountNotify "SYST_ERR_PDRIUpg_failure"
-                        fi
-                    else
-                        swupdateLog "Missing the binary /usr/bin/rdkvfwupgrader proceed with script"
-                        checkAndTriggerPDRIUpgrade
-                        pdri_upgrade_status=$?
-                    fi
-                else
-                    checkAndTriggerPDRIUpgrade
-                    pdri_upgrade_status=$?
-	        fi
+                checkAndTriggerPDRIUpgrade
+                pdri_upgrade_status=$?
                 disableStatsUpdate="no"
             fi
         fi    
@@ -2410,6 +2301,12 @@ getPDRIVersion ()
     fi
 }
 
+# use this function to create parts of JSON string that binary doesn't
+createPartialJsonString()
+{
+    JSONSTR='additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&experience='$(getExperience)'&dlCertBundle='$instBundles''
+}
+
 createJsonString () 
 {
     #Check if PDRI is supported or not
@@ -2425,30 +2322,38 @@ createJsonString ()
         swupdateLog "Getting peripheral device firmware info"
         remoteInfo=$(getRemoteInfo)
     fi        
-    model=$(getModel)
-    if [ "$DEVICE_TYPE" == "mediaclient" ]; then
-        estbMac=$(getEstbMacAddress)
-    else
-        estbMac=$(getMacAddress)
-    fi    
 
-    partnerId=$(getPartnerId)
-    if [ "$partnerId" != "" ]; then    
-        ACTIVATE_FLAG='&activationInProgress=false'
-    else
-        ACTIVATE_FLAG='&activationInProgress=true'
-    fi
-    
     #Get already Installed Bundle list
     instBundles=$(getInstalledBundleList)
-     
-    #Included additionalFwVerInfo and partnerId
-    if [ "$(getModel)" = "RPI" ]; then
-        JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
-    else
-        JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
-    fi
 
+    if [ $SCRIPTEXEC -eq 0 ]; then
+        createPartialJsonString
+    else
+        swupdateLog "Executing createJsonString in script"
+
+        model=$(getModel)
+        if [ "$DEVICE_TYPE" == "mediaclient" ]; then
+            estbMac=$(getEstbMacAddress)
+        else
+            estbMac=$(getMacAddress)
+        fi    
+
+        partnerId=$(getPartnerId)
+        if [ "$partnerId" != "" ]; then    
+            ACTIVATE_FLAG='&activationInProgress=false'
+        else
+            ACTIVATE_FLAG='&activationInProgress=true'
+        fi
+    
+         
+        #Included additionalFwVerInfo and partnerId
+        if [ "$(getModel)" = "RPI" ]; then
+            JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
+        else
+            JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
+        fi
+    fi
+    
     isInStateRed
     stateRed=$?
     if [ "0x$stateRed" == "0x1" ]; then
@@ -2564,7 +2469,7 @@ sendXCONFCodebigRequest ()
 
     if [ "$request_type" != "0" ]; then
         swupdateLog "Trying to communicate with CodeBig server"
-        createJsonString
+        createJsonString                          # TODO: Check if can be removed, it should already be completed
         if [ "$BUILD_TYPE" != "prod" ]; then
             swupdateLog "JSONSTR: $JSONSTR"
         else
@@ -2760,8 +2665,6 @@ sendJsonRequestToCloud()
     FILENAME=$1
     JSONSTR=""
     SCRIPTEXEC=1
-    createJsonString
-    swupdateLog "JSONSTR: $JSONSTR"
     runtime=`date -u +%F' '%T`    
 
     ## CloudURL to be formed as follows:
@@ -2779,24 +2682,36 @@ sendJsonRequestToCloud()
     XCONF_BIN="/usr/bin/rdkvfwupgrader"
     if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
         if [ -f $XCONF_BIN ]; then
+            SCRIPTEXEC=0
+            createJsonString
+            swupdateLog "JSONSTR: $JSONSTR"
             http_code="000"
             if [ $UseCodebig -eq 0 ]; then
                 SERVER_TYPE=$HTTP_XCONF_DIRECT
             else
                 SERVER_TYPE=$HTTP_XCONF_CODEBIG
             fi
-            $XCONF_BIN "$CLOUD_URL" "$DelayDownloadXconf" "0" "no" "$FILENAME" "false" "$SERVER_TYPE" "http" "pci" "$JSONSTR"
+            $XCONF_BIN "$CLOUD_URL" "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR"
             ret=$?
+	        resp=$ret
             curl_result=$ret
-            if [ -f $FILENAME ]; then
-                SCRIPTEXEC=0
-                if [ -f $HTTP_CODE ]; then
-                    http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
-                else
-                    swupdateLog "Missing HTTP Code file, $HTTP_CODE"
-                fi
+	        if [ -f $UPDATESECSTAGEFILE ]; then
+                updateSecurityStage
+                rm -f $UPDATESECSTAGEFILE
+	        fi
+            if [ -f $HTTP_CODE ]; then
+                http_code=$(awk -F\" '{print $1}' $HTTP_CODE)
             else
-                swupdateLog "Missing $FILENAME, failover to script"
+                SCRIPTEXEC=1
+                swupdateLog "Missing HTTP Code file, $HTTP_CODE, failover to script"
+            fi
+	    if [ $curl_result -eq 1 ]; then
+                swupdateLog "sendJsonRequestToCloud rdkvfwupgrader return 1 so exiting"
+		exit 1
+	    fi
+            if [ $curl_result -ne 0 ]; then
+                SCRIPTEXEC=1
+                swupdateLog "sendJsonRequestToCloud: curl_result = $curl_result, failover to script"
             fi
             swupdateLog "$XCONF_BIN returned $curl_result, http code = $http_code"
         else
@@ -2805,26 +2720,27 @@ sendJsonRequestToCloud()
     fi
 
     if [ $SCRIPTEXEC -eq 1 ]; then
+        createJsonString
+        swupdateLog "JSONSTR: $JSONSTR"
         swupdateLog "Executing sendXCONFRequest in script"
         sendXCONFRequest 
         ret=$?
-    fi
-
-    resp=1
-    if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
-        swupdateLog "HTTPS request failed"
+        resp=1
+        if [ $ret -ne 0 ] || [ "$http_code" != "200" ]; then
+            swupdateLog "HTTPS request failed"
         
-        if [ $curl_result -eq 0 ]; then
-            updateFWDownloadStatus "" "Failure" "" "Invalid Request" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
-            eventManager $FirmwareStateEvent $FW_STATE_FAILED
-        fi
-    else
-        swupdateLog "HTTPS request success. Processing response.."
-        processJsonResponse $FILENAME
-        resp=$?
-        swupdateLog "processJsonResponse returned $resp"
-        if [ $resp -ne 0 ]; then
-            swupdateLog "processing response failed"    
+            if [ $curl_result -eq 0 ]; then
+                updateFWDownloadStatus "" "Failure" "" "Invalid Request" "" "" "$runtime" "Failed" "$DelayDownloadXconf"
+                eventManager $FirmwareStateEvent $FW_STATE_FAILED
+            fi
+        else
+            swupdateLog "HTTPS request success. Processing response.."
+            processJsonResponse $FILENAME
+            resp=$?
+            swupdateLog "processJsonResponse returned $resp"
+            if [ $resp -ne 0 ]; then
+                swupdateLog "processing response failed"    
+            fi
         fi
     fi
     return $resp    

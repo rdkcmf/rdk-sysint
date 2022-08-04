@@ -518,3 +518,16 @@ getPeripheralFirmwares()
     echo $previous_downloadversions > $DOWNLOADED_PERIPHERAL_VERSION
     return $ret
 }
+
+# This logic is use for to call peripheral download from rdkvfwupgrader
+if [ "x$1" == "xrdkvfwapptrigger" ]; then
+    clFWLoc=$2
+    peripheralFW=$3
+    usecodebig=$4
+    swupdateLog "Triggering Peripheral Download from rdkvfwupgrader $clFWLoc $peripheralFW $usecodebig"
+    getPeripheralFirmwares "$clFWLoc" "$peripheralFW" "$usecodebig"
+    upgrade_status=$?
+    swupdateLog "Triggering Peripheral Download from rdkvfwupgrader done status $upgrade_status "
+    exit $upgrade_status
+fi
+
