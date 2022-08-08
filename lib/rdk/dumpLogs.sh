@@ -103,8 +103,8 @@ else
 
     #For RPI-Hybrid devices
     if [ "$BOX_TYPE" = "pi" ]; then
-        daemonarr=(${daemonarr} netsrvmgr)
-        daemonlogarr=(${daemonlogarr} ${log_prefix}/netsrvmgr.log)
+        daemonarr=(${daemonarr} netsrvmgr nlmon)
+        daemonlogarr=(${daemonlogarr} ${log_prefix}/netsrvmgr.log  ${log_prefix}/nlmon.log)
     fi
 fi
 
