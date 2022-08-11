@@ -362,12 +362,18 @@ checkDnsFile()
 
       if [ "$dnsFailures" -gt "$maxdnsFailures" ] ; then
           echo "$(/bin/timestamp) Restarting udhcpc to recover" >> "$logsFile"
-          UDHCPC_PID_FILE="/tmp/udhcpc.$interface:0.pid"
-          UDHCPC_PID="$(cat "$UDHCPC_PID_FILE")"
-          if [ "x$UDHCPC_PID" != "x" ]; then
-              /bin/kill -9 "$UDHCPC_PID"
-              /sbin/udhcpc -b -o -i "$interface:0" -p /tmp/udhcpc."$interface:0".pid
-          fi
+          InterfaceList="$ethernet_interface $WIFI_INTERFACE"
+          for interface in $InterfaceList
+          do
+              UDHCPC_PID_FILE="/tmp/udhcpc.$interface:0.pid"
+              if [ -f "$UDHCPC_PID_FILE" ]; then
+                  UDHCPC_PID="$(cat "$UDHCPC_PID_FILE")"
+                  if [ "x$UDHCPC_PID" != "x" ]; then
+                      /bin/kill -9 "$UDHCPC_PID"
+                      /sbin/udhcpc -b -o -i "$interface:0" -p /tmp/udhcpc."$interface:0".pid
+                  fi
+              fi
+          done
       fi
   else
       dnsFailures=0
