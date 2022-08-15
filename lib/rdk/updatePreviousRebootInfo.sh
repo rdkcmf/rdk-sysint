@@ -305,6 +305,11 @@ setRebootReason()
             rebootReason="WATCHDOG_TIMER_RESET"
             otherReason="Reboot due to watch dog timer reset"
             ;;
+        KERNEL_PANIC_RESET)
+            rebootInitiatedBy="Kernel"
+            rebootReason="KERNEL_PANIC"
+            otherReason="Reboot due to Kernel Panic captured by Oops Dump"
+            ;;
         HARDWARE|POWER_ON_RESET)
             rebootInitiatedBy="PowerOn"
             rebootReason="POWER_ON_RESET"
@@ -461,10 +466,10 @@ hardPowerCheck()
             rebootLog "Hardware register reset reason received as $HWR_Reason"
             customReason="Hardware Register - $HWR_Reason"
             rebootReason="$HWR_Reason"
-        elif [ "$HWR_ReasonCount" -eq "2" ];then
+        elif [ "$HWR_ReasonCount" -ge "2" ];then
             #Ignore main_chip_reset and security_master_reset for hard power plug reboot if these strings are populated with power_on_reset.
             HWR_Reason=`echo $HWR_Info | awk -F ',' '{print $1}'`
-            HWR_ExtraReason=`echo $HWR_Info | awk -F ',' '{print $2}'`
+            HWR_ExtraReason=`echo $HWR_Info | awk -F',' '{ $1=""; print}'`
             rebootLog "Hardware register reset reason received as $HWR_Reason, $HWR_ExtraReason"
             customReason="Hardware Register - $HWR_Reason, $HWR_ExtraReason"
             rebootReason="$HWR_Reason"
@@ -536,24 +541,24 @@ else
     if [ "x$rebootInitiatedBy" == "x" ];then
         rebootLog "$REBOOT_INFO_LOG_FILE file not found and Value of rebootInitiatedBy=$rebootInitiatedBy is empty"
         rebootTime="$rebootTimestamp"
-        # Check for Kernel Panic Reboot
-        rebootLog "Checking for OOPS DUMP for Kernel Panic..."
-        oopsDumpCheck
-        kernel_crash=$?
-        if [ $kernel_crash -eq 1 ];then
-            rebootReason="KERNEL_PANIC"
-            rebootInitiatedBy="Kernel"
-            customReason="Hardware Register - KERNEL_PANIC"
-            otherReason="Reboot due to Kernel Panic captured by Oops Dump"
-        else
-            # Reading hard reset values from sysfs
-            if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
-                rebootLog "Using $AMLOGIC_SYSFS_FILE to fetch hard reboot reason for AMLOGIC TV platforms"
-                resetvalue=`cat $AMLOGIC_SYSFS_FILE`
-                setResetReason $resetvalue
-                customReason="Hardware Register - $customReason"
-                rebootReason="$resetReason"
-            elif [ "$SOC" = "BRCM" ]; then
+        # Reading hard reset values from sysfs
+        if [ "$DEVICE_NAME" = "PLATCO" ] || [ "$DEVICE_NAME" = "LLAMA" ];then
+            rebootLog "Using $AMLOGIC_SYSFS_FILE to fetch hard reboot reason for AMLOGIC TV platforms"
+            resetvalue=`cat $AMLOGIC_SYSFS_FILE`
+            setResetReason $resetvalue
+            customReason="Hardware Register - $customReason"
+            rebootReason="$resetReason"
+        elif [ "$SOC" = "BRCM" ]; then
+            # Check for Kernel Panic Reboot
+            rebootLog "Checking for OOPS DUMP for Kernel Panic..."
+            oopsDumpCheck
+            kernel_crash=$?
+            if [ $kernel_crash -eq 1 ];then
+                rebootReason="KERNEL_PANIC"
+                rebootInitiatedBy="Kernel"
+                customReason="Hardware Register - KERNEL_PANIC"
+                otherReason="Reboot due to Kernel Panic captured by Oops Dump"
+            else
                 # For RDKV BROADCOM platforms, we will be getting hard reboot reason from /proc/brcm/previous_reboot_reason files
                 rebootLog "Checking for HARD POWER Reboot Scenarios..."
                 rebootInitiatedBy="Hard Power Reset"
@@ -563,17 +568,6 @@ else
                 else
                     # Exit script by setting hard reboot reason as NULL
                     rebootLog "$BRCM_REBOOT_FILE file not found or Hard Power Reboot info is missing!!!"
-                    exitforNullrebootreason
-                fi
-            elif [ "$SOC" = "RTK" ] || [ "$RDK_PROFILE" = "TV" ]; then
-                #Reading the /proc/cmdline to check wakeup reason on Realtek & TV Platform.
-                if [ -f $RTK_REBOOT_FILE ] && [[ $(grep "wakeupreason" $RTK_REBOOT_FILE) ]]; then
-                    rebootLog "Checking Hard Power reason using "$RTK_REBOOT_FILE" file..."
-                    hardPowerCheck "$RTK_REBOOT_FILE"
-                    customReason="Hardware Register - $rebootReason"
-                else
-                    # Exit script by setting hard reboot reason as NULL
-                    rebootLog "$RTK_REBOOT_FILE file not found or Hard Power Reboot info is missing!!!"
                     exitforNullrebootreason
                 fi
             fi
