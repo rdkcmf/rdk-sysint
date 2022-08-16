@@ -2270,6 +2270,7 @@ processJsonResponse()
         peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "=" -f2 | sed s/\"//g | tr '\n' ','`    # peripheral firmwares
         dlCertBundle=$dlCertBundle
         cloudPDRIVersion=$additionalFwVerInfo
+        rdmCatalogueVersion=$rdmCatalogueVersion
      else
         swupdateLog "Using script based JSON processing"
 	OUTPUT1=`cat $FILENAME | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT`
@@ -2285,11 +2286,11 @@ processJsonResponse()
         peripheralFirmwares=`grep remCtrl $OUTPUT | cut -d "|" -f2 | tr '\n' ','`    # peripheral firmwares
         dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
         cloudPDRIVersion=`grep additionalFwVerInfo $OUTPUT | cut -d \| -f2 | tr -d ' '`
+        rdmCatalogueVersion=$($JSONQUERY -f $FILENAME -p rdmCatalogueVersion)
     fi
     
     ipv4cloudFWLocation=$cloudFWLocation
     cloudFWLocation=`echo $cloudFWLocation | sed "s/http:/https:/g"`
-    echo "$cloudFWLocation" > /tmp/.xconfssrdownloadurl
     ipv6cloudFWLocation=`echo $ipv6cloudFWLocation | sed "s/http:/https:/g"`
 
     swupdateLog "cloudFWFile: $cloudFWFile"
@@ -2302,6 +2303,7 @@ processJsonResponse()
     swupdateLog "peripheralFirmwares: $peripheralFirmwares"
     swupdateLog "dlCertBundle: $dlCertBundle"
     swupdateLog "cloudPDRIVersion: $cloudPDRIVersion"
+    swupdateLog "rdmCatalogueVersion: $rdmCatalogueVersion"
 
     # Check if xconf returned any bundles to update
     # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
@@ -2309,6 +2311,16 @@ processJsonResponse()
 	swupdateLog "Calling /etc/rdm/rdmBundleMgr.sh to process bundle update"
 	(sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$cloudFWLocation" >> $LOG_PATH/rdm_status.log 2>&1) &
         swupdateLog "/etc/rdm/rdmBundleMgr.sh started in background"
+    fi
+
+    # Check is xconf have RDM catalogue manifest version
+    if [ -n "$rdmCatalogueVersion" ]; then
+        swupdateLog "Updating RDM Catalogue version $rdmCatalogueVersion from XCONF in /tmp/.xconfRdmCatalogueVersion file"
+        echo "$rdmCatalogueVersion" > /tmp/.xconfRdmCatalogueVersion
+    fi
+
+    if [ -n "$cloudFWLocation" ]; then
+         echo "$cloudFWLocation" > /tmp/.xconfssrdownloadurl
     fi
 
     cloudfile_model=`echo $cloudFWFile | cut -d '_' -f1`
