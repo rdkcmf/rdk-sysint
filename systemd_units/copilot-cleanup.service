@@ -1,0 +1,16 @@
+#######################################
+# RDM Cleanup Service
+# Executes RDM Cleanup script
+#######################################
+
+[Unit]
+Description=Co-pilot RDM Cleanup
+After=local-fs.target nvram.service
+Before=apps-rdm.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/lib/rdk/copilot-cleanup.sh'
+
+[Install]
+WantedBy=multi-user.target
