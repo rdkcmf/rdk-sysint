@@ -404,7 +404,7 @@ fi
 
 logRotateFramework $cecLog $cecLogRotateCount $cecLogRotateSize
 if [ "$SOC" = "BRCM" ];then
-     logRotateFramework $nxSvrLog $nxSvrLogRotatCount $nxSvrLogRotatSize
+     logRotateFramework $nxSvrLog $nxSvrLogRotateCount $nxSvrLogRotateSize
 fi
 
 if [ "$SOC" = "AMLOGIC" ];then
