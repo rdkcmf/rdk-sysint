@@ -69,6 +69,10 @@ start_function() {
          echo "Missing /version.txt"
          ret=2
     fi
+    if [ -f /etc/skyversion.txt ]; then
+        cp /etc/skyversion.txt $LOG_PATH/skyversion.txt
+    fi
+
     touch $PERSISTENT_PATH/logFileBackup
     post_start $ret
 }

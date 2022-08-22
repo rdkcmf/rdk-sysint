@@ -168,6 +168,8 @@ fi
 
 
 cp /version.txt $LOG_PATH
+cp /etc/skyversion.txt ${LOG_PATH}/skyversion.txt
+
 backupLog "Send systemd notification ..."
 if [ -f /etc/os-release ];then
     /bin/systemd-notify --ready --status="Logs Backup Done..!"

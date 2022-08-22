@@ -296,6 +296,7 @@ coreUpload()
 
 RECEIVER="/mnt/nfs/env/Receiver"
 VERSION_FILE="version.txt"
+SKYVERSION_FILE="skyversion.txt"
 boxType=$BOX_TYPE
 modNum=$MODEL_NUM
 # Ensure modNum is not empty
@@ -447,11 +448,12 @@ do
 
         mv $f $dumpName
         cp "/"$VERSION_FILE .
+        cp "/etc/"$SKYVERSION_FILE .
 
         if [ "$DUMP_FLAG" == "1" ] ; then
-            nice -n 19 tar -zcvf $tgzFile $dumpName $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $VERSION_FILE $CORE_LOG 2>&1 | logStdout
+            nice -n 19 tar -zcvf $tgzFile $dumpName $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $VERSION_FILE $SKYVERSION_FILE $CORE_LOG 2>&1 | logStdout
             if [ $? -eq 0 ]; then
-                logMessage "Success Compressing the files, $tgzFile $dumpName $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $VERSION_FILE $CORE_LOG "
+                logMessage "Success Compressing the files, $tgzFile $dumpName $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $VERSION_FILE  $SKYVERSION_FILE $CORE_LOG "
             else
                 logMessage "Compression Failed ."
             fi
@@ -470,7 +472,7 @@ do
                 rm $APP_STATUS_LOG"_mpeos-main"
             fi
         else
-            files="$tgzFile $dumpName $VERSION_FILE $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $CORE_LOG"
+            files="$tgzFile $dumpName $VERSION_FILE $SKYVERSION_FILE $stbLogFile $ocapLogFile $messagesTxtFile $appStatusLogFile $CORE_LOG"
             if [ "$BUILD_TYPE" != "prod" ]; then
                 test -f $LOG_PATH/receiver.log && files="$files $LOG_PATH/receiver.log*"
                 test -f $LOG_PATH/thread.log && files="$files $LOG_PATH/thread.log"
@@ -506,6 +508,10 @@ do
         if [ -f $WORKING_DIR"/"$VERSION_FILE ]; then
             logMessage "Removing ${WORKING_DIR}/${VERSION_FILE}"
             rm $WORKING_DIR"/"$VERSION_FILE
+        fi
+        if [ -f $WORKING_DIR"/"$SKYSVERSION_FILE ]; then
+            logMessage "Removing ${WORKING_DIR}/${SKYVERSION_FILE}"
+            rm $WORKING_DIR"/"$SKYVERSION_FILE
         fi
    fi
 done

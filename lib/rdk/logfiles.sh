@@ -354,6 +354,7 @@ else
      if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
         skyMessagesLog="sky-messages.log"
         skyMessagesLogBackup="sky-messages.log.*"
+        skyVersionLogBackup="skyversion.txt.*"
      fi
      subttxrendappLog="subttxrend-app.log"
      subttxrendappLogBackup="subttxrend-app.log.*"
@@ -495,6 +496,11 @@ if [ "$HDD_ENABLED" = "false" ]; then
     logBAK3="bak3_*"
 fi
 
+if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
+    skyVersionLog="skyversion.txt"
+fi
+
+
 moveFile()
 {        
      if [[ -f $1 ]]; then mv $1 $2; fi
@@ -618,6 +624,7 @@ crashLogsBackup()
     moveFiles $opern $src app_status_backup.log_* $destn
     if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
        moveFiles $opern $src sky-messages.log_* $destn
+       moveFiles $opern $src sky-versions.log_* $destn
     fi
 }
 
@@ -844,6 +851,7 @@ backupAppBackupLogFiles()
 
      if [ "$SKY_EPG_SUPPORT" = "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
         moveFiles $opern $source $skyMessagesLogBackup $destn
+        moveFiles $opern $source $skyVersionLogBackup $destn
      fi
     moveFiles $opern $source $subttxrendappLogBackup $destn
 
@@ -1130,6 +1138,7 @@ backupSystemLogFiles()
      if [ -f $source/$bluezLog ] ; then $operation $source/$bluezLog $destn; fi
      if [ "$SKY_EPG_SUPPORT" == "true" ] || [ "$SKY_SERVICE_LOGGING" == "true" ]; then
         if [ -f $source/$skyMessagesLog ] ; then $operation $source/$skyMessagesLog $destn; fi
+        if [ -f $source/$skyVersionLog ] ; then $operation $source/$skyVersionLog $destn; fi
      fi
      if [ -f $source/$subttxrendappLog ] ; then $operation $source/$subttxrendappLog $destn; fi
 }
