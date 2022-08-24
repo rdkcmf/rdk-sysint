@@ -151,38 +151,47 @@ enableWebkitContainer()
   SAD_FIRMWARE_BUNDLE=/container/sad
 
   # Not currently enabling residentapp - see OTTX-18990
+  
+  # Check for input parameter
+  if [ $INPUT_PARAMETER -lt 1 ] || [[ $CALLSIGN == HtmlApp* ]]; then
+    if setupContainerBundle ${HTMLAPP_FIRMWARE_BUNDLE} "HtmlApp" "dobbyapp" "dobbyapp"; then
+      # Set permissions as necessary for this container
+      echo "`Timestamp` Fixing permissions for HtmlApp container" >> $LOGFILE
 
-  if setupContainerBundle ${HTMLAPP_FIRMWARE_BUNDLE} "HtmlApp" "dobbyapp" "dobbyapp"; then
-    # Set permissions as necessary for this container
-    echo "`Timestamp` Fixing permissions for HtmlApp container" >> $LOGFILE
-
-    # Set htmlapp-specific permissions
-    mkdir /run/HtmlApp/
-    chown -R dobbyapp:dobbyapp /run/HtmlApp
-  else
-    echo "`Timestamp` Failed to setup HtmlApp container" >> $LOGFILE
+      # Set htmlapp-specific permissions
+      mkdir /run/HtmlApp/
+      chown -R dobbyapp:dobbyapp /run/HtmlApp
+    else
+      echo "`Timestamp` Failed to setup HtmlApp container" >> $LOGFILE
+    fi
   fi
 
-  if setupContainerBundle ${LIGHTNINGAPP_FIRMWARE_BUNDLE} "LightningApp" "dobbyapp" "dobbyapp"; then
-    # Set permissions as necessary for this container
-    echo "`Timestamp` Fixing permissions for LightningApp container" >> $LOGFILE
+  # Check for input parameter
+  if [ $INPUT_PARAMETER -lt 1 ] || [[ $CALLSIGN == LightningApp* ]]; then
+    if setupContainerBundle ${LIGHTNINGAPP_FIRMWARE_BUNDLE} "LightningApp" "dobbyapp" "dobbyapp"; then
+      # Set permissions as necessary for this container
+      echo "`Timestamp` Fixing permissions for LightningApp container" >> $LOGFILE
 
-    # Set lightningapp-specific permissions
-    mkdir /run/LightningApp/
-    chown -R dobbyapp:dobbyapp /run/LightningApp
-  else
-    echo "`Timestamp` Failed to setup LightningApp container" >> $LOGFILE
+      # Set lightningapp-specific permissions
+      mkdir /run/LightningApp/
+      chown -R dobbyapp:dobbyapp /run/LightningApp
+    else
+      echo "`Timestamp` Failed to setup LightningApp container" >> $LOGFILE
+    fi
   fi
 
-  if setupContainerBundle ${SAD_FIRMWARE_BUNDLE} "SearchAndDiscoveryApp" "dobbyapp" "dobbyapp"; then
-    # Set permissions as necessary for this container
-    echo "`Timestamp` Fixing permissions for SearchAndDiscoveryApp container" >> $LOGFILE
+  # Check for input parameter
+  if [ $INPUT_PARAMETER -lt 1 ]; then
+    if setupContainerBundle ${SAD_FIRMWARE_BUNDLE} "SearchAndDiscoveryApp" "dobbyapp" "dobbyapp"; then
+      # Set permissions as necessary for this container
+      echo "`Timestamp` Fixing permissions for SearchAndDiscoveryApp container" >> $LOGFILE
 
-    # Set SaD-specific permissions
-    mkdir /run/SearchAndDiscoveryApp/
-    chown -R dobbyapp:dobbyapp /run/SearchAndDiscoveryApp
-  else
-    echo "`Timestamp` Failed to setup SearchAndDiscoveryApp container" >> $LOGFILE
+      # Set SaD-specific permissions
+      mkdir /run/SearchAndDiscoveryApp/
+      chown -R dobbyapp:dobbyapp /run/SearchAndDiscoveryApp
+    else
+      echo "`Timestamp` Failed to setup SearchAndDiscoveryApp container" >> $LOGFILE
+    fi
   fi
 }
 
@@ -191,33 +200,48 @@ enableWebkitContainer()
 
 LOGFILE=/opt/logs/container-setup.log
 
+CALLSIGN=$1
+INPUT_PARAMETER=$#
+
 # Netflix container mode
-netflixContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.Netflix.Enable)
-if [ -n "${netflixContainerEnabled}" ] && [ "${netflixContainerEnabled}" = "true" ]; then
-  echo "`Timestamp` Netflix running in container mode" >> $LOGFILE
-  setContainerPermissions
-  enableNetflixContainer
-else
-  echo "`Timestamp` Netflix not running in container mode" >> $LOGFILE
+
+# Check for input parameter
+if [ $INPUT_PARAMETER -lt 1 ] || [ $CALLSIGN = 'Netflix-0' ]; then
+  netflixContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.Netflix.Enable)
+  if [ -n "${netflixContainerEnabled}" ] && [ "${netflixContainerEnabled}" = "true" ]; then
+    echo "`Timestamp` Netflix running in container mode" >> $LOGFILE
+    setContainerPermissions
+    enableNetflixContainer
+  else
+    echo "`Timestamp` Netflix not running in container mode" >> $LOGFILE
+  fi
 fi
 
 # Cobalt container mode
-cobaltContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.Cobalt.Enable)
-if [ -n "${cobaltContainerEnabled}" ] && [ "${cobaltContainerEnabled}" = "true" ]; then
-  echo "`Timestamp` Cobalt running in container mode" >> $LOGFILE
-  setContainerPermissions
-  enableCobaltContainer
-else
-  echo "`Timestamp` Cobalt not running in container mode" >> $LOGFILE
+
+# Check for input parameter
+if [ $INPUT_PARAMETER -lt 1 ] || [ $CALLSIGN = 'Cobalt-0' ]; then
+  cobaltContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.Cobalt.Enable)
+  if [ -n "${cobaltContainerEnabled}" ] && [ "${cobaltContainerEnabled}" = "true" ]; then
+    echo "`Timestamp` Cobalt running in container mode" >> $LOGFILE
+    setContainerPermissions
+    enableCobaltContainer
+  else
+    echo "`Timestamp` Cobalt not running in container mode" >> $LOGFILE
+  fi
 fi
 
 # WPE Container mode
-wpeContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.WPE.Enable)
-if [ -n "${wpeContainerEnabled}" ] && [ "${wpeContainerEnabled}" = "true" ]; then
-  echo "`Timestamp` WPE running in container mode" >> $LOGFILE
-  setContainerPermissions
-  enableWebkitContainer
-else
-  echo "`Timestamp` WPE not running in container mode" >> $LOGFILE
+
+# Check for input parameter
+if [ $INPUT_PARAMETER -lt 1 ] || [[ $CALLSIGN == HtmlApp* ]] || [[ $CALLSIGN == LightningApp* ]]; then
+  wpeContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.WPE.Enable)
+  if [ -n "${wpeContainerEnabled}" ] && [ "${wpeContainerEnabled}" = "true" ]; then
+    echo "`Timestamp` WPE running in container mode" >> $LOGFILE
+    setContainerPermissions
+    enableWebkitContainer
+  else
+    echo "`Timestamp` WPE not running in container mode" >> $LOGFILE
+  fi
 fi
 
