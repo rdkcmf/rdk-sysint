@@ -305,6 +305,11 @@ setRebootReason()
             rebootReason="WATCHDOG_TIMER_RESET"
             otherReason="Reboot due to watch dog timer reset"
             ;;
+        KERNEL_PANIC_RESET)
+            rebootInitiatedBy="Kernel"
+            rebootReason="KERNEL_PANIC"
+            otherReason="Reboot due to Kernel Panic captured by Oops Dump"
+            ;;
         HARDWARE|POWER_ON_RESET)
             rebootInitiatedBy="PowerOn"
             rebootReason="POWER_ON_RESET"
@@ -461,10 +466,10 @@ hardPowerCheck()
             rebootLog "Hardware register reset reason received as $HWR_Reason"
             customReason="Hardware Register - $HWR_Reason"
             rebootReason="$HWR_Reason"
-        elif [ "$HWR_ReasonCount" -eq "2" ];then
+        elif [ "$HWR_ReasonCount" -ge "2" ];then
             #Ignore main_chip_reset and security_master_reset for hard power plug reboot if these strings are populated with power_on_reset.
             HWR_Reason=`echo $HWR_Info | awk -F ',' '{print $1}'`
-            HWR_ExtraReason=`echo $HWR_Info | awk -F ',' '{print $2}'`
+            HWR_ExtraReason=`echo $HWR_Info | awk -F',' '{ $1=""; print}'`
             rebootLog "Hardware register reset reason received as $HWR_Reason, $HWR_ExtraReason"
             customReason="Hardware Register - $HWR_Reason, $HWR_ExtraReason"
             rebootReason="$HWR_Reason"
