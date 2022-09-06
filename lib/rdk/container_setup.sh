@@ -95,11 +95,15 @@ setContainerPermissions()
   chown root:dobbyapp /opt/persistent/rdkservices/
   chmod 775 /opt/persistent/rdkservices/
 
+  mkdir -p /run/subttx/
+  chown -R root:dobbyapp /run/subttx/
+  chmod -R g+rwx /run/subttx
+  
   mkdir -p /opt/.gstreamer
   chown -R root:dobbyapp /opt/.gstreamer/
   chmod -R g+rwx /opt/.gstreamer
 
-  # ERM
+  # Essos Resource Manager (ERMGR) UDS socket
   chown root:vpu /run/resource
   chmod 775 /run/resource
 }
@@ -148,7 +152,6 @@ enableWebkitContainer()
 {
   HTMLAPP_FIRMWARE_BUNDLE=/container/htmlapp
   LIGHTNINGAPP_FIRMWARE_BUNDLE=/container/lightningapp
-  SAD_FIRMWARE_BUNDLE=/container/sad
 
   # Not currently enabling residentapp - see OTTX-18990
   
@@ -179,19 +182,21 @@ enableWebkitContainer()
       echo "`Timestamp` Failed to setup LightningApp container" >> $LOGFILE
     fi
   fi
+}
 
-  # Check for input parameter
-  if [ $INPUT_PARAMETER -lt 1 ]; then
-    if setupContainerBundle ${SAD_FIRMWARE_BUNDLE} "SearchAndDiscoveryApp" "dobbyapp" "dobbyapp"; then
-      # Set permissions as necessary for this container
-      echo "`Timestamp` Fixing permissions for SearchAndDiscoveryApp container" >> $LOGFILE
+enableSearchAndDiscoveryContainer()
+{
+  SAD_FIRMWARE_BUNDLE=/container/sad
 
-      # Set SaD-specific permissions
-      mkdir /run/SearchAndDiscoveryApp/
-      chown -R dobbyapp:dobbyapp /run/SearchAndDiscoveryApp
-    else
-      echo "`Timestamp` Failed to setup SearchAndDiscoveryApp container" >> $LOGFILE
-    fi
+  if setupContainerBundle ${SAD_FIRMWARE_BUNDLE} "SearchAndDiscoveryApp" "dobbyapp" "dobbyapp"; then
+    # Set permissions as necessary for this container
+    echo "`Timestamp` Fixing permissions for SearchAndDiscoveryApp container" >> $LOGFILE
+
+    # Set SaD-specific permissions
+    mkdir /run/SearchAndDiscoveryApp/
+    chown -R dobbyapp:dobbyapp /run/SearchAndDiscoveryApp
+  else
+    echo "`Timestamp` Failed to setup SearchAndDiscoveryApp container" >> $LOGFILE
   fi
 }
 
@@ -245,3 +250,16 @@ if [ $INPUT_PARAMETER -lt 1 ] || [[ $CALLSIGN == HtmlApp* ]] || [[ $CALLSIGN == 
   fi
 fi
 
+# SAD Container mode
+
+# Check for input parameter
+if [ $INPUT_PARAMETER -lt 1 ]; then
+  sadContainerEnabled=$(getRFCValueForTR181Param Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Dobby.SAD.Enable)
+  if [ -n "${sadContainerEnabled}" ] && [ "${sadContainerEnabled}" = "true" ]; then
+    echo "`Timestamp` SearchAndDiscovery running in container mode" >> $LOGFILE
+    setContainerPermissions
+    enableSearchAndDiscoveryContainer
+  else
+    echo "`Timestamp` SearchAndDiscovery not running in container mode" >> $LOGFILE
+  fi
+fi
