@@ -36,6 +36,8 @@ fi
 export PATH=$PATH:/usr/bin:/bin:/usr/local/bin:/sbin:/usr/local/lighttpd/sbin:/usr/local/sbin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Qt/lib:/usr/local/lib
  
+TriggerType=$1
+ON_DEMAND_LOG_UPLOAD=5
 
 #--------------------------------------------------------------------------------------------
 # Arguments 
@@ -93,29 +95,37 @@ checkXpkiMtlsBasedLogUpload()
      echo "MTLS preferred" >> $LOG_PATH/dcmscript.log
      checkXpkiMtlsBasedLogUpload
      if [ "$BUILD_TYPE" != "prod" ] && [ -f /opt/dcm.properties ]; then
-        dcmLog "opt override is present. Ignore settings from Bootstrap config"
+        echo "opt override is present. Ignore settings from Bootstrap config"  >> $LOG_PATH/dcmscript.log
      else
         Bootstrap_SSR_URL=$(tr181 -g Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.SsrUrl 2>&1 > /dev/null)
 
         if [ "$Bootstrap_SSR_URL" ]; then
             upload_httplink="$Bootstrap_SSR_URL/cgi-bin/S3.cgi"
-            dcmLog "Setting upload_httplink to $upload_httplink from Bootstrap config Bootstrap_SSR_URL:$Bootstrap_SSR_URL"
+            echo "Setting upload_httplink to $upload_httplink from Bootstrap config Bootstrap_SSR_URL:$Bootstrap_SSR_URL"  >> $LOG_PATH/dcmscript.log
         fi
      fi
      echo "`/bin/timestamp` upload_httplink is $upload_httplink" >> $LOG_PATH/dcmscript.log
  fi
 
-
+ uploadOnReboot=0
  uploadCheck=`cat /tmp/DCMSettings.conf | grep 'urn:settings:LogUploadSettings:UploadOnReboot' | cut -d '=' -f2 | sed 's/^"//' | sed 's/"$//'`
  if [ "$uploadCheck" == "true" ] && [ "$reboot_flag" == "0" ]; then
      # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
      echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'true', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
-     nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 1 $upload_protocol $upload_httplink &
+     uploadOnReboot=1    
  elif [ "$uploadCheck" == "false" ] && [ "$reboot_flag" == "0" ]; then
      # Execute /sysint/uploadSTBLogs.sh with arguments $tftp_server and 1
-     echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log
-     nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+     echo "`/bin/timestamp` The value of 'UploadOnReboot' is 'false', executing script uploadSTBLogs.sh" >> $LOG_PATH/dcmscript.log    
  else 
-     echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log
-	 nice  -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 0 $upload_protocol $upload_httplink &
+     echo "Nothing to do here for uploadCheck value = $uploadCheck" >> $LOG_PATH/dcmscript.log	 
  fi
+
+if [ ! -z "$TriggerType" ] && [ $TriggerType -eq $ON_DEMAND_LOG_UPLOAD ]; then
+    # Appp triggered log upload call waits for return status to determine SUCCESS or FAILURE
+    # Run with priority in foreground as UI will be waiting for further steps
+    echo "Application triggered on demand log upload" >> $LOG_PATH/dcmscript.log
+    /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 $uploadOnReboot $upload_protocol $upload_httplink $TriggerType 2> /dev/null 
+else
+    echo "Log upload triggered from regular execution" >> $LOG_PATH/dcmscript.log
+    nice -n 19 /bin/busybox sh $RDK_PATH/uploadSTBLogs.sh $tftp_server 1 1 $uploadOnReboot $upload_protocol $upload_httplink &
+fi

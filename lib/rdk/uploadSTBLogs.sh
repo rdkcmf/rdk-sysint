@@ -753,6 +753,7 @@ HttpLogUpload()
         uploadLog "S3 upload query Failed"
     fi
    echo $result
+
 }
 
 # Retain only the last packet capture
@@ -822,6 +823,70 @@ uploadDCMLogs()
 
     if [ -d $DCM_LOG_PATH ]; then
         rm -rf $DCM_LOG_PATH/
+    fi
+}
+
+#Function to Upload the logs when logondemand is true
+uploadLogOnDemand()
+{
+    uploadLog=$1
+    ret=`ls $LOG_PATH/*.txt`
+    if [ ! $ret ]; then
+        ret=`ls $LOG_PATH/*.log`
+        if [ ! $ret ]; then
+            if [ ! -f /etc/os-release ];then pidCleanup;fi
+            uploadLog "Log directory empty, skipping log upload"
+            if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                MAINT_LOGUPLOAD_COMPLETE=4
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_COMPLETE
+            fi
+            exit 0
+        fi
+    fi
+
+    TMP_PATH="/tmp/log_on_demand"
+    mkdir -p $TMP_PATH
+    cp $LOG_PATH/*.txt* $TMP_PATH
+    cp $LOG_PATH/*.log* $TMP_PATH
+    sleep 1
+    ls $TMP_PATH >> /opt/logs/dcmscript.log
+    TIMESTAMP=`date "+%m-%d-%y-%I-%M%p-logbackup"`
+    PERM_LOG_PATH="$LOG_PATH/$TIMESTAMP"
+    #RDKTV-9938: Moved the logbackup folder creation before move operation
+    echo $PERM_LOG_PATH >> $TELEMETRY_PATH/lastlog_path
+    cd $TMP_PATH
+    if [ -f $LOG_FILE ]; then
+        rm $LOG_FILE
+    fi
+
+    if [ "$uploadLog" == "true" ]; then
+        uploadLog "Uploading Logs with ondemand log upload triggers from service manager"
+        uploadLog "Logs will not be flushed or backed up to folder with timestamp"
+        tar -zcvf $LOG_FILE * >> $LOG_PATH/dcmscript.log  2>&1
+        sleep 2
+        if [ "$UploadProtocol" == "HTTP" ];then
+            # Call loguploader function and get return status
+            retval=$(HttpLogUpload $LOG_FILE)
+            if [ $retval -ne 0 ];then
+                uploadLog "HTTP log upload failed"
+                echo "Upload failed"
+                maintenance_error_flag=1
+            else
+                maintenance_error_flag=0
+                echo "Upload is successful"
+            fi
+        fi
+    else
+        uploadLog "Log uploads are disabled. Not Uploading Logs with DCM"
+    fi
+    cd $TMP_PATH
+    if [ -f $TMP_PATH/$LOG_FILE ]; then
+        rm -rf $TMP_PATH/$LOG_FILE
+    fi
+    
+    uploadLog "Deleting from Temp Logs  Folder $TMP_PATH"
+    if [ -d $TMP_PATH ]; then
+        rm -rf $TMP_PATH
     fi
 }
 
@@ -1003,11 +1068,21 @@ else
         if [ $FLAG -eq 1 ] ; then
             if [ $UploadOnReboot -eq 1 ]; then
                 uploadLog "UploadOnReboot set to true"
-                uploadLogOnReboot true
+                if [ $TriggerType -eq 5 ]; then
+                    uploadLog "TriggerType set to logonDemand"
+                    uploadLogOnDemand true
+                else
+                    uploadLogOnReboot true
+                fi
             else
                 uploadLog "UploadOnReboot set to false"
                 maintenance_error_flag=1
-                uploadLogOnReboot false
+                if [ $TriggerType -eq 5 ]; then
+                    uploadLog "TriggerType set to logonDemand"
+                    uploadLogOnDemand false
+                else
+                    uploadLogOnReboot false
+                fi
                 echo $PERM_LOG_PATH >> $DCM_UPLOAD_LIST
             fi
         else

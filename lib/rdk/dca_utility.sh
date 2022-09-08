@@ -29,12 +29,42 @@
 # initialize accountId
 . $RDK_PATH/getAccountId.sh
 
+T2_0_APP="telemetry2_0"
 # Input for random sleep time calculation
 sleep_time=$1
 # 0 indicates to store the information .
 # 1 indicates to send information onto cloud.
 # 2 indicates to store the information while deepsleep triggered.
+# 3 indicates to send T2 information onto cloud prior to (LOG_UPLOAD) - Marker seek values will be reset
+# 4 - None {Leaving void to make consistent with number for log upload on demand}
+# 5 - indicates T2 to generate a report and send immediately to cloud. Marker seek values will not be reset
+#     Interface is exected to be used by AS/UI prior to deep sleep or forced request/reboot from UI
 sendInformation=$2
+
+if [ "$sendInformation" -eq 3 ] || [ "$sendInformation" -eq 5 ]; then
+    T2_ENABLE="$(tr181 Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.Enable 2>&1 > /dev/null)"
+    if [ -z "$T2_ENABLE" ]; then
+        T2_ENABLE="`rbuscli getvalues Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.Enable | grep Value | awk '{print $3}'`"
+    fi
+    echo "RFC value for Telemetry 2.0 Enable is $T2_ENABLE ."
+    if [ "x$T2_ENABLE" = "xtrue" ] || [ "$T2_ENABLE" = "1" ]; then
+         t2Pid=`pidof $T2_0_APP`
+         echo "$t2Pid"
+         if [ ! -z  "$t2Pid" ]; then
+            if [ "$sendInformation" -eq 3 ]; then
+                echo "Send signal 10 to $T2_0_APP to trigger report genertaion prior to log upload with external triggers like service manager api"
+                kill -10 $t2Pid
+            fi
+            if [ "$sendInformation" -eq 5 ]; then
+                echo "Send signal 29 to $T2_0_APP to trigger on demand report generation with external triggers like service manager api"
+                kill -29 $t2Pid
+            fi
+         fi
+    else
+        echo "Telemetry 2.0 is not enabled. On demand report generation is not supported in legacy dca telemetry"
+    fi
+    exit 0;
+fi
 
 LOCKFILE=/tmp/`basename $0`.lock
 if [ -e ${LOCKFILE} ] && kill -0 `cat ${LOCKFILE}`; then
