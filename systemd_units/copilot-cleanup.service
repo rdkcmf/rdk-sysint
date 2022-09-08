@@ -5,8 +5,7 @@
 
 [Unit]
 Description=Co-pilot RDM Cleanup
-After=local-fs.target nvram.service
-Before=apps-rdm.service
+After=swupdate.service
 
 [Service]
 Type=oneshot
