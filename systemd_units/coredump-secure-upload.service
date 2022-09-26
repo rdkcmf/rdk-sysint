@@ -26,3 +26,4 @@ Requires=network-online.target
 
 [Service]
 ExecStart=/bin/sh -c '/lib/rdk/uploadDumps.sh  "" 1 secure'
+KillSignal=SIGKILL

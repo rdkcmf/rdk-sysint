@@ -25,3 +25,4 @@ Requires=network-online.target
 
 [Service]
 ExecStart=/bin/busybox sh -c '/lib/rdk/uploadDumps.sh  "" 0 '
+KillSignal=SIGKILL
