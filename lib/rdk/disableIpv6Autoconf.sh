@@ -22,16 +22,16 @@
 
 interface=$1
 
-if [ $LAN_INTERFACE ] && [ "$DEVICE_TYPE" = "mediaclient" ];then
-  if [ -f /proc/sys/net/ipv6/conf/$LAN_INTERFACE/disable_ipv6 ];then
-     echo 1 > /proc/sys/net/ipv6/conf/$LAN_INTERFACE/disable_ipv6
-  fi
-fi
-
-if [ "$1" == "$ETHERNET_INTERFACE" ] || [ "$1" == "$WIFI_INTERFACE" ];then
-    if [ "$DEVICE_TYPE" = "mediaclient" ];then
+if [ "$DEVICE_NAME" = "LLAMA" ];then
+    if [ "$1" == "$ETHERNET_INTERFACE" ] || [ "$1" == "$WIFI_INTERFACE" ];then
         if [ -f /proc/sys/net/ipv6/conf/$interface/disable_ipv6 ];then
             sysctl -w "net.ipv6.conf.$interface.disable_ipv6=1"
+        fi
+    fi
+else
+    if [ $LAN_INTERFACE ] && [ "$DEVICE_TYPE" = "mediaclient" ];then
+        if [ -f /proc/sys/net/ipv6/conf/$LAN_INTERFACE/disable_ipv6 ];then
+            echo 1 > /proc/sys/net/ipv6/conf/$LAN_INTERFACE/disable_ipv6
         fi
     fi
 fi
