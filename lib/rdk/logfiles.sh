@@ -485,6 +485,9 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 
         seToolLog="seTool.log"
         seToolLogsBackup="seTool.log.*"
+
+        webconfigLog="webconfig_log.txt"
+        webconfigLogsBackup="webconfig_log.txt.*"
 fi
 
 if [ "$HDD_ENABLED" = "false" ]; then
