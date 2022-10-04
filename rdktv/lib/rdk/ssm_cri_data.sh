@@ -31,7 +31,7 @@ touch $CRI_LOG
 
 getSSMdata()
 {
-    if [ -f "/opt/panel/ssm_data" ]; then
+    if [ -f "/tmp/ssm_data" ]; then
         log "/usr/bin/ssmdataparser" > $SSM_LOG
         /usr/bin/ssmdataparser >> $SSM_LOG
     else
