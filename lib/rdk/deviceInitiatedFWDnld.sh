@@ -147,8 +147,8 @@ STATUS_FILE="/opt/fwdnldstatus.txt"
 CURL_HEADERS=""
 
 # server types that can be sent to rdkvfwupgrader
-HTTP_SSR_DIRECT="0"
-HTTP_SSR_CODEBIG="1"
+# HTTP_SSR_DIRECT="0"
+# HTTP_SSR_CODEBIG="1"
 HTTP_XCONF_DIRECT="2"
 HTTP_XCONF_CODEBIG="3"
 # Below file is use for call updateSecurityStage function when image download and flash successful via c code
@@ -2711,13 +2711,14 @@ sendJsonRequestToCloud()
             SCRIPTEXEC=0
             createJsonString
             swupdateLog "JSONSTR: $JSONSTR"
+            swupdateLog "CLOUD_URL in script: $CLOUD_URL"
             http_code="000"
             if [ $UseCodebig -eq 0 ]; then
                 SERVER_TYPE=$HTTP_XCONF_DIRECT
             else
                 SERVER_TYPE=$HTTP_XCONF_CODEBIG
             fi
-            $XCONF_BIN "$CLOUD_URL" "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR"
+            $XCONF_BIN "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR"
             ret=$?
 	        resp=$ret
             curl_result=$ret
