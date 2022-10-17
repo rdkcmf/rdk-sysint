@@ -488,6 +488,9 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 
         webconfigLog="webconfig_log.txt"
         webconfigLogsBackup="webconfig_log.txt.*"
+
+        netmonitorLog="net_monitor_log.txt"
+        netmonitorLogsBackup="net_monitor_log.txt.*"
 fi
 
 if [ "$HDD_ENABLED" = "false" ]; then
@@ -712,6 +715,7 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $xw3systeminfoLogsBackup $destn
         moveFiles $opern $source $accessmanagerLogsBackup $destn
         moveFiles $opern $source $bootUpLogsBackup $destn
+        moveFiles $opern $source $netmonitorLogsBackup $destn
      else
      	moveFiles $opern $source $mocaStatusLogsBackup $destn
         moveFiles $opern $source $mocaDriverLogsBackup $destn
@@ -1129,6 +1133,7 @@ backupSystemLogFiles()
         if [ -f $source/$libledgerLog ] ; then $operation $source/$libledgerLog $destn; fi
         if [ -f $source/$xw3systeminfoLog ] ; then $operation $source/$xw3systeminfoLog $destn; fi
         if [ -f $source/$accessmanagerLog ] ; then $operation $source/$accessmanagerLog $destn; fi
+        if [ -f $source/$netmonitorLog ] ; then $operation $source/$netmonitorLog $destn; fi
      fi
     if [ "$WIFI_SUPPORT" == "true" ];then
         if [ -f $source/$wpaSupplicantLog ] ; then $operation $source/$wpaSupplicantLog $destn; fi

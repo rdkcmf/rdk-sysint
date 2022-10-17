@@ -313,6 +313,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
         logRotateFramework $seToolLog $logRotateGenericCount $seToolLogRotateSize
         logRotateFramework $bootUpLog $logRotateGenericCount $logRotateGenericSize
         logRotateFramework $webconfigLog $logRotateGenericCount $webconfigLogRotateSize
+        logRotateFramework $netmonitorLog $logRotateGenericCount $netmonitorLogRotateSize
 else
 	logRotateFramework $receiverLog $receiverLogRotatCount $receiverLogRotatSize
 	logRotateFramework $ttsLog $ttsLogRotatCount $ttsLogRotatSize
