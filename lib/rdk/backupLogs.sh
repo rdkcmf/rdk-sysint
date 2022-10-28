@@ -74,10 +74,13 @@ backupAndRecoverLogs()
     s_extn=$4
     d_extn=$5
 
+    backupLog "backupAndRecoverLogs:start source=$source, destn=$destn, operation=$operation"
+
     for file in $(find $source -mindepth 1 -maxdepth 1 -type f -name "$s_extn*");
     do
         $operation "$file" "$destn$d_extn${file/$source$s_extn/}"
     done
+    backupLog "backupAndRecoverLogs:end"
 }
 
 last_bootfile=`find $PREV_LOG_PATH -name last_reboot`
@@ -91,6 +94,7 @@ sysLogBAK2="bak2_messages.txt"
 sysLogBAK3="bak3_messages.txt"
 
 if [ "$HDD_ENABLED" = "false" ]; then
+    backupLog "HDD disabled device"
     BAK1="bak1_"
     BAK2="bak2_"
     BAK3="bak3_"
@@ -126,10 +130,13 @@ if [ "$HDD_ENABLED" = "false" ]; then
     fi
 
     # logs cleanup after backup
+    backupLog "Clean up $LOG_PATH"
     rm -rf $LOG_PATH/*.*
     find $LOG_PATH -name "*-*-*-*-*M-" -exec rm -rf {} \;
 else
+    backupLog "HDD enabled device"
     if [ ! `ls $PREV_LOG_PATH/$sysLog` ]; then
+       backupLog "Move logs from $LOG_PATH to $PREV_LOG_PATH"
        find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \) -exec mv '{}' $PREV_LOG_PATH \;
        if [ -f /etc/os-release ];then
            /bin/touch $PREV_LOG_PATH/last_reboot
@@ -141,6 +148,7 @@ else
        timestamp=`date "+%m-%d-%y-%I-%M-%S%p"`
        LogFilePathPerm="$PREV_LOG_PATH/logbackup-$timestamp"
        mkdir -p $LogFilePathPerm
+       backupLog "Move logs from $LOG_PATH to $LogFilePathPerm"
        find $LOG_PATH -maxdepth 1 -mindepth 1 \( -type l -o -type f \) \( -iname "*.txt*" -o -iname "*.log*" -o -name "bootlog" \)  -exec mv '{}' $LogFilePathPerm \;
        if [ -f /etc/os-release ];then
            /bin/touch "$LogFilePathPerm"/last_reboot 
@@ -162,6 +170,7 @@ fi
 cp /version.txt $LOG_PATH
 cp /etc/skyversion.txt ${LOG_PATH}/skyversion.txt
 
+backupLog "Send systemd notification ..."
 if [ -f /etc/os-release ];then
     /bin/systemd-notify --ready --status="Logs Backup Done..!"
 fi
