@@ -32,6 +32,7 @@ fi
 # Save reboot details in /opt/secure/reboot folder.
 REBOOT_INFO_DIR="/opt/secure/reboot"
 REBOOT_INFO_FILE="/opt/secure/reboot/reboot.info"
+LOG_FILE="/opt/logs/messages.txt"
 REBOOTINFO_LOGFILE="/opt/logs/rebootInfo.log"
 REBOOT_REASON_LOGFILE="/opt/logs/rebootreason.log"
 

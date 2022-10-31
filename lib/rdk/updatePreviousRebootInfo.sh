@@ -511,6 +511,22 @@ if [ ! -d $REBOOT_INFO_DIR ]; then
     mkdir $REBOOT_INFO_DIR
 fi
 
+if [ "$SOC" = "RTK" ] || [ "$RDK_PROFILE" = "TV" ]; then 
+    # Check to see if we already have the entry in the log
+    prevReboot=`grep "PreviousRebootReason" $KERNEL_LOG_FILE`
+    if [  -z "$prevReboot" ]; then
+        oopsDumpCheck
+        kernel_crash=$?
+        if [ $kernel_crash -eq 1 ];then
+            echo "PreviousRebootReason: kernel_panic!" >> $KERNEL_LOG_FILE
+        else
+            if [ -f /lib/rdk/get-reboot-reason.sh ]; then
+                sh /lib/rdk/get-reboot-reason.sh >> $KERNEL_LOG_FILE
+            fi    
+        fi
+    fi
+fi
+
 # Use current time to report the kernel crash and hard power reset
 rebootTimestamp=`date -u`
 
