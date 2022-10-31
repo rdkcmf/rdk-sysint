@@ -137,11 +137,16 @@ if [ ! -f /tmp/.log-upload.pid ]; then
 else
     pid=`cat /tmp/.log-upload.pid`
     if [ -d /proc/$pid ];then
-        if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-            MAINT_LOGUPLOAD_INPROGRESS=16
-            eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
+	processName=`cat /proc/$pid/cmdline`
+        uploadLog "proc entry process name: $processName and running process name `basename $0`"
+	if [ -z "${processName##*`basename $0`*}" ]; then
+            uploadLog "proc entry cmdline and process name matched."
+            if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                MAINT_LOGUPLOAD_INPROGRESS=16
+                eventSender "MaintenanceMGR" $MAINT_LOGUPLOAD_INPROGRESS
+            fi
+            exit 0
         fi
-        exit 0
     fi
 fi
 

@@ -70,14 +70,19 @@ eventSender()
 if [ -f /tmp/DIFD.pid ]; then
     pid=`cat /tmp/DIFD.pid`
     if [ -d /proc/$pid ]; then
-        swupdateLog "device initiated firmware download is already in progress.."
-        swupdateLog "So Exiting without triggering device initiated firmware download."
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-           MAINT_FWDOWNLOAD_INPROGRESS=15   
-           eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+	processName=`cat /proc/$pid/cmdline`
+        swupdateLog "proc entry process name: $processName"
+	if [ -z "${processName##*deviceInitiatedFWDnld.sh*}" ]; then
+            swupdateLog "[$0]: proc entry cmdline and process name matched."
+            swupdateLog "device initiated firmware download is already in progress.."
+            swupdateLog "So Exiting without triggering device initiated firmware download."
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+               MAINT_FWDOWNLOAD_INPROGRESS=15   
+               eventSender "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+            fi
+            #file lock /tmp/DIFD.pid will be cleared once first instance of deviceInitiatedFWDnld.sh is complete
+            exit 0
         fi
-        #file lock /tmp/DIFD.pid will be cleared once first instance of deviceInitiatedFWDnld.sh is complete
-        exit 0
     fi
 fi
 

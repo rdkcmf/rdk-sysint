@@ -404,12 +404,17 @@ fi
 if [ -f /tmp/DIFD.pid ]; then
     pid=`cat /tmp/DIFD.pid`
     if [ -d /proc/$pid ]; then
-        swupdateLog "Device initiated CDL is in progress.."
-        swupdateLog "Exiting without triggering device initiated firmware download."
-        if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-            eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+	processName=`cat /proc/$pid/cmdline`
+        swupdateLog "proc entry process name: $processName and running process name `basename $0`"
+	if [ -z "${processName##*`basename $0`*}" ]; then
+            swupdateLog "proc entry cmdline and process name matched."
+            swupdateLog "Device initiated CDL is in progress.."
+            swupdateLog "Exiting without triggering device initiated firmware download."
+            if [ "$DEVICE_TYPE" != "broadband" ] && [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                eventManager "MaintenanceMGR" $MAINT_FWDOWNLOAD_INPROGRESS
+            fi
+            exit 0
         fi
-        exit 0
     fi
 fi
 echo $$ > /tmp/DIFD.pid
