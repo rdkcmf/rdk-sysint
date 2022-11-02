@@ -38,6 +38,13 @@ RFC_ENABLE_SLAACSUPPORT_L=`echo $RFC_ENABLE_SLAACSUPPORT | tr '[:upper:]' '[:low
 if [ "x$RFC_ENABLE_SLAACSUPPORT_L" != "xfalse" ]; then
    echo "SLAAC support is enabled WITHOUT RFC Check"
    sysctl -w "net.ipv6.conf.$interface.accept_ra=1"
+
+   forwardingenabled=`sysctl -n "net.ipv6.conf.$interface.forwarding"`
+   if [ "$forwardingenabled" = "1" ]; then
+     # Flex2 specific
+     sysctl -w "net.ipv6.conf.$interface.accept_ra=2"
+   fi
+
    sysctl -w "net.ipv6.conf.$interface.autoconf=1"
    sysctl -w "net.ipv6.conf.$interface.accept_ra_defrtr=1"
    sysctl -w "net.ipv6.conf.$interface.use_tempaddr=2"

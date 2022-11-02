@@ -91,6 +91,8 @@ if [ "$DEVICE_TYPE" = "mediaclient" ]; then
                        checkForInterface "$WIFI_INTERFACE:0"
                  fi
                  if [ "$ipAddress" ]; then
+                      ipAddress+=" "
+                      ipAddress+=`ifconfig $WIFI_INTERFACE:0 |grep inet | grep -v inet6 | grep -v localhost | grep -v 127.0.0.1 |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
                       loop=0
                  fi
            fi
@@ -102,12 +104,16 @@ if [ "$DEVICE_TYPE" = "mediaclient" ]; then
                        checkForInterface "$Interface:0"
                  fi
                  if [ "$ipAddress" ]; then
+                      ipAddress+=" "
+                      ipAddress+=`ifconfig $Interface:0 |grep inet | grep -v inet6 | grep -v localhost | grep -v 127.0.0.1 |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
                       loop=0
                  fi
            fi
            if [ "$isMOCASSHEnable" = "true" ];then
                ipAddress+=" "
                ipAddress+=`ifconfig $MOCA_INTERFACE |grep 169.254.* |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
+               ipAddress+=" "
+               ipAddress+=`ifconfig $MOCA_INTERFACE:0 |grep inet | grep -v inet6 | grep -v localhost | grep -v 127.0.0.1 |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
            fi
            sleep 5
      done
