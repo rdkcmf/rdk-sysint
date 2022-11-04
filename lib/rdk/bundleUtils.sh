@@ -22,6 +22,10 @@ if [ -f /etc/device.properties ]; then
         source /etc/device.properties
 fi
 
+if [ -f /etc/rdm/rdmBundleUtils.sh ]; then
+    source /etc/rdm/rdmBundleUtils.sh
+fi
+
 if [ "$DEVICE_TYPE" = "broadband" ]; then
         BUNDLE_METADATA_NVM_PATH="/nvram/etc/certs"
 else
@@ -37,10 +41,10 @@ PKG_METADATA_LIST="contents"
 PKG_METADATA_SIZE="size"
 PKG_METADATA_INSTALL="installScript"
 
-XCONF_LOG_FILE="/opt/logs/swupdate.log"
+LOG_FILE="/opt/logs/swupdate.log"
 log()
 {
-        echo "`Timestamp` $1" >> $XCONF_LOG_FILE
+        echo "`/bin/timestamp` $1" >> $LOG_FILE
 }
 
 
@@ -134,4 +138,54 @@ getInstalledBundleList()
         fi
 
 	echo "$bundle_list"
+}
+
+### getInstalledRdmManifestVersion
+### Returns the rdm manifest version which is currently running in the box
+###
+getInstalledRdmManifestVersion()
+{
+    DEFAULT_RDM_MANIFEST="/etc/rdm/rdm-manifest.json"
+    DEFAULT_MANIFEST_VERSION=$(grep "manifest_version" ${DEFAULT_RDM_MANIFEST} | awk '{print $2}' | tr -d '"')
+    PERSISTENT_MANIFEST_PATH="/media/apps/rdm/manifests"
+    installedMfstVersion=$DEFAULT_MANIFEST_VERSION
+
+    if [ -d "$PERSISTENT_MANIFEST_PATH" ]; then
+        log "Fetching rdm manifests from $PERSISTENT_MANIFEST_PATH"
+        persistent_manifest_list=$(find $PERSISTENT_MANIFEST_PATH -name "*.json" -type f | tr '\n' ' ' | xargs)
+    else
+        log "$PERSISTENT_MANIFEST_PATH does not exist"
+    fi
+
+    if [ -n "$persistent_manifest_list" ]; then
+        log "List of rdm manifests found in CPE: $persistent_manifest_list"
+
+        rfs_MfstBranch="${DEFAULT_MANIFEST_VERSION%-v*}"
+        rfs_MfstVersion="${DEFAULT_MANIFEST_VERSION#*-v}"
+
+        mfst_version=""
+        for manifests in $persistent_manifest_list; do
+            echo "$manifests" | grep -q "$rfs_MfstBranch"
+            if [ $? -eq 0 ]; then
+                pruned_mfst="${manifests%.*}"  # Remove extension from manifest
+                matchedMfst_version="${pruned_mfst#*-v}"
+                mfst_version="$matchedMfst_version $mfst_version"
+            fi
+        done
+
+        if [ -n "$mfst_version" ]; then
+            versionlist=$(echo "$mfst_version" | xargs)
+            latestVersion=$(getLatestVersion $versionlist)
+        else
+            log "No manifests matched with the firmware currently running in the box"
+        fi
+
+        if [ -n "$latestVersion" ]; then
+            installedMfstVersion="$rfs_MfstBranch-v$latestVersion"
+        fi
+    fi
+
+    log "Installed RDM Manifest Version in CPE: $installedMfstVersion"
+
+    echo $installedMfstVersion
 }

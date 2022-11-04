@@ -2302,7 +2302,7 @@ getPDRIVersion ()
 # use this function to create parts of JSON string that binary doesn't
 createPartialJsonString()
 {
-    JSONSTR='additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&experience='$(getExperience)'&dlCertBundle='$instBundles''
+    JSONSTR='additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&experience='$(getExperience)'&dlCertBundle='$instBundles'&rdmCatalogueVersion='$insRDMManifestVersion''
 }
 
 createJsonString () 
@@ -2323,6 +2323,9 @@ createJsonString ()
 
     #Get already Installed Bundle list
     instBundles=$(getInstalledBundleList)
+
+    #Get already installed rdm manifest version
+    insRDMManifestVersion=$(getInstalledRdmManifestVersion)
 
     if [ $SCRIPTEXEC -eq 0 ]; then
         createPartialJsonString
@@ -2348,7 +2351,7 @@ createJsonString ()
         if [ "$(getModel)" = "RPI" ]; then
             JSONSTR='eStbMac='$(getEstbMacAddress)'&firmwareVersion='$(getFWVersion)'&env='$(getBuildType)'&model='$BOX_MODEL'&localtime='$(getLocalTime)'&timezone='EST05EDT''$CAPABILITIES''
         else
-            JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
+            JSONSTR='eStbMac='$estbMac'&firmwareVersion='$(getFWVersion)'&additionalFwVerInfo='$pdriFwVerInfo''$remoteInfo'&env='$(getBuildType)'&model='$model'&partnerId='$(getPartnerId)'&accountId='$(getAccountId)'&experience='$(getExperience)'&serial='$(getSerialNumber)'&localtime='$(getLocalTime)'&dlCertBundle='$instBundles'&rdmCatalogueVersion='$insRDMManifestVersion'&timezone='$zoneValue''$ACTIVATE_FLAG''$CAPABILITIES''
         fi
     fi
     
