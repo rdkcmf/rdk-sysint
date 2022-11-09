@@ -752,8 +752,6 @@ interrupt_DCM_onabort()
         rm -rf $pid_file
      fi
 
-     sh /lib/rdk/maintenanceTrapEventNotifier.sh 0 &
-
     trap - SIGABRT
 
     exit

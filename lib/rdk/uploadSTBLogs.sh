@@ -522,8 +522,6 @@ if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
             kill "$sleep_pid"
         fi
 
-        sh /lib/rdk/maintenanceTrapEventNotifier.sh 3 &
-
         trap - SIGABRT
 
         exit

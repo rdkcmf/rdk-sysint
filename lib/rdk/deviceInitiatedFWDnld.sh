@@ -1466,8 +1466,6 @@ interrupt_download_onabort()
 
         eventManager "FirmwareStateEvent" $FW_STATE_UNINITIALIZED
 
-        sh /lib/rdk/maintenanceTrapEventNotifier.sh 2 &
-
         trap - SIGABRT
 
         exit
