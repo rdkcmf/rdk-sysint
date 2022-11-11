@@ -18,11 +18,10 @@
 ##############################################################################
 
 [Unit]
-Description=Merges all the dns entries.
+Description= %i Merges all the dns entries.
 
 [Service]
 Type=oneshot
-ExecStartPre=/bin/sh -c 'sleep 5'
 ExecStart=/bin/busybox sh -c '/lib/rdk/dnsmerge.sh'
 
 
