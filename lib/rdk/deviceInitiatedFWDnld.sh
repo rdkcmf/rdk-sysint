@@ -153,6 +153,7 @@ HTTP_XCONF_DIRECT="2"
 HTTP_XCONF_CODEBIG="3"
 # Below file is use for call updateSecurityStage function when image download and flash successful via c code
 UPDATESECSTAGEFILE="/tmp/rdkvfw_sec_stage"
+rdkvpid="x"
 
 if [ "$DEVICE_TYPE" = "broadband" ]; then
     dycredpath="/nvram/lxy"
@@ -1475,8 +1476,11 @@ interrupt_download_onabort()
         if [ -f $CURL_PID_FILE ]; then
             if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
 	        CurlPid=`cat $CURL_PID_FILE`
-            fi
-            kill -9 $CurlPid
+                swupdateLog "rdkvpid read from pid file=$CurlPid and using pidof=$rdkvpid"
+                kill -6 $rdkvpid
+	    else
+                kill -9 $CurlPid
+	    fi
             rm -rf "$CURL_PID_FILE"
         fi
 
@@ -2708,6 +2712,7 @@ sendJsonRequestToCloud()
     XCONF_BIN="/usr/bin/rdkvfwupgrader"
     if [ "x$RDKVFW_UPGRADER" = "xtrue" ]; then
         if [ -f $XCONF_BIN ]; then
+            swupdateLog "Starting C daemon rdkvfwupgrader"
             SCRIPTEXEC=0
             createJsonString
             swupdateLog "JSONSTR: $JSONSTR"
@@ -2718,8 +2723,17 @@ sendJsonRequestToCloud()
             else
                 SERVER_TYPE=$HTTP_XCONF_CODEBIG
             fi
-            $XCONF_BIN "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR"
-            ret=$?
+	    if [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
+                $XCONF_BIN "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR" &
+                sleep 1
+                rdkvpid=`pidof rdkvfwupgrader`
+                swupdateLog "rdkvpid=$rdkvpid"
+                wait $rdkvpid
+                ret=$?
+	    else
+                $XCONF_BIN "0" "0" "no" "$SERVER_TYPE" "http" "$triggerType" "$JSONSTR"
+                ret=$?
+	    fi
 	        resp=$ret
             curl_result=$ret
 	        if [ -f $UPDATESECSTAGEFILE ]; then
