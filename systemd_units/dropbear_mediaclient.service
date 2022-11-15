@@ -32,6 +32,8 @@ ExecStartPre=/bin/systemctl import-environment DROPBEAR_PARAMS_2
 ExecStart=/bin/sh -c '/usr/sbin/dropbear -s -b /etc/sshbanner.txt -s -a -r ${DROPBEAR_PARAMS_1} -r ${DROPBEAR_PARAMS_2} ${IP_ADDRESS_PARAM}'
 ExecStartPost=/bin/sh -c "rm -rf /tmp/.dropbear"
 RestartSec=5s
+KillSignal=SIGHUP
+RestartKillSignal=SIGHUP
 Restart=always
 
 [Install]
