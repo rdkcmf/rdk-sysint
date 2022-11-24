@@ -491,7 +491,10 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
 
         netmonitorLog="net_monitor_log.txt"
         netmonitorLogsBackup="net_monitor_log.txt.*"
-        
+
+        rdkcProviderLog="rdkc_provider_log.txt"
+        rdkcProviderLogBackup="rdkc_provider_log.txt.*"
+
         telemetry2Log="telemetry_log.txt"
         telemetry2LogsBackup="telemetry_log.txt.*"
 fi
@@ -719,6 +722,7 @@ backupAppBackupLogFiles()
         moveFiles $opern $source $accessmanagerLogsBackup $destn
         moveFiles $opern $source $bootUpLogsBackup $destn
         moveFiles $opern $source $netmonitorLogsBackup $destn
+        moveFiles $opern $source $rdkcProviderLogBackup $destn
         moveFiles $opern $source $telemetry2LogsBackup $destn
      else
      	moveFiles $opern $source $mocaStatusLogsBackup $destn
@@ -1138,6 +1142,7 @@ backupSystemLogFiles()
         if [ -f $source/$xw3systeminfoLog ] ; then $operation $source/$xw3systeminfoLog $destn; fi
         if [ -f $source/$accessmanagerLog ] ; then $operation $source/$accessmanagerLog $destn; fi
         if [ -f $source/$netmonitorLog ] ; then $operation $source/$netmonitorLog $destn; fi
+        if [ -f $source/$rdkcProviderLog ] ; then $operation $source/$rdkcProviderLog $destn; fi
         if [ -f $source/$telemetry2Log ] ; then $operation $source/$telemetry2Log $destn; fi
      fi
     if [ "$WIFI_SUPPORT" == "true" ];then

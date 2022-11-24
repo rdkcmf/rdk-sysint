@@ -292,6 +292,7 @@ if [ "$DEVICE_TYPE" ==  "XHC1" ];then
         logRotateFramework $sysLog $sysLogRotatCount $sysLogRotatSize
         logRotateFramework $sysDmesgLog $sysLogRotatCount $sysLogRotatSize
         logRotateFramework $xvisionLog $logRotateGenericCount $xvisionLogRotateSize
+        logRotateFramework $rdkcProviderLog $logRotateGenericCount $rdkcProviderLogRotateSize
         logRotateFramework $telemetry2Log $logRotateGenericCount $telemetry2LogRotateSize
         logRotateFramework $evoLog $logRotateGenericCount $evoLogRotateSize
         logRotateFramework $iavencoderLog $logRotateGenericCount $iavencoderLogRotateSize
