@@ -144,6 +144,8 @@ FWDL_LOG_FILE="$LOG_PATH/swupdate.log"
 ## File containing common firmware download state variables
 STATUS_FILE="/opt/fwdnldstatus.txt"
 
+CURL_HEADERS=""
+
 # server types that can be sent to rdkvfwupgrader
 HTTP_SSR_DIRECT="0"
 HTTP_SSR_CODEBIG="1"
@@ -888,6 +890,8 @@ sendTLSRequest()
         swupdateLog "MTLS prefered"
         mTlsXConfDownload="true"
     fi
+    CURL_HEADERS="$DIFW_PATH/$UPGRADE_FILE.header"
+    CURL_HEADERS_OPTION="-D $CURL_HEADERS"
     isInStateRed
     stateRed=$?
     if [ "0x$stateRed" == "0x1" ]; then
@@ -905,17 +909,36 @@ sendTLSRequest()
             if [ -f $ID ]; then
                 if [ "$1" == "XCONF" ]; then
                     CURL_CMD="curl -vv $TLS --cert /etc/ssl/certs/statered.pem --key /tmp/stateredidx --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -d \"$JSONSTR\" -o \"$FILENAME\" \"$CLOUD_URL\" -m 10"
+                    stateRedlog "State Red Recovery CURL_CMD: [$CURL_CMD]"
+                    if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
+                        CURL_CMD="$CURL_CMD --cert-status"
+                    fi
+                    eval $CURL_CMD > $HTTP_CODE
+                    TLSRet=$?
                 elif  [ "$1" == "SSR" ]; then
                     CURL_CMD="curl -vv $TLS --cert /etc/ssl/certs/statered.pem --key /tmp/stateredidx --connect-timeout $CURL_TLS_TIMEOUT $CURL_OPTION '%{http_code}\n' -fgLO \"$imageHTTPURL\" > $HTTP_CODE"
+                    if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
+                        CURL_CMD="$CURL_CMD --cert-status"
+                    fi
+                    FULL_IMG_CURL_CMD="$CURL_CMD $CURL_HEADERS_OPTION"
+                    stateRedlog "State Red Recovery CURL_CMD: [$FULL_IMG_CURL_CMD]"
+		    # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE File
+		    ls | grep -v $UPGRADE_FILE  | grep -i $MODEL_NUM | xargs rm -rf
+                    if [ "$isIncrementalCDLEnabled" = "true" ] && ( ls $chunkFile*.bin || ls "$UPGRADE_FILE" ) &> /dev/null; then
+                        ChunkDownload
+                    else
+                        if ( ls $chunkFile*.bin ) &> /dev/null; then
+                            rm -rf $DIFW_PATH/$chunkFile*
+                        fi
+			if [ -n "${UPGRADE_FILE}" ] && (ls ${UPGRADE_FILE}*); then
+                            rm -rf ${UPGRADE_FILE}*
+                        fi
+                        eval $FULL_IMG_CURL_CMD > $HTTP_CODE
+		    fi
+                    TLSRet=$?
                 else
                     stateRedlog "Error: State Red Valid [$1] Configuation value not passed"
                 fi
-                if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
-                    CURL_CMD="$CURL_CMD --cert-status"
-                fi
-                stateRedlog "State Red Recovery CURL_CMD: [$CURL_CMD]"
-                eval $CURL_CMD > $HTTP_CODE
-                TLSRet=$?
             else
                 stateRedlog "Error: State Red Recovery config not found"
                 exit 127
@@ -1002,37 +1025,39 @@ sendTLSRequest()
            CURL_CMD="$CURL_CMD --cert-status"
         fi
 
-        swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
+        # store the original curl command to trigger full image download
+        FULL_IMG_CURL_CMD="$CURL_CMD $CURL_HEADERS_OPTION"
+        swupdateLog "CURL_CMD: `echo "$FULL_IMG_CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
         if [ "$BUILD_TYPE" != "prod" ]; then
-           swupdateLog "CURL_CMD: `echo "$CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
+           swupdateLog "CURL_CMD: `echo "$FULL_IMG_CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
         else
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
-        # store the original curl command to trigger full image download when curl returns 33 or 36
-        FULL_IMG_CURL_CMD="$CURL_CMD"
+        # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE File
+	ls | grep -v $UPGRADE_FILE  | grep -i $MODEL_NUM | xargs rm -rf
         if [ "x$PDRI_UPGRADE" != "xpdri" ] && [ "$isIncrementalCDLEnabled" = "true" ] && ( ls $chunkFile*.bin || ls "$UPGRADE_FILE" ) &> /dev/null; then
                 ChunkDownload
         else
             if ( ls $chunkFile*.bin ) &> /dev/null; then
                 rm -rf $DIFW_PATH/$chunkFile*
             fi
-            if [ -f $DIFW_PATH/$UPGRADE_FILE ]; then
-                rm -rf $DIFW_PATH/$UPGRADE_FILE
+	    if [ -n "${UPGRADE_FILE}" ] && (ls ${UPGRADE_FILE}*); then
+                rm -rf ${UPGRADE_FILE}*
             fi
             if [ "$DEVICE_NAME" = "LLAMA" ] || [ "$DEVICE_NAME" = "XiOne" ] || [ "x$ENABLE_MAINTENANCE" == "xtrue" ]; then
-               eval $CURL_CMD &> $CURL_PROGRESS &
+               eval $FULL_IMG_CURL_CMD &> $CURL_PROGRESS &
                echo "$!" > $CURL_PID_FILE
                CurlPid=`cat $CURL_PID_FILE`
                wait $CurlPid
             else
-               eval $CURL_CMD &> $CURL_PROGRESS
+               eval $FULL_IMG_CURL_CMD &> $CURL_PROGRESS
             fi
         fi
         TLSRet=$?
     fi
     if [ -f $CURL_PROGRESS ]; then
         cat $CURL_PROGRESS >> $FWDL_LOG_FILE
-        rm $CURL_PROGRESS
+	rm $CURL_PROGRESS
     fi
     if [ $TLSRet -ne 0 ]; then
         if [ $TLSRet -eq 22 ]; then
@@ -1052,8 +1077,8 @@ sendTLSRequest()
                    if ( ls $chunkFile*.bin ) &> /dev/null; then
                        rm -rf $DIFW_PATH/$chunkFile*
                    fi
-                   if ( ls $UPGRADE_FILE ) &> /dev/null; then
-                       rm -rf $DIFW_PATH/$UPGRADE_FILE
+	           if [ -n "${UPGRADE_FILE}" ] && (ls ${UPGRADE_FILE}*); then
+                       rm -rf ${UPGRADE_FILE}*
                    fi
                    swupdateLog "Trigger full image download as curl returned $TLSRet"
                    swupdateLog "CURL_CMD: `echo "$FULL_IMG_CURL_CMD" | sed 's/devicecert_1.*-connect/devicecert_1.pk12<masked>--connect/' | sed 's/staticXpkiCr.*connect/staticXpkiCrt.pk12<masked>--connect/'`"
@@ -1082,22 +1107,16 @@ ChunkDownload () {
     count=0
     chunk_ext1="chunk_1.bin"
     chunk_ext2="chunk_2.bin"
-    CURL_HEADERS="/tmp/.chunk_download_curl_headers"
-    CURL_SI="$COMMON_CURL_PARAMS -o $CURL_HEADERS -sI -fgL \"$imageHTTPURL\""
-    swupdateLog "Fetching headers from server to determine content length"
-    eval $CURL_SI
-    Ret_SI=$?
     if [ -f $CURL_HEADERS ]; then
         cat $CURL_HEADERS >> $FWDL_LOG_FILE
-        Original_FILE_SIZE=`cat $CURL_HEADERS | grep -i Content-Length | awk '{print $2}'`
+        Original_FILE_SIZE=`cat $CURL_HEADERS | grep -i Content-Length | tail -n1 | awk '{print $2}'`
         Original_FILE_SIZE="${Original_FILE_SIZE//[$'\t\r\n ']}"
-        rm -rf $CURL_HEADERS
     fi
     if [ ! -z $Original_FILE_SIZE ] && [ $Original_FILE_SIZE -gt 0 ]; then
-        swupdateLog "Curl returned $Ret_SI. Content-length fetched from server is $Original_FILE_SIZE"
+        swupdateLog "Content-length fetched from server is $Original_FILE_SIZE"
     else
-        swupdateLog "Curl returned $Ret_SI. Unable to fetch content-length from server"
-        return $Ret_SI
+        swupdateLog "Content-length not present inside file $CURL_HEADERS"
+        return 1
     fi
 
     if ls $chunkFile*.bin &> /dev/null; then
@@ -1628,7 +1647,10 @@ imageDownloadToLocalServer ()
             #Set FirmwareDownloadCompletedNotification after firmware download
             tr181 -s -v false  Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification
             swupdateLog "FirmwareDownloadCompletedNotification SET to false succeeded"
-        fi 
+        fi
+	if [ -f $CURL_HEADERS ]; then
+            rm -rf $CURL_HEADERS
+        fi
         return $ret
     elif [ -f "$UPGRADE_FILE" ]; then
         swupdateLog "$UPGRADE_FILE Local Image Download Completed using HTTPS $TLS protocol!"
@@ -1653,7 +1675,10 @@ imageDownloadToLocalServer ()
         swupdateLog "Downloaded $UPGRADE_FILE of size $filesize"
         checksum=`md5sum $DIFW_PATH/$UPGRADE_FILE`
         echo "md5sum of $UPGRADE_FILE : $checksum"
-    fi    
+    fi
+    if [ -f $CURL_HEADERS ]; then
+        rm -rf $CURL_HEADERS
+    fi
     return $ret
 }
 
