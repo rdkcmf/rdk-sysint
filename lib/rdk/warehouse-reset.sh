@@ -32,7 +32,8 @@ echo "Warehouse Reset:Clearing Remote Pairing Data"
 if [ -f /usr/bin/ctrlmTestApp ]; then
     ctrlmTestApp -n all -f ;          # unpair controllers
     /bin/systemctl stop ctrlm-main ;  # shut down controlMgr
-    rm -rf /opt/ctrlm.sql /opt/ctrlm.back
+    rm -rf /opt/ctrlm.sql /opt/ctrlm.back # remove symlink
+    rm -rf /opt/secure/ctrlm.sql /opt/secure/ctrlm.back # remove original file
     rm -rf /opt/gp/
     rm -rf /opt/gp500/
     rm -rf /opt/hal_nvm.back
