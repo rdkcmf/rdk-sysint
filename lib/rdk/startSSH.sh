@@ -112,8 +112,6 @@ if [ "$DEVICE_TYPE" = "mediaclient" ]; then
            if [ "$isMOCASSHEnable" = "true" ];then
                ipAddress+=" "
                ipAddress+=`ifconfig $MOCA_INTERFACE |grep 169.254.* |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
-               ipAddress+=" "
-               ipAddress+=`ifconfig $MOCA_INTERFACE:0 |grep inet | grep -v inet6 | grep -v localhost | grep -v 127.0.0.1 |tr -s ' '| cut -d ' ' -f3 | sed -e 's/addr://g'`
            fi
            sleep 5
      done
