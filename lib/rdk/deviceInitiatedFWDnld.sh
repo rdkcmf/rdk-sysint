@@ -922,8 +922,8 @@ sendTLSRequest()
                     fi
                     FULL_IMG_CURL_CMD="$CURL_CMD $CURL_HEADERS_OPTION"
                     stateRedlog "State Red Recovery CURL_CMD: [$FULL_IMG_CURL_CMD]"
-		    # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE File
-		    ls | grep -v $UPGRADE_FILE  | grep -i $MODEL_NUM | xargs rm -rf
+		    # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE and ChunkFile
+		    ls | grep -Ev "^$UPGRADE_FILE|^$chunkFile"  | grep -i $MODEL_NUM | xargs rm -rf
                     if [ "$isIncrementalCDLEnabled" = "true" ] && ( ls $chunkFile*.bin || ls "$UPGRADE_FILE" ) &> /dev/null; then
                         ChunkDownload
                     else
@@ -1033,8 +1033,8 @@ sendTLSRequest()
         else
            swupdateLog "ADDITIONAL_FW_VER_INFO: $pdriFwVerInfo$remoteInfo"
         fi
-        # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE File
-	ls | grep -v $UPGRADE_FILE  | grep -i $MODEL_NUM | xargs rm -rf
+        # Deleting all file start with MODEL_NUM other than $UPGRADE_FILE and ChunkFile
+	ls | grep -Ev "^$UPGRADE_FILE|^$chunkFile"  | grep -i $MODEL_NUM | xargs rm -rf
         if [ "x$PDRI_UPGRADE" != "xpdri" ] && [ "$isIncrementalCDLEnabled" = "true" ] && ( ls $chunkFile*.bin || ls "$UPGRADE_FILE" ) &> /dev/null; then
                 ChunkDownload
         else
