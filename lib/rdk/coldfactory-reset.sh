@@ -22,8 +22,8 @@
 . /etc/device.properties
 
 # clear pairing data
-if [ -f /usr/bin/ctrlmTestApp ]; then
-    ctrlmTestApp -n all -f ;          # unpair controllers
+if [ -f /usr/bin/controlFactory ]; then
+    controlFactory -f ;          # unpair controllers
     /bin/systemctl stop ctrlm-main ;  # shut down controlMgr
     rm -rf /opt/ctrlm.sql /opt/ctrlm.back
     rm -rf /opt/gp/

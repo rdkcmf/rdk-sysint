@@ -24,8 +24,8 @@
 echo "Factory Reset:Clearing Remote Pairing Data"
 touch /tmp/Dropbear_restart_disabled
 # clear pairing data
-if [ -f /usr/bin/ctrlmTestApp ]; then
-    ctrlmTestApp -n all -f ;                  # unpair controllers
+if [ -f /usr/bin/controlFactory ]; then
+    controlFactory -f ;                  # unpair controllers
     /bin/systemctl stop ctrlm-main.service ;  # shut down controlMgr
     rm -rf /opt/ctrlm.sql /opt/ctrlm.back
     rm -rf /opt/gp/
